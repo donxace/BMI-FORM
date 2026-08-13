@@ -60,12 +60,116 @@ type Assessment = {
   health_service_representative: string | null;
   encoder: string | null;
 
-  personnel?: Personnel;
+  personnel: Personnel;
 };
 
 /*
  * ============================================================
- * HELPER FUNCTIONS
+ * API RESPONSE TYPE
+ *
+ * Matches your actual API response:
+ *
+ * assessment_assessment_id
+ * assessment_personnel_id
+ * assessment_height
+ * personnel_first_name
+ * personnel_surname
+ * etc.
+ * ============================================================
+ */
+
+type AssessmentApiResponse = {
+  assessment_assessment_id: string | number;
+  assessment_personnel_id: string | number;
+
+  assessment_height: string | number;
+  assessment_weight: string | number;
+  assessment_waist: string | number | null;
+  assessment_hip: string | number | null;
+  assessment_wrist: string | number | null;
+
+  assessment_bmi: string | number;
+  assessment_ibw: string | number | null;
+  assessment_weight_to_lose: string | number | null;
+
+  assessment_pnp_classification: string | null;
+  assessment_who_classification: string | null;
+
+  assessment_assessment_date: string;
+  assessment_unit_representative: string | null;
+  assessment_health_service_representative: string | null;
+  assessment_encoder: string | null;
+  assessment_created_at?: string;
+
+  personnel_rfid_uid: string | null;
+  personnel_rank: string | null;
+  personnel_surname: string | null;
+  personnel_first_name: string | null;
+  personnel_middle_initial: string | null;
+  personnel_q?: string | null;
+  personnel_age: number | string | null;
+  personnel_sex: string | null;
+  personnel_office: string | null;
+};
+
+/*
+ * ============================================================
+ * CLASSIFICATION NORMALIZER
+ *
+ * API:
+ * "Normal weight"
+ *
+ * UI:
+ * "Normal"
+ * ============================================================
+ */
+
+function normalizeClassification(
+  classification: string | null | undefined,
+): Classification {
+  const value =
+    classification
+      ?.toLowerCase()
+      .trim();
+
+  if (!value) {
+    return "Normal";
+  }
+
+  if (
+    value === "underweight" ||
+    value.includes("underweight")
+  ) {
+    return "Underweight";
+  }
+
+  if (
+    value === "overweight" ||
+    value.includes("overweight")
+  ) {
+    return "Overweight";
+  }
+
+  if (
+    value === "obese" ||
+    value.includes("obesity")
+  ) {
+    return "Obese";
+  }
+
+  if (
+    value === "normal" ||
+    value.includes("normal weight")
+  ) {
+    return "Normal";
+  }
+
+  return "Normal";
+}
+
+/*
+ * ============================================================
+ * CLASSIFICATION CSS
  * ============================================================
  */
 
@@ -76,6 +180,12 @@ function getClassificationClass(
     .toLowerCase()
     .replace(/\s+/g, "-");
 }
+
+/*
+ * ============================================================
+ * FULL NAME
+ * ============================================================
+ */
 
 function getFullName(
   personnel?: Personnel,
@@ -93,6 +203,12 @@ function getFullName(
     .join(" ");
 }
 
+/*
+ * ============================================================
+ * INITIALS
+ * ============================================================
+ */
+
 function getInitials(
   personnel?: Personnel,
 ) {
@@ -108,6 +224,12 @@ function getInitials(
 
   return `${firstInitial}${lastInitial}`.toUpperCase();
 }
+
+/*
+ * ============================================================
+ * DATE FORMAT
+ * ============================================================
+ */
 
 function formatDate(date: string) {
   if (!date) {
@@ -132,6 +254,30 @@ function formatDate(date: string) {
 
 /*
  * ============================================================
+ * SAFE NUMBER
+ * ============================================================
+ */
+
+function numberOrNull(
+  value: string | number | null | undefined,
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+/*
+ * ============================================================
  * ASSESSMENT PAGE
  * ============================================================
  */
@@ -139,7 +285,7 @@ function formatDate(date: string) {
 export default function Assessment() {
   /*
    * ============================================================
-   * ASSESSMENT STATE
+   * STATE
    * ============================================================
    */
 
@@ -154,7 +300,7 @@ export default function Assessment() {
 
   /*
    * ============================================================
-   * SEARCH / FILTER STATE
+   * SEARCH / FILTER
    * ============================================================
    */
 
@@ -166,7 +312,7 @@ export default function Assessment() {
 
   /*
    * ============================================================
-   * SELECTED ASSESSMENT STATE
+   * SELECTED ASSESSMENT
    * ============================================================
    */
 
@@ -175,7 +321,7 @@ export default function Assessment() {
 
   /*
    * ============================================================
-   * LOAD ASSESSMENTS FROM DATABASE
+   * LOAD ASSESSMENTS
    * ============================================================
    */
 
@@ -194,13 +340,8 @@ export default function Assessment() {
         );
 
         console.log(
-          "Response status:",
+          "Assessment API status:",
           response.status,
-        );
-
-        console.log(
-          "Response OK:",
-          response.ok,
         );
 
         if (!response.ok) {
@@ -210,25 +351,11 @@ export default function Assessment() {
         }
 
         const rawData =
-          await response.json();
+          (await response.json()) as AssessmentApiResponse[];
 
         console.log(
           "RAW BMI API RESPONSE:",
           rawData,
-        );
-
-        console.log(
-          "RAW BMI API RESPONSE JSON:",
-          JSON.stringify(
-            rawData,
-            null,
-            2,
-          ),
-        );
-
-        console.log(
-          "Is array:",
-          Array.isArray(rawData),
         );
 
         if (!Array.isArray(rawData)) {
@@ -239,217 +366,166 @@ export default function Assessment() {
 
         /*
          * ========================================================
-         * IMPORTANT
+         * CONVERT API RESPONSE
          *
-         * The API returns personnel fields directly in the
-         * assessment object.
+         * API uses:
          *
-         * Example:
+         * assessment_assessment_id
+         * assessment_height
+         * personnel_first_name
          *
-         * {
-         *   assessment_id: 1,
-         *   personnel_id: 7,
-         *   rank: "PCPL",
-         *   surname: "Santos",
-         *   first_name: "Juan",
-         *   office: "PNP Health Service"
-         * }
+         * Component uses:
          *
-         * We convert that flat response into the structure
-         * used by this component.
+         * assessment_id
+         * height
+         * personnel.first_name
          * ========================================================
          */
 
-        const data: Assessment[] =
-          rawData.map(
-            (item: any) => {
-              const assessmentId =
+        const convertedData: Assessment[] =
+          rawData.map((item) => {
+            const personnelId =
+              Number(
+                item.assessment_personnel_id,
+              );
+
+            const personnel: Personnel = {
+              personnel_id: personnelId,
+
+              rfid_uid:
+                item.personnel_rfid_uid ??
+                "",
+
+              rank:
+                item.personnel_rank ??
+                "",
+
+              surname:
+                item.personnel_surname ??
+                "",
+
+              first_name:
+                item.personnel_first_name ??
+                "",
+
+              middle_initial:
+                item.personnel_middle_initial ??
+                null,
+
+              office:
+                item.personnel_office ??
+                null,
+
+              age:
+                numberOrNull(
+                  item.personnel_age,
+                ),
+
+              sex:
+                item.personnel_sex ??
+                null,
+            };
+
+            return {
+              assessment_id:
                 Number(
-                  item.assessment_id ??
-                    item.assessmentId ??
-                    item.id ??
-                    0,
-                );
+                  item.assessment_assessment_id,
+                ),
 
-              const personnelId =
+              personnel_id:
+                personnelId,
+
+              height:
                 Number(
-                  item.personnel_id ??
-                    item.personnelId ??
-                    item.personnel?.personnel_id ??
-                    0,
-                );
+                  item.assessment_height,
+                ) || 0,
 
-              const personnel: Personnel = {
-                personnel_id:
-                  personnelId,
+              weight:
+                Number(
+                  item.assessment_weight,
+                ) || 0,
 
-                rfid_uid:
-                  item.rfid_uid ??
-                  item.rfidUid ??
-                  item.personnel?.rfid_uid ??
-                  item.personnel?.rfidUid ??
-                  "",
+              waist:
+                numberOrNull(
+                  item.assessment_waist,
+                ),
 
-                rank:
-                  item.rank ??
-                  item.personnel?.rank ??
-                  "",
+              hip:
+                numberOrNull(
+                  item.assessment_hip,
+                ),
 
-                surname:
-                  item.surname ??
-                  item.personnel?.surname ??
-                  "",
+              wrist:
+                numberOrNull(
+                  item.assessment_wrist,
+                ),
 
-                first_name:
-                  item.first_name ??
-                  item.firstName ??
-                  item.personnel?.first_name ??
-                  item.personnel?.firstName ??
-                  "",
+              bmi:
+                Number(
+                  item.assessment_bmi,
+                ) || 0,
 
-                middle_initial:
-                  item.middle_initial ??
-                  item.middleInitial ??
-                  item.personnel?.middle_initial ??
-                  item.personnel?.middleInitial ??
-                  null,
+              ibw:
+                numberOrNull(
+                  item.assessment_ibw,
+                ),
 
-                office:
-                  item.office ??
-                  item.personnel?.office ??
-                  null,
+              weight_to_lose:
+                numberOrNull(
+                  item.assessment_weight_to_lose,
+                ),
 
-                age:
-                  item.age !== null &&
-                  item.age !== undefined
-                    ? Number(item.age)
-                    : item.personnel?.age !==
-                        null &&
-                      item.personnel?.age !==
-                        undefined
-                    ? Number(
-                        item.personnel.age,
-                      )
-                    : null,
+              pnp_classification:
+                item.assessment_pnp_classification ??
+                "N/A",
 
-                sex:
-                  item.sex ??
-                  item.personnel?.sex ??
-                  null,
-              };
+              /*
+               * Converts:
+               *
+               * "Normal weight"
+               *
+               * into:
+               *
+               * "Normal"
+               */
+              who_classification:
+                normalizeClassification(
+                  item.assessment_who_classification,
+                ),
 
-              const whoClassification =
-                item.who_classification ??
-                item.whoClassification ??
-                "Normal";
+              assessment_date:
+                item.assessment_assessment_date ??
+                "",
 
-              return {
-                assessment_id:
-                  assessmentId,
+              unit_representative:
+                item.assessment_unit_representative ??
+                null,
 
-                personnel_id:
-                  personnelId,
+              health_service_representative:
+                item.assessment_health_service_representative ??
+                null,
 
-                height:
-                  item.height !== null &&
-                  item.height !== undefined
-                    ? Number(item.height)
-                    : 0,
+              encoder:
+                item.assessment_encoder ??
+                null,
 
-                weight:
-                  item.weight !== null &&
-                  item.weight !== undefined
-                    ? Number(item.weight)
-                    : 0,
-
-                waist:
-                  item.waist !== null &&
-                  item.waist !== undefined
-                    ? Number(item.waist)
-                    : null,
-
-                hip:
-                  item.hip !== null &&
-                  item.hip !== undefined
-                    ? Number(item.hip)
-                    : null,
-
-                wrist:
-                  item.wrist !== null &&
-                  item.wrist !== undefined
-                    ? Number(item.wrist)
-                    : null,
-
-                bmi:
-                  item.bmi !== null &&
-                  item.bmi !== undefined
-                    ? Number(item.bmi)
-                    : 0,
-
-                ibw:
-                  item.ibw !== null &&
-                  item.ibw !== undefined
-                    ? Number(item.ibw)
-                    : null,
-
-                weight_to_lose:
-                  item.weight_to_lose !== null &&
-                  item.weight_to_lose !==
-                    undefined
-                    ? Number(
-                        item.weight_to_lose,
-                      )
-                    : null,
-
-                pnp_classification:
-                  item.pnp_classification ??
-                  item.pnpClassification ??
-                  "N/A",
-
-                who_classification:
-                  whoClassification as Classification,
-
-                assessment_date:
-                  item.assessment_date ??
-                  item.assessmentDate ??
-                  "",
-
-                unit_representative:
-                  item.unit_representative ??
-                  item.unitRepresentative ??
-                  null,
-
-                health_service_representative:
-                  item.health_service_representative ??
-                  item.healthServiceRepresentative ??
-                  null,
-
-                encoder:
-                  item.encoder ??
-                  null,
-
-                personnel,
-              };
-            },
-          );
+              personnel,
+            };
+          });
 
         console.log(
           "CONVERTED ASSESSMENTS:",
-          data,
+          convertedData,
         );
 
-        setAssessmentList(data);
+        setAssessmentList(
+          convertedData,
+        );
       } catch (error) {
         console.error(
           "ASSESSMENT FETCH ERROR:",
           error,
         );
-
-        if (error instanceof TypeError) {
-          console.error(
-            "This is probably a network/CORS/fetch URL problem.",
-          );
-        }
 
         setAssessmentError(
           error instanceof Error
@@ -471,78 +547,43 @@ export default function Assessment() {
    */
 
   const filteredAssessments = useMemo(() => {
-    const searchValue =
-      search.toLowerCase().trim();
+  const searchValue = search.toLowerCase().trim();
 
-    return assessmentList.filter(
-      (assessment) => {
-        const personnel =
-          assessment.personnel;
+  return [...assessmentList]
+    .filter((assessment) => {
+      const personnel = assessment.personnel;
 
-        const fullName =
-          getFullName(
-            personnel,
-          ).toLowerCase();
+      const fullName = getFullName(personnel).toLowerCase();
+      const rank = personnel?.rank?.toLowerCase() ?? "";
+      const office = personnel?.office?.toLowerCase() ?? "";
+      const rfid = personnel?.rfid_uid?.toLowerCase() ?? "";
 
-        const rank =
-          personnel?.rank
-            ?.toLowerCase() ?? "";
+      const personnelId = String(assessment.personnel_id);
+      const assessmentId = String(assessment.assessment_id);
 
-        const office =
-          personnel?.office
-            ?.toLowerCase() ?? "";
+      const matchesSearch =
+        !searchValue ||
+        fullName.includes(searchValue) ||
+        rank.includes(searchValue) ||
+        office.includes(searchValue) ||
+        rfid.includes(searchValue) ||
+        personnelId.includes(searchValue) ||
+        assessmentId.includes(searchValue);
 
-        const rfid =
-          personnel?.rfid_uid
-            ?.toLowerCase() ?? "";
+      const matchesClassification =
+        !classificationFilter ||
+        assessment.who_classification === classificationFilter;
 
-        const personnelId =
-          String(
-            assessment.personnel_id,
-          );
-
-        const assessmentId =
-          String(
-            assessment.assessment_id,
-          );
-
-        const matchesSearch =
-          !searchValue ||
-          fullName.includes(
-            searchValue,
-          ) ||
-          rank.includes(
-            searchValue,
-          ) ||
-          office.includes(
-            searchValue,
-          ) ||
-          rfid.includes(
-            searchValue,
-          ) ||
-          personnelId.includes(
-            searchValue,
-          ) ||
-          assessmentId.includes(
-            searchValue,
-          );
-
-        const matchesClassification =
-          !classificationFilter ||
-          assessment.who_classification ===
-            classificationFilter;
-
-        return (
-          matchesSearch &&
-          matchesClassification
-        );
-      },
-    );
-  }, [
-    assessmentList,
-    search,
-    classificationFilter,
-  ]);
+      return matchesSearch && matchesClassification;
+    })
+.sort((a, b) => {
+  return b.assessment_id - a.assessment_id;
+});
+}, [
+  assessmentList,
+  search,
+  classificationFilter,
+]);
 
   /*
    * ============================================================
@@ -583,18 +624,13 @@ export default function Assessment() {
 
   /*
    * ============================================================
-   * VIEW ASSESSMENT
+   * VIEW
    * ============================================================
    */
 
   const handleViewAssessment = (
     assessment: Assessment,
   ) => {
-    console.log(
-      "Selected assessment:",
-      assessment,
-    );
-
     setSelectedAssessment(
       assessment,
     );
@@ -602,7 +638,7 @@ export default function Assessment() {
 
   /*
    * ============================================================
-   * CLOSE ASSESSMENT
+   * CLOSE
    * ============================================================
    */
 
@@ -619,11 +655,6 @@ export default function Assessment() {
   const handlePreview = (
     assessmentId: number,
   ) => {
-    console.log(
-      "Opening BMI PDF:",
-      assessmentId,
-    );
-
     window.open(
       `http://localhost:3000/health-reports/bmi/${assessmentId}/pdf`,
       "_blank",
@@ -667,7 +698,7 @@ export default function Assessment() {
     <div className="assessment-page">
 
       {/* ======================================================
-          PAGE HEADER
+          HEADER
       ======================================================= */}
 
       <div className="assessment-header">
@@ -705,12 +736,10 @@ export default function Assessment() {
       </div>
 
       {/* ======================================================
-          STAT CARDS
+          STATISTICS
       ======================================================= */}
 
       <section className="assessment-stat-grid">
-
-        {/* TOTAL */}
 
         <div className="assessment-stat-card">
 
@@ -735,8 +764,6 @@ export default function Assessment() {
           </div>
 
         </div>
-
-        {/* NORMAL */}
 
         <div className="assessment-stat-card">
 
@@ -774,8 +801,6 @@ export default function Assessment() {
 
         </div>
 
-        {/* OVERWEIGHT */}
-
         <div className="assessment-stat-card">
 
           <div className="stat-top">
@@ -812,8 +837,6 @@ export default function Assessment() {
 
         </div>
 
-        {/* OBESE */}
-
         <div className="assessment-stat-card">
 
           <div className="stat-top">
@@ -849,8 +872,6 @@ export default function Assessment() {
           </div>
 
         </div>
-
-        {/* UNDERWEIGHT */}
 
         <div className="assessment-stat-card">
 
@@ -891,12 +912,10 @@ export default function Assessment() {
       </section>
 
       {/* ======================================================
-          ASSESSMENT TABLE
+          ASSESSMENT RECORDS
       ======================================================= */}
 
       <section className="assessment-card">
-
-        {/* CARD HEADER */}
 
         <div className="section-header">
 
@@ -929,12 +948,10 @@ export default function Assessment() {
         </div>
 
         {/* ====================================================
-            SEARCH AND FILTERS
+            FILTERS
         ===================================================== */}
 
         <div className="assessment-filters">
-
-          {/* SEARCH */}
 
           <div className="search-wrapper">
 
@@ -954,8 +971,6 @@ export default function Assessment() {
             />
 
           </div>
-
-          {/* CLASSIFICATION */}
 
           <select
             value={
@@ -1030,10 +1045,6 @@ export default function Assessment() {
           </div>
 
         ) : (
-
-          /* ==================================================
-             TABLE
-          ================================================== */
 
           <div className="table-container">
 
@@ -1117,9 +1128,7 @@ export default function Assessment() {
                 ) : (
 
                   filteredAssessments.map(
-                    (
-                      assessment,
-                    ) => {
+                    (assessment) => {
 
                       const personnel =
                         assessment.personnel;
@@ -1181,7 +1190,7 @@ export default function Assessment() {
 
                                 <strong>
 
-                                  {personnel?.rank
+                                  {personnel.rank
                                     ? `${personnel.rank} `
                                     : ""}
 
@@ -1216,7 +1225,7 @@ export default function Assessment() {
 
                             <span className="office-text">
 
-                              {personnel?.office ??
+                              {personnel.office ??
                                 "No office assigned"}
 
                             </span>
@@ -1337,7 +1346,7 @@ export default function Assessment() {
         )}
 
         {/* ====================================================
-            TABLE FOOTER
+            FOOTER
         ===================================================== */}
 
         {!loadingAssessments &&
@@ -1499,7 +1508,7 @@ export default function Assessment() {
 
         </div>
 
-        {/* ASSESSMENT SUMMARY */}
+        {/* SUMMARY */}
 
         <div className="assessment-card">
 
@@ -1598,7 +1607,7 @@ export default function Assessment() {
       </section>
 
       {/* ======================================================
-          ASSESSMENT DETAILS MODAL
+          ASSESSMENT MODAL
       ======================================================= */}
 
       {selectedAssessment && (
@@ -1617,7 +1626,7 @@ export default function Assessment() {
             }
           >
 
-            {/* MODAL HEADER */}
+            {/* HEADER */}
 
             <div className="modal-header">
 
@@ -1674,10 +1683,7 @@ export default function Assessment() {
 
                 <h3>
 
-                  {
-                    selectedAssessment
-                      .personnel?.rank
-                  }{" "}
+                  {selectedAssessment.personnel.rank}{" "}
 
                   {getFullName(
                     selectedAssessment.personnel,
@@ -1687,11 +1693,8 @@ export default function Assessment() {
 
                 <p>
 
-                  {
-                    selectedAssessment
-                      .personnel?.office ??
-                    "No office assigned"
-                  }
+                  {selectedAssessment.personnel.office ??
+                    "No office assigned"}
 
                 </p>
 
@@ -1699,7 +1702,7 @@ export default function Assessment() {
 
             </div>
 
-            {/* BMI RESULT */}
+            {/* BMI */}
 
             <div className="modal-bmi-result">
 
@@ -1857,7 +1860,7 @@ export default function Assessment() {
 
             </div>
 
-            {/* CLASSIFICATIONS */}
+            {/* CLASSIFICATION */}
 
             <div className="modal-section">
 
@@ -1924,12 +1927,10 @@ export default function Assessment() {
 
                   <strong>
 
-                    {
-                      selectedAssessment.weight_to_lose !==
-                      null
-                        ? `${selectedAssessment.weight_to_lose} kg`
-                        : "—"
-                    }
+                    {selectedAssessment.weight_to_lose !==
+                    null
+                      ? `${selectedAssessment.weight_to_lose} kg`
+                      : "—"}
 
                   </strong>
 
@@ -1939,7 +1940,7 @@ export default function Assessment() {
 
             </div>
 
-            {/* ASSESSMENT INFORMATION */}
+            {/* INFORMATION */}
 
             <div className="modal-section">
 
@@ -1957,10 +1958,8 @@ export default function Assessment() {
 
                   <strong>
 
-                    {
-                      selectedAssessment.unit_representative ??
-                      "—"
-                    }
+                    {selectedAssessment.unit_representative ??
+                      "—"}
 
                   </strong>
 
@@ -1975,10 +1974,8 @@ export default function Assessment() {
 
                   <strong>
 
-                    {
-                      selectedAssessment.health_service_representative ??
-                      "—"
-                    }
+                    {selectedAssessment.health_service_representative ??
+                      "—"}
 
                   </strong>
 
@@ -1992,10 +1989,8 @@ export default function Assessment() {
 
                   <strong>
 
-                    {
-                      selectedAssessment.encoder ??
-                      "—"
-                    }
+                    {selectedAssessment.encoder ??
+                      "—"}
 
                   </strong>
 
@@ -2009,12 +2004,8 @@ export default function Assessment() {
 
                   <strong>
 
-                    {
-                      selectedAssessment
-                        .personnel
-                        ?.rfid_uid ??
-                      "—"
-                    }
+                    {selectedAssessment.personnel.rfid_uid ||
+                      "—"}
 
                   </strong>
 
@@ -2024,7 +2015,7 @@ export default function Assessment() {
 
             </div>
 
-            {/* MODAL ACTIONS */}
+            {/* ACTIONS */}
 
             <div className="modal-actions">
 

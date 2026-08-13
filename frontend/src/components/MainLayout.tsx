@@ -57,7 +57,7 @@ export default function MainLayout() {
           </NavLink>
 
           <NavLink
-            to="/reports"
+            to="/report"
             className="nav-item"
           >
             <span>▤</span>

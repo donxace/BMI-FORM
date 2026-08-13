@@ -1,11 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Measurement.css";
 
+/*
+ * ============================================================
+ * API CONFIGURATION
+ * ============================================================
+ *
+ * Architecture:
+ *
+ * ESP32 + RFID Reader
+ *        ↓
+ * POST /personnel/rfid
+ *        ↓
+ * NestJS Backend
+ *        ↓
+ * GET /personnel/rfid/latest
+ *        ↓
+ * React Measurement Page
+ *
+ * React NEVER connects directly to the ESP32.
+ * The ESP32 communicates with NestJS.
+ * ============================================================
+ */
+
+const API_BASE_URL = "http://localhost:3000";
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
+
 type Classification =
   | "Underweight"
   | "Normal"
   | "Overweight"
   | "Obese";
+
+type PersonnelMode = "manual" | "automatic";
+
+type RFIDStatus =
+  | "Waiting"
+  | "Scanning"
+  | "Found"
+  | "Error";
 
 type Personnel = {
   personnel_id: number;
@@ -20,26 +58,65 @@ type Personnel = {
   office: string | null;
 };
 
-function getClassification(bmi: number): Classification {
+type RFIDResponse = {
+  rfid_uid?: string | null;
+  personnel?: Personnel | null;
+};
+
+/*
+ * ============================================================
+ * BMI CLASSIFICATION
+ * ============================================================
+ */
+
+function getClassification(
+  bmi: number
+): Classification {
   if (bmi < 18.5) return "Underweight";
   if (bmi < 25) return "Normal";
   if (bmi < 30) return "Overweight";
+
   return "Obese";
 }
 
-function getPNPClassification(bmi: number) {
+/*
+ * ============================================================
+ * PNP BMI CLASSIFICATION
+ * ============================================================
+ */
+
+function getPNPClassification(
+  bmi: number
+): string {
   if (bmi < 18.5) return "Underweight";
   if (bmi < 23) return "Normal";
   if (bmi < 25) return "Overweight";
   if (bmi < 30) return "Obese Class I";
+
   return "Obese Class II";
 }
 
-function getClassificationClass(classification: Classification) {
+/*
+ * ============================================================
+ * CLASSIFICATION CSS CLASS
+ * ============================================================
+ */
+
+function getClassificationClass(
+  classification: Classification
+): string {
   return classification.toLowerCase();
 }
 
-function getFullName(personnel: Personnel) {
+/*
+ * ============================================================
+ * PERSONNEL NAME
+ * ============================================================
+ */
+
+function getFullName(
+  personnel: Personnel
+): string {
   return [
     personnel.first_name,
     personnel.middle_initial,
@@ -49,34 +126,144 @@ function getFullName(personnel: Personnel) {
     .join(" ");
 }
 
-function getInitials(personnel: Personnel) {
-  const firstInitial = personnel.first_name?.charAt(0) ?? "";
-  const lastInitial = personnel.surname?.charAt(0) ?? "";
+/*
+ * ============================================================
+ * PERSONNEL INITIALS
+ * ============================================================
+ */
+
+function getInitials(
+  personnel: Personnel
+): string {
+  const firstInitial =
+    personnel.first_name?.charAt(0) ?? "";
+
+  const lastInitial =
+    personnel.surname?.charAt(0) ?? "";
 
   return `${firstInitial}${lastInitial}`.toUpperCase();
 }
 
+/*
+ * ============================================================
+ * MAIN COMPONENT
+ * ============================================================
+ */
+
 export default function Measurement() {
-  
-  const [savedAssessmentId, setSavedAssessmentId] = useState<number | null>(null);
-  const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
-  const [selectedPersonnel, setSelectedPersonnel] =
-    useState<Personnel | null>(null);
+  /*
+   * ============================================================
+   * PERSONNEL
+   * ============================================================
+   */
 
-  const [loadingPersonnel, setLoadingPersonnel] = useState(true);
-  const [personnelError, setPersonnelError] = useState("");
+  const [
+    personnelList,
+    setPersonnelList,
+  ] = useState<Personnel[]>([]);
 
-  const [sessionStarted, setSessionStarted] = useState(false);
+  const [
+    selectedPersonnel,
+    setSelectedPersonnel,
+  ] = useState<Personnel | null>(null);
 
-  const [height, setHeight] = useState("");
-  const [weight, setWeight] = useState("");
-  const [waist, setWaist] = useState("");
-  const [hip, setHip] = useState("");
-  const [wrist, setWrist] = useState("");
+  const [
+    loadingPersonnel,
+    setLoadingPersonnel,
+  ] = useState(true);
 
-  const [sessionStatus, setSessionStatus] = useState<
+  const [
+    personnelError,
+    setPersonnelError,
+  ] = useState("");
+
+  /*
+   * ============================================================
+   * PERSONNEL IDENTIFICATION MODE
+   *
+   * MANUAL:
+   * User selects personnel from the dropdown.
+   *
+   * AUTOMATIC:
+   * ESP32 reads RFID.
+   *
+   * ESP32 sends RFID UID to NestJS.
+   *
+   * React polls NestJS for the latest RFID scan.
+   *
+   * React does NOT communicate directly with ESP32.
+   * ============================================================
+   */
+
+  const [
+    personnelMode,
+    setPersonnelMode,
+  ] = useState<PersonnelMode>("manual");
+
+  const [
+    rfidStatus,
+    setRfidStatus,
+  ] = useState<RFIDStatus>("Waiting");
+
+  const [
+    rfidUid,
+    setRfidUid,
+  ] = useState("");
+
+  const [
+    rfidError,
+    setRfidError,
+  ] = useState("");
+
+  /*
+   * ============================================================
+   * SESSION
+   * ============================================================
+   */
+
+  const [
+    sessionStarted,
+    setSessionStarted,
+  ] = useState(false);
+
+  const [
+    sessionStatus,
+    setSessionStatus,
+  ] = useState<
     "Ready" | "Measuring" | "Review"
   >("Ready");
+
+  /*
+   * ============================================================
+   * MEASUREMENTS
+   * ============================================================
+   */
+
+  const [height, setHeight] =
+    useState("");
+
+  const [weight, setWeight] =
+    useState("");
+
+  const [waist, setWaist] =
+    useState("");
+
+  const [hip, setHip] =
+    useState("");
+
+  const [wrist, setWrist] =
+    useState("");
+
+  /*
+   * ============================================================
+   * SAVED ASSESSMENT
+   * ============================================================
+   */
+
+  const [
+    savedAssessmentId,
+    setSavedAssessmentId,
+  ] = useState<number | null>(null);
 
   /*
    * ============================================================
@@ -84,65 +271,284 @@ export default function Measurement() {
    * ============================================================
    */
 
- useEffect(() => {
-    const fetchPersonnel = async () => {
-      try {
-        setLoadingPersonnel(true);
-        setPersonnelError("");
+  useEffect(() => {
+    const fetchPersonnel =
+      async () => {
+        try {
+          setLoadingPersonnel(true);
+          setPersonnelError("");
 
-        console.log("Fetching personnel...");
-
-        const response = await fetch("http://localhost:3000/personnel");
-
-        console.log("Response status:", response.status);
-        console.log("Response OK:", response.ok);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const rawData = await response.json();
-
-        console.log("Raw personnel data:", rawData);
-        console.log("Is array:", Array.isArray(rawData));
-
-        const data: Personnel[] = rawData.map((person: any) => ({
-          personnel_id: Number(person.personnel_id),
-          rfid_uid: person.rfid_uid,
-          rank: person.rank,
-          surname: person.surname,
-          first_name: person.first_name,
-          middle_initial: person.middle_initial,
-          q: person.q,
-          age: person.age,
-          sex: person.sex,
-          office: person.office,
-        }));
-
-        console.log("Converted personnel data:", data);
-
-        setPersonnelList(data);
-      } catch (error) {
-        console.error("PERSONNEL FETCH ERROR:", error);
-
-        if (error instanceof TypeError) {
-          console.error(
-            "This is probably a network/CORS/fetch URL problem."
+          console.log(
+            "Fetching personnel..."
           );
-        }
 
-        setPersonnelError(
-          error instanceof Error
-            ? error.message
-            : "Unable to load personnel from the database."
-        );
-      } finally {
-        setLoadingPersonnel(false);
-      }
-    };
+          const response =
+            await fetch(
+              `${API_BASE_URL}/personnel`
+            );
+
+          console.log(
+            "Personnel response:",
+            response.status
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `HTTP ${response.status}`
+            );
+          }
+
+          const rawData =
+            await response.json();
+
+          if (!Array.isArray(rawData)) {
+            throw new Error(
+              "Personnel API did not return an array."
+            );
+          }
+
+          const data: Personnel[] =
+            rawData.map(
+              (person: any) => ({
+                personnel_id: Number(
+                  person.personnel_id
+                ),
+
+                rfid_uid:
+                  person.rfid_uid ?? "",
+
+                rank:
+                  person.rank ?? "",
+
+                surname:
+                  person.surname ?? "",
+
+                first_name:
+                  person.first_name ?? "",
+
+                middle_initial:
+                  person.middle_initial ??
+                  null,
+
+                q:
+                  person.q ?? null,
+
+                age:
+                  person.age !== null &&
+                  person.age !== undefined
+                    ? Number(person.age)
+                    : null,
+
+                sex:
+                  person.sex ?? null,
+
+                office:
+                  person.office ?? null,
+              })
+            );
+
+          console.log(
+            "Personnel loaded:",
+            data
+          );
+
+          setPersonnelList(data);
+        } catch (error) {
+          console.error(
+            "PERSONNEL FETCH ERROR:",
+            error
+          );
+
+          setPersonnelError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load personnel."
+          );
+        } finally {
+          setLoadingPersonnel(false);
+        }
+      };
 
     fetchPersonnel();
   }, []);
+
+  /*
+   * ============================================================
+   * RFID AUTOMATIC PERSONNEL DETECTION
+   * ============================================================
+   *
+   * IMPORTANT:
+   *
+   * React does NOT detect the ESP32 directly.
+   *
+   * The actual communication is:
+   *
+   * RFID Reader
+   *      ↓
+   * ESP32
+   *      ↓
+   * POST /personnel/rfid
+   *      ↓
+   * NestJS
+   *      ↓
+   * GET /personnel/rfid/latest
+   *      ↓
+   * React
+   *
+   * The ESP32 must therefore send the RFID UID
+   * to the NestJS backend.
+   *
+   * Expected NestJS response:
+   *
+   * {
+   *   "rfid_uid": "RFID001",
+   *   "personnel": {
+   *      ...
+   *   }
+   * }
+   *
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (personnelMode !== "automatic") {
+      setRfidStatus("Waiting");
+      setRfidError("");
+      return;
+    }
+
+    setRfidStatus("Scanning");
+    setRfidError("");
+    setSelectedPersonnel(null);
+    setRfidUid("");
+
+    let cancelled = false;
+
+    const checkRFID =
+      async () => {
+        try {
+          const response =
+            await fetch(
+              `${API_BASE_URL}/personnel/rfid/latest`,
+              {
+                method: "GET",
+                headers: {
+                  Accept:
+                    "application/json",
+                },
+                cache: "no-store",
+              }
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              `RFID service HTTP ${response.status}`
+            );
+          }
+
+          const data: RFIDResponse =
+            await response.json();
+
+          if (cancelled) {
+            return;
+          }
+
+          /*
+           * No RFID scan has been received
+           * from the ESP32 yet.
+           */
+
+          if (!data.rfid_uid) {
+            setRfidStatus("Scanning");
+            setRfidUid("");
+            setSelectedPersonnel(null);
+            return;
+          }
+
+          /*
+           * RFID UID received from NestJS.
+           */
+
+          setRfidUid(data.rfid_uid);
+
+          /*
+           * RFID was received but the UID
+           * does not belong to a registered
+           * personnel.
+           */
+
+          if (!data.personnel) {
+            setSelectedPersonnel(null);
+
+            setRfidStatus("Error");
+
+            setRfidError(
+              "RFID card is not registered in the personnel database."
+            );
+
+            return;
+          }
+
+          /*
+           * Personnel successfully identified.
+           */
+
+          setSelectedPersonnel(
+            data.personnel
+          );
+
+          setRfidStatus("Found");
+
+          setRfidError("");
+
+          console.log(
+            "RFID PERSONNEL FOUND:",
+            data.personnel
+          );
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+
+          console.error(
+            "RFID DETECTION ERROR:",
+            error
+          );
+
+          setRfidStatus("Error");
+
+          setRfidError(
+            error instanceof Error
+              ? error.message
+              : "Unable to communicate with RFID service."
+          );
+        }
+      };
+
+    /*
+     * Check immediately.
+     */
+
+    checkRFID();
+
+    /*
+     * Continue checking every second.
+     */
+
+    const interval =
+      window.setInterval(
+        checkRFID,
+        1000
+      );
+
+    return () => {
+      cancelled = true;
+
+      window.clearInterval(
+        interval
+      );
+    };
+  }, [personnelMode]);
 
   /*
    * ============================================================
@@ -151,8 +557,11 @@ export default function Measurement() {
    */
 
   const bmi = useMemo(() => {
-    const heightValue = Number(height);
-    const weightValue = Number(weight);
+    const heightValue =
+      Number(height);
+
+    const weightValue =
+      Number(weight);
 
     if (
       !heightValue ||
@@ -163,43 +572,57 @@ export default function Measurement() {
       return null;
     }
 
-    const heightMeters = heightValue / 100;
+    const heightMeters =
+      heightValue / 100;
 
-    return weightValue / (heightMeters * heightMeters);
+    return (
+      weightValue /
+      (heightMeters *
+        heightMeters)
+    );
   }, [height, weight]);
 
-  const classification = bmi
-    ? getClassification(bmi)
-    : null;
+  const classification =
+    bmi !== null
+      ? getClassification(bmi)
+      : null;
 
-  const pnpClassification = bmi
-    ? getPNPClassification(bmi)
-    : null;
+  const pnpClassification =
+    bmi !== null
+      ? getPNPClassification(bmi)
+      : null;
 
   /*
    * ============================================================
    * IDEAL BODY WEIGHT
-   * ============================================================
    *
-   * Current placeholder:
    * IBW = 22 × height²
-   *
-   * Replace this when your approved PNP IBW formula
-   * is finalized.
+   * ============================================================
    */
 
   const ibw = useMemo(() => {
-    if (!height) return null;
-
-    const heightValue = Number(height);
-
-    if (!heightValue || heightValue <= 0) {
+    if (!height) {
       return null;
     }
 
-    const heightMeters = heightValue / 100;
+    const heightValue =
+      Number(height);
 
-    return 22 * heightMeters * heightMeters;
+    if (
+      !heightValue ||
+      heightValue <= 0
+    ) {
+      return null;
+    }
+
+    const heightMeters =
+      heightValue / 100;
+
+    return (
+      22 *
+      heightMeters *
+      heightMeters
+    );
   }, [height]);
 
   /*
@@ -208,15 +631,66 @@ export default function Measurement() {
    * ============================================================
    */
 
-  const weightToLose = useMemo(() => {
-    if (!weight || !ibw) return 0;
+  const weightToLose =
+    useMemo(() => {
+      if (!weight || !ibw) {
+        return 0;
+      }
 
-    const currentWeight = Number(weight);
+      const currentWeight =
+        Number(weight);
 
-    return currentWeight > ibw
-      ? currentWeight - ibw
-      : 0;
-  }, [weight, ibw]);
+      return currentWeight > ibw
+        ? currentWeight - ibw
+        : 0;
+    }, [weight, ibw]);
+
+  /*
+   * ============================================================
+   * MANUAL PERSONNEL SELECTION
+   * ============================================================
+   */
+
+  const handleManualPersonnelChange =
+    (personnelId: number) => {
+      const personnel =
+        personnelList.find(
+          (item) =>
+            item.personnel_id ===
+            personnelId
+        );
+
+      setSelectedPersonnel(
+        personnel ?? null
+      );
+    };
+
+  /*
+   * ============================================================
+   * CHANGE PERSONNEL MODE
+   * ============================================================
+   */
+
+  const handlePersonnelModeChange =
+    (mode: PersonnelMode) => {
+      if (sessionStarted) {
+        return;
+      }
+
+      setPersonnelMode(mode);
+
+      setSelectedPersonnel(null);
+
+      setRfidUid("");
+
+      setRfidError("");
+
+      setRfidStatus(
+        mode === "automatic"
+          ? "Scanning"
+          : "Waiting"
+      );
+    };
 
   /*
    * ============================================================
@@ -225,9 +699,28 @@ export default function Measurement() {
    */
 
   const startSession = () => {
-    if (!selectedPersonnel) return;
+    if (!selectedPersonnel) {
+      alert(
+        "Please identify personnel first."
+      );
+
+      return;
+    }
+
+    if (
+      personnelMode ===
+        "automatic" &&
+      rfidStatus !== "Found"
+    ) {
+      alert(
+        "Please scan a registered RFID card first."
+      );
+
+      return;
+    }
 
     setSessionStarted(true);
+
     setSessionStatus("Measuring");
   };
 
@@ -249,6 +742,18 @@ export default function Measurement() {
     setWrist("");
 
     setSessionStatus("Ready");
+
+    setRfidUid("");
+
+    setRfidError("");
+
+    setRfidStatus(
+      personnelMode === "automatic"
+        ? "Scanning"
+        : "Waiting"
+    );
+
+    setSavedAssessmentId(null);
   };
 
   /*
@@ -258,6 +763,22 @@ export default function Measurement() {
    */
 
   const handleReview = () => {
+    if (!selectedPersonnel) {
+      alert(
+        "Please identify personnel first."
+      );
+
+      return;
+    }
+
+    if (!height || !weight) {
+      alert(
+        "Height and weight are required."
+      );
+
+      return;
+    }
+
     setSessionStatus("Review");
   };
 
@@ -269,17 +790,24 @@ export default function Measurement() {
 
   const handleSave = async () => {
     if (!selectedPersonnel) {
-      alert("Please select personnel.");
+      alert(
+        "Please select or identify personnel."
+      );
+
       return;
     }
 
-    if (!bmi) {
-      alert("Height and weight are required.");
+    if (bmi === null) {
+      alert(
+        "Height and weight are required."
+      );
+
       return;
     }
 
     const assessment = {
-      personnel_id: selectedPersonnel.personnel_id,
+      personnel_id:
+        selectedPersonnel.personnel_id,
 
       height: Number(height),
 
@@ -297,14 +825,20 @@ export default function Measurement() {
         ? Number(wrist)
         : null,
 
-      bmi: Number(bmi.toFixed(2)),
+      bmi: Number(
+        bmi.toFixed(2)
+      ),
 
       ibw: ibw
-        ? Number(ibw.toFixed(2))
+        ? Number(
+            ibw.toFixed(2)
+          )
         : null,
 
       weight_to_lose:
-        Number(weightToLose.toFixed(2)),
+        Number(
+          weightToLose.toFixed(2)
+        ),
 
       pnp_classification:
         pnpClassification,
@@ -313,41 +847,67 @@ export default function Measurement() {
         classification,
 
       assessment_date:
-        new Date().toISOString().split("T")[0],
+        new Date()
+          .toISOString()
+          .split("T")[0],
 
-      unit_representative: null,
+      unit_representative:
+        null,
 
-      health_service_representative: null,
+      health_service_representative:
+        null,
 
       encoder: null,
     };
 
-    console.log("Assessment:", assessment);
+    console.log(
+      "Saving assessment:",
+      assessment
+    );
 
     try {
-      const response = await fetch(
-        "http://localhost:3000/bmi-assessments",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(assessment),
-        }
+      const response =
+        await fetch(
+          `${API_BASE_URL}/bmi-assessments`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify(
+              assessment
+            ),
+          }
+        );
+
+      const savedAssessment =
+        await response.json();
+
+      console.log(
+        "STATUS:",
+        response.status
       );
 
-      const savedAssessment = await response.json();
-
-      console.log("STATUS:", response.status);
-      console.log("SAVED ASSESSMENT:", savedAssessment);
+      console.log(
+        "SAVED ASSESSMENT:",
+        savedAssessment
+      );
 
       if (!response.ok) {
         throw new Error(
-          `HTTP ${response.status}: ${JSON.stringify(savedAssessment)}`
+          `HTTP ${response.status}: ${JSON.stringify(
+            savedAssessment
+          )}`
         );
       }
 
-      const assessmentId = savedAssessment.assessment_id;
+      const assessmentId =
+        Number(
+          savedAssessment.assessment_id
+        );
 
       if (!assessmentId) {
         throw new Error(
@@ -355,20 +915,22 @@ export default function Measurement() {
         );
       }
 
-      console.log("SAVED ASSESSMENT ID:", assessmentId);
-
-      setSavedAssessmentId(assessmentId);
+      setSavedAssessmentId(
+        assessmentId
+      );
 
       alert(
         `BMI assessment #${assessmentId} saved successfully.`
       );
 
-      
+      setSessionStarted(false);
 
-      resetSession();
-
+      setSessionStatus("Ready");
     } catch (error) {
-      console.error("SAVE BMI ERROR:", error);
+      console.error(
+        "SAVE BMI ERROR:",
+        error
+      );
 
       alert(
         error instanceof Error
@@ -407,17 +969,57 @@ export default function Measurement() {
       }
     );
 
+  /*
+   * ============================================================
+   * PDF PREVIEW
+   * ============================================================
+   */
+
   const handlePreview = () => {
-  if (!savedAssessmentId) {
-    alert("Please save the BMI assessment first.");
-    return;
-  }
+    if (!savedAssessmentId) {
+      alert(
+        "Please save the BMI assessment first."
+      );
+
+      return;
+    }
 
     window.open(
-      `http://localhost:3000/health-reports/bmi/${savedAssessmentId}/pdf`,
+      `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`,
       "_blank"
     );
   };
+
+  /*
+   * ============================================================
+   * RFID STATUS TEXT
+   * ============================================================
+   */
+
+  const getRFIDStatusText = () => {
+    switch (rfidStatus) {
+      case "Scanning":
+        return "Waiting for RFID card...";
+
+      case "Found":
+        return "Personnel identified successfully.";
+
+      case "Error":
+        return (
+          rfidError ||
+          "Unable to identify RFID card."
+        );
+
+      default:
+        return "RFID scanner ready.";
+    }
+  };
+
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
     <div className="measurement-page">
@@ -439,8 +1041,8 @@ export default function Measurement() {
           </h1>
 
           <p>
-            Conduct and record the current BMI
-            assessment session.
+            Conduct and record the current
+            BMI assessment session.
           </p>
 
         </div>
@@ -479,7 +1081,7 @@ export default function Measurement() {
             </strong>
 
             <small>
-              Select personnel
+              Identify personnel
             </small>
           </div>
 
@@ -586,8 +1188,8 @@ export default function Measurement() {
                   </h2>
 
                   <p>
-                    Select the personnel for this
-                    assessment.
+                    Select personnel manually
+                    or identify them using RFID.
                   </p>
 
                 </div>
@@ -596,85 +1198,233 @@ export default function Measurement() {
 
             </div>
 
-            <div className="personnel-selector">
+            {/* ==================================================
+                PERSONNEL MODE
+            =================================================== */}
+
+            <div className="personnel-mode">
 
               <label>
-                Personnel
+                Identification Mode
               </label>
 
-              <select
-                value={
-                  selectedPersonnel
-                    ?.personnel_id ?? ""
-                }
-                onChange={(event) => {
+              <div className="mode-buttons">
 
-                const id = Number(event.target.value);
-
-                const personnel = personnelList.find(
-                  (item) => item.personnel_id === id
-                );
-
-                  setSelectedPersonnel(
-                    personnel ?? null
-                  );
-
-                }}
-                disabled={
-                  sessionStarted ||
-                  loadingPersonnel
-                }
-              >
-
-                <option value="">
-
-                  {loadingPersonnel
-                    ? "Loading personnel..."
-                    : "Select personnel..."}
-
-                </option>
-
-                {personnelList.map(
-                  (person) => (
-
-                    <option
-                      value={
-                        person.personnel_id
-                      }
-                      key={
-                        person.personnel_id
-                      }
-                    >
-
-                      {person.rank} —{" "}
-                      {getFullName(person)}
-
-                    </option>
-
-                  )
-                )}
-
-              </select>
-
-              {personnelError && (
-
-                <small
-                  style={{
-                    color: "#dc2626",
-                    display: "block",
-                    marginTop: "6px",
-                  }}
+                <button
+                  type="button"
+                  className={
+                    personnelMode ===
+                    "manual"
+                      ? "mode-button active"
+                      : "mode-button"
+                  }
+                  disabled={
+                    sessionStarted
+                  }
+                  onClick={() =>
+                    handlePersonnelModeChange(
+                      "manual"
+                    )
+                  }
                 >
-                  {personnelError}
-                </small>
 
-              )}
+                  <span>
+                    👤
+                  </span>
+
+                  Manual
+
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    personnelMode ===
+                    "automatic"
+                      ? "mode-button active"
+                      : "mode-button"
+                  }
+                  disabled={
+                    sessionStarted
+                  }
+                  onClick={() =>
+                    handlePersonnelModeChange(
+                      "automatic"
+                    )
+                  }
+                >
+
+                  <span>
+                    📡
+                  </span>
+
+                  RFID Automatic
+
+                </button>
+
+              </div>
 
             </div>
 
-            {/* ==============================================
+            {/* ==================================================
+                MANUAL PERSONNEL SELECTION
+            =================================================== */}
+
+            {personnelMode ===
+              "manual" && (
+
+              <div className="personnel-selector">
+
+                <label>
+                  Personnel
+                </label>
+
+                <select
+                  value={
+                    selectedPersonnel
+                      ?.personnel_id ??
+                    ""
+                  }
+                  onChange={(event) => {
+
+                    const id =
+                      Number(
+                        event.target.value
+                      );
+
+                    handleManualPersonnelChange(
+                      id
+                    );
+
+                  }}
+                  disabled={
+                    sessionStarted ||
+                    loadingPersonnel
+                  }
+                >
+
+                  <option value="">
+
+                    {loadingPersonnel
+                      ? "Loading personnel..."
+                      : "Select personnel..."}
+
+                  </option>
+
+                  {personnelList.map(
+                    (person) => (
+
+                      <option
+                        value={
+                          person.personnel_id
+                        }
+                        key={
+                          person.personnel_id
+                        }
+                      >
+
+                        {person.rank} —{" "}
+                        {getFullName(
+                          person
+                        )}
+
+                      </option>
+
+                    )
+                  )}
+
+                </select>
+
+                {personnelError && (
+
+                  <small
+                    style={{
+                      color:
+                        "#dc2626",
+                      display:
+                        "block",
+                      marginTop:
+                        "6px",
+                    }}
+                  >
+                    {personnelError}
+                  </small>
+
+                )}
+
+              </div>
+
+            )}
+
+            {/* ==================================================
+                AUTOMATIC RFID MODE
+            =================================================== */}
+
+            {personnelMode ===
+              "automatic" && (
+
+              <div className="rfid-scanner">
+
+                <div className="rfid-scanner-icon">
+                  RFID
+                </div>
+
+                <h3>
+
+                  {rfidStatus ===
+                  "Found"
+                    ? "Personnel Identified"
+                    : "Scan RFID Card"}
+
+                </h3>
+
+                <p>
+                  {getRFIDStatusText()}
+                </p>
+
+                {rfidUid && (
+
+                  <div className="rfid-uid">
+
+                    <span>
+                      RFID UID
+                    </span>
+
+                    <strong>
+                      {rfidUid}
+                    </strong>
+
+                  </div>
+
+                )}
+
+                <div
+                  className={`rfid-status ${rfidStatus.toLowerCase()}`}
+                >
+
+                  <span className="rfid-status-dot" />
+
+                  {rfidStatus}
+
+                </div>
+
+                {rfidStatus ===
+                  "Error" &&
+                  rfidError && (
+
+                  <div className="rfid-error">
+                    {rfidError}
+                  </div>
+
+                )}
+
+              </div>
+
+            )}
+
+            {/* ==================================================
                 SELECTED PERSONNEL
-            =============================================== */}
+            =================================================== */}
 
             {selectedPersonnel && (
 
@@ -724,7 +1474,10 @@ export default function Measurement() {
                       {String(
                         selectedPersonnel
                           .personnel_id
-                      ).padStart(4, "0")}
+                      ).padStart(
+                        4,
+                        "0"
+                      )}
                     </span>
 
                     <span>
@@ -749,9 +1502,9 @@ export default function Measurement() {
 
             )}
 
-            {/* ==============================================
+            {/* ==================================================
                 START SESSION
-            =============================================== */}
+            =================================================== */}
 
             {!sessionStarted && (
 
@@ -760,7 +1513,9 @@ export default function Measurement() {
                 disabled={
                   !selectedPersonnel
                 }
-                onClick={startSession}
+                onClick={
+                  startSession
+                }
               >
 
                 <span>
@@ -810,9 +1565,13 @@ export default function Measurement() {
 
               </div>
 
-              <span className="live-badge">
-                ● LIVE SESSION
-              </span>
+              {sessionStarted && (
+
+                <span className="live-badge">
+                  ● LIVE SESSION
+                </span>
+
+              )}
 
             </div>
 
@@ -846,6 +1605,8 @@ export default function Measurement() {
 
                   <input
                     type="number"
+                    min="0"
+                    step="0.1"
                     placeholder="0.0"
                     value={height}
                     onChange={(e) =>
@@ -894,6 +1655,8 @@ export default function Measurement() {
 
                   <input
                     type="number"
+                    min="0"
+                    step="0.1"
                     placeholder="0.0"
                     value={weight}
                     onChange={(e) =>
@@ -942,6 +1705,8 @@ export default function Measurement() {
 
                   <input
                     type="number"
+                    min="0"
+                    step="0.1"
                     placeholder="0.0"
                     value={waist}
                     onChange={(e) =>
@@ -990,6 +1755,8 @@ export default function Measurement() {
 
                   <input
                     type="number"
+                    min="0"
+                    step="0.1"
                     placeholder="0.0"
                     value={hip}
                     onChange={(e) =>
@@ -1038,6 +1805,8 @@ export default function Measurement() {
 
                   <input
                     type="number"
+                    min="0"
+                    step="0.1"
                     placeholder="0.0"
                     value={wrist}
                     onChange={(e) =>
@@ -1086,7 +1855,9 @@ export default function Measurement() {
 
               <button
                 className="cancel-button"
-                onClick={resetSession}
+                onClick={
+                  resetSession
+                }
               >
                 Cancel Session
               </button>
@@ -1096,8 +1867,12 @@ export default function Measurement() {
 
                 <button
                   className="review-button"
-                  disabled={!isComplete}
-                  onClick={handleReview}
+                  disabled={
+                    !isComplete
+                  }
+                  onClick={
+                    handleReview
+                  }
                 >
                   Review Results →
                 </button>
@@ -1109,8 +1884,12 @@ export default function Measurement() {
 
                 <button
                   className="save-button"
-                  disabled={!isComplete}
-                  onClick={handleSave}
+                  disabled={
+                    !isComplete
+                  }
+                  onClick={
+                    handleSave
+                  }
                 >
                   ✓ Save Assessment
                 </button>
@@ -1128,27 +1907,39 @@ export default function Measurement() {
         ===================================================== */}
 
         <aside className="measurement-sidebar">
-                    {/* ==================================================
+
+          {/* ==================================================
               PDF PREVIEW
           =================================================== */}
+
           <section className="form-preview-card">
 
             <div className="small-card-header">
+
               <div>
-                <h3>BMI Form</h3>
-                <p>PNP Health Service Form</p>
+
+                <h3>
+                  BMI Form
+                </h3>
+
+                <p>
+                  PNP Health Service Form
+                </p>
+
               </div>
+
             </div>
 
-            {/* FORM PREVIEW */}
             {savedAssessmentId ? (
 
               <div className="pdf-preview-container">
+
                 <iframe
-                  src={`http://localhost:3000/health-reports/bmi/${savedAssessmentId}/pdf`}
+                  src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`}
                   title="BMI Assessment Form"
                   className="pdf-preview"
                 />
+
               </div>
 
             ) : (
@@ -1160,9 +1951,11 @@ export default function Measurement() {
                 </div>
 
                 <div className="preview-lines">
+
                   <span />
                   <span />
                   <span className="long" />
+
                 </div>
 
                 <div className="preview-title">
@@ -1170,32 +1963,38 @@ export default function Measurement() {
                 </div>
 
                 <div className="preview-table">
+
                   <span />
                   <span />
                   <span />
                   <span />
                   <span />
                   <span />
+
                 </div>
 
                 <p className="preview-placeholder">
+
                   Save an assessment to generate
                   the BMI form.
+
                 </p>
 
               </div>
 
             )}
 
-
-          <button
-            className="preview-button"
-            disabled={!savedAssessmentId}
-            onClick={handlePreview}
-          >
-            Preview BMI Form
-          </button>
-
+            <button
+              className="preview-button"
+              disabled={
+                !savedAssessmentId
+              }
+              onClick={
+                handlePreview
+              }
+            >
+              Preview BMI Form
+            </button>
 
           </section>
 
@@ -1225,7 +2024,7 @@ export default function Measurement() {
 
             </div>
 
-            {bmi ? (
+            {bmi !== null ? (
 
               <>
 
@@ -1242,9 +2041,11 @@ export default function Measurement() {
                 </div>
 
                 <div
-                  className={`result-classification ${getClassificationClass(
-                    classification!
-                  )}`}
+                  className={`result-classification ${
+                    getClassificationClass(
+                      classification!
+                    )
+                  }`}
                 >
 
                   <span className="classification-dot" />
@@ -1335,7 +2136,9 @@ export default function Measurement() {
               <strong>
 
                 {ibw
-                  ? `${ibw.toFixed(1)} kg`
+                  ? `${ibw.toFixed(
+                      1
+                    )} kg`
                   : "—"}
 
               </strong>
@@ -1359,7 +2162,9 @@ export default function Measurement() {
               <strong>
 
                 {ibw
-                  ? `${weightToLose.toFixed(1)} kg`
+                  ? `${weightToLose.toFixed(
+                      1
+                    )} kg`
                   : "—"}
 
               </strong>
@@ -1379,6 +2184,21 @@ export default function Measurement() {
               <h3>
                 Session Information
               </h3>
+
+            </div>
+
+            <div className="session-info-row">
+
+              <span>
+                Personnel mode
+              </span>
+
+              <strong>
+                {personnelMode ===
+                "automatic"
+                  ? "RFID Automatic"
+                  : "Manual"}
+              </strong>
 
             </div>
 
@@ -1405,6 +2225,24 @@ export default function Measurement() {
             <div className="session-info-row">
 
               <span>
+                Personnel
+              </span>
+
+              <strong>
+
+                {selectedPersonnel
+                  ? getFullName(
+                      selectedPersonnel
+                    )
+                  : "Not selected"}
+
+              </strong>
+
+            </div>
+
+            <div className="session-info-row">
+
+              <span>
                 Measurements
               </span>
 
@@ -1417,7 +2255,8 @@ export default function Measurement() {
                     waist,
                     hip,
                     wrist,
-                  ].filter(Boolean).length
+                  ].filter(Boolean)
+                    .length
                 }
 
                 /5
@@ -1439,8 +2278,6 @@ export default function Measurement() {
             </div>
 
           </section>
-
-                  ///
 
         </aside>
 

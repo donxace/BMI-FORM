@@ -1,11 +1,26 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-const char* ssid = "ITSD Network2026";
-const char* password = "$A$@2026";
+const char* ssid = "HMS PON";
+const char* password = "itsdhms@2026";
 
 const char* serverUrl =
-  "http://192.168.1.34:3000/bmi-assessments/esp32";
+  "http://192.168.1.187:3000/bmi-assessments/esp32";
+
+// ========================================
+// MANUAL MEASUREMENT VALUES
+// ========================================
+
+float height = 170;
+float weight = 65;
+float waist  = 80;
+float hip    = 95;
+float wrist  = 17;
+
+// RFID stays fixed
+const char* rfid_uid = "RFID001";
+
+bool sentSuccessfully = false;
 
 void setup() {
   Serial.begin(115200);
@@ -28,6 +43,15 @@ void setup() {
 
 void loop() {
 
+  // ========================================
+  // ALREADY SENT SUCCESSFULLY
+  // ========================================
+
+  if (sentSuccessfully) {
+    delay(1000);
+    return;
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
 
     HTTPClient http;
@@ -39,17 +63,24 @@ void loop() {
       "application/json"
     );
 
-    String json = R"({
-      "rfid_uid": "RFID001",
-      "height": 170,
-      "weight": 65,
-      "waist": 80,
-      "hip": 95,
-      "wrist": 17
-    })";
+    // ========================================
+    // CREATE JSON
+    // ========================================
+
+    String json = "{";
+    json += "\"rfid_uid\":\"" + String(rfid_uid) + "\",";
+    json += "\"height\":" + String(height, 1) + ",";
+    json += "\"weight\":" + String(weight, 1) + ",";
+    json += "\"waist\":" + String(waist, 1) + ",";
+    json += "\"hip\":" + String(hip, 1) + ",";
+    json += "\"wrist\":" + String(wrist, 1);
+    json += "}";
 
     Serial.println();
+    Serial.println("================================");
     Serial.println("Sending measurement...");
+    Serial.println(json);
+    Serial.println("================================");
 
     int responseCode = http.POST(json);
 
@@ -61,13 +92,34 @@ void loop() {
     Serial.println("Server response:");
     Serial.println(response);
 
+    // ========================================
+    // ONLY STOP AFTER SUCCESS
+    // ========================================
+
+    if (responseCode >= 200 && responseCode < 300) {
+
+      sentSuccessfully = true;
+
+      Serial.println();
+      Serial.println("================================");
+      Serial.println("SUCCESS!");
+      Serial.println("Measurement saved.");
+      Serial.println("No more measurements will be sent.");
+      Serial.println("================================");
+
+    } else {
+
+      Serial.println();
+      Serial.println("Request failed.");
+      Serial.println("Will try again...");
+    }
+
     http.end();
 
   } else {
 
     Serial.println("WiFi disconnected!");
-
   }
 
-  delay(10000);
+  delay(5000);
 }

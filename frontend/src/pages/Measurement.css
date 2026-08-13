@@ -1,11 +1,10 @@
+/* =========================================================
+   MEASUREMENT PAGE
+========================================================= */
 
 .measurement-page {
     min-height: calc(100vh - 82px);
 
-    /*
-     * IMPORTANT:
-     * Change 250px if your actual sidebar width is different.
-     */
     margin-left: 250px;
     width: calc(100% - 250px);
 
@@ -17,7 +16,6 @@
 
     overflow-x: hidden;
 }
-
 
 /* Make all elements respect their container width */
 .measurement-page *,
@@ -219,15 +217,20 @@
 ========================================================= */
 
 .measurement-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
-  gap: 24px;
-  align-items: stretch;
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 2fr)
+        minmax(320px, 1fr);
+
+    gap: 24px;
+
+    align-items: stretch;
 }
 
 .measurement-main,
 .measurement-sidebar {
-  height: 100%;
+    height: 100%;
 }
 
 
@@ -334,12 +337,161 @@
 
 
 /* =========================================================
-   PERSONNEL
+   PERSONNEL IDENTIFICATION MODE
+========================================================= */
+
+.personnel-mode {
+    width: 100%;
+
+    margin-bottom: 15px;
+
+    padding: 13px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e7ebf1;
+
+    border-radius: 8px;
+}
+
+.personnel-mode > label {
+    display: block;
+
+    margin-bottom: 8px;
+
+    color: #536071;
+
+    font-size: 10px;
+
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   MODE BUTTONS
+========================================================= */
+
+.mode-buttons {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 8px;
+
+    width: 100%;
+}
+
+.mode-button {
+    position: relative;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    width: 100%;
+
+    min-width: 0;
+
+    height: 42px;
+
+    padding: 0 12px;
+
+    border: 1px solid #dce2ea;
+
+    border-radius: 7px;
+
+    background: #ffffff;
+
+    color: #657184;
+
+    font-size: 10px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+}
+
+.mode-button span {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 25px;
+    height: 25px;
+
+    border-radius: 6px;
+
+    background: #f1f5f9;
+
+    font-size: 12px;
+
+    transition:
+        background 0.18s ease,
+        transform 0.18s ease;
+}
+
+.mode-button:hover:not(:disabled) {
+    border-color: #bfdbfe;
+
+    color: #1d4ed8;
+
+    background: #f8fbff;
+
+    box-shadow:
+        0 2px 8px rgba(37, 99, 235, 0.06);
+}
+
+.mode-button:hover:not(:disabled) span {
+    background: #eff6ff;
+
+    transform: scale(1.04);
+}
+
+.mode-button.active {
+    border-color: #2563eb;
+
+    background: #eff6ff;
+
+    color: #1d4ed8;
+
+    box-shadow:
+        0 0 0 2px rgba(37, 99, 235, 0.08);
+}
+
+.mode-button.active span {
+    background: #dbeafe;
+
+    color: #1d4ed8;
+}
+
+.mode-button:disabled {
+    opacity: 0.55;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   PERSONNEL SELECTOR
 ========================================================= */
 
 .personnel-selector {
     width: 100%;
     min-width: 0;
+
+    margin-top: 2px;
 }
 
 .personnel-selector label {
@@ -375,6 +527,12 @@
     outline: none;
 
     box-sizing: border-box;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
 .personnel-selector select:focus {
@@ -382,6 +540,304 @@
 
     box-shadow:
         0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.personnel-selector select:disabled {
+    background: #f8fafc;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   RFID SCANNER
+========================================================= */
+
+.rfid-scanner {
+    position: relative;
+
+    width: 100%;
+
+    margin-top: 2px;
+
+    padding: 20px;
+
+    border: 1px solid #dce5f0;
+
+    border-radius: 10px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #f8fbff 0%,
+            #ffffff 100%
+        );
+
+    text-align: center;
+
+    overflow: hidden;
+}
+
+.rfid-scanner::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 0;
+
+    width: 100%;
+    height: 3px;
+
+    background: #2563eb;
+}
+
+.rfid-scanner-icon {
+    width: 54px;
+    height: 54px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin: 0 auto 12px;
+
+    border-radius: 14px;
+
+    background: #eff6ff;
+
+    border: 1px solid #dbeafe;
+
+    color: #2563eb;
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    letter-spacing: 0.05em;
+
+    box-shadow:
+        0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.rfid-scanner h3 {
+    margin: 0 0 5px;
+
+    color: #172033;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+.rfid-scanner > p {
+    margin: 0;
+
+    color: #8994a5;
+
+    font-size: 9px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   RFID UID
+========================================================= */
+
+.rfid-uid {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    width: 100%;
+
+    margin-top: 14px;
+
+    padding: 9px 11px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e5eaf0;
+
+    border-radius: 7px;
+
+    text-align: left;
+}
+
+.rfid-uid span {
+    color: #8994a5;
+
+    font-size: 8px;
+
+    font-weight: 600;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.04em;
+}
+
+.rfid-uid strong {
+    color: #273247;
+
+    font-size: 9px;
+
+    font-family:
+        "Courier New",
+        monospace;
+
+    font-weight: 700;
+
+    word-break: break-all;
+
+    text-align: right;
+}
+
+
+/* =========================================================
+   RFID STATUS
+========================================================= */
+
+.rfid-status {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    margin-top: 13px;
+
+    padding: 6px 10px;
+
+    border-radius: 20px;
+
+    font-size: 8px;
+
+    font-weight: 700;
+
+    color: #64748b;
+
+    background: #f1f5f9;
+
+    border: 1px solid #e2e8f0;
+}
+
+.rfid-status-dot {
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: #94a3b8;
+
+    flex-shrink: 0;
+}
+
+.rfid-status.waiting {
+    color: #64748b;
+
+    background: #f8fafc;
+
+    border-color: #e2e8f0;
+}
+
+.rfid-status.waiting .rfid-status-dot {
+    background: #94a3b8;
+}
+
+.rfid-status.scanning {
+    color: #1d4ed8;
+
+    background: #eff6ff;
+
+    border-color: #dbeafe;
+}
+
+.rfid-status.scanning .rfid-status-dot {
+    background: #2563eb;
+
+    animation: rfidPulse 1.2s infinite;
+}
+
+.rfid-status.found {
+    color: #15803d;
+
+    background: #ecfdf3;
+
+    border-color: #bbf7d0;
+}
+
+.rfid-status.found .rfid-status-dot {
+    background: #22c55e;
+
+    box-shadow:
+        0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.rfid-status.error {
+    color: #dc2626;
+
+    background: #fef2f2;
+
+    border-color: #fecaca;
+}
+
+.rfid-status.error .rfid-status-dot {
+    background: #ef4444;
+}
+
+
+/* =========================================================
+   RFID ERROR
+========================================================= */
+
+.rfid-error {
+    width: 100%;
+
+    margin-top: 10px;
+
+    padding: 9px 11px;
+
+    border-radius: 7px;
+
+    background: #fef2f2;
+
+    border: 1px solid #fecaca;
+
+    color: #b91c1c;
+
+    font-size: 8px;
+
+    line-height: 1.5;
+
+    text-align: left;
+}
+
+@keyframes rfidPulse {
+    0% {
+        opacity: 1;
+
+        box-shadow:
+            0 0 0 0 rgba(37, 99, 235, 0.35);
+    }
+
+    70% {
+        opacity: 0.65;
+
+        box-shadow:
+            0 0 0 5px rgba(37, 99, 235, 0);
+    }
+
+    100% {
+        opacity: 1;
+
+        box-shadow:
+            0 0 0 0 rgba(37, 99, 235, 0);
+    }
 }
 
 
@@ -504,17 +960,25 @@
 
     transition:
         background 0.15s ease,
-        transform 0.15s ease;
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
 .start-button:hover:not(:disabled) {
     background: #1e40af;
+
+    box-shadow:
+        0 4px 10px rgba(29, 78, 216, 0.18);
+
+    transform: translateY(-1px);
 }
 
 .start-button:disabled {
     background: #d5dbe4;
 
     cursor: not-allowed;
+
+    box-shadow: none;
 }
 
 
@@ -662,6 +1126,9 @@
 
 .input-wrapper input:focus {
     border-color: #2563eb;
+
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.06);
 }
 
 .input-wrapper input:disabled {
@@ -759,6 +1226,11 @@
     cursor: pointer;
 
     white-space: nowrap;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
 }
 
 .cancel-button {
@@ -767,6 +1239,12 @@
     background: white;
 
     color: #657184;
+}
+
+.cancel-button:hover {
+    background: #f8fafc;
+
+    border-color: #cbd5e1;
 }
 
 .review-button,
@@ -778,11 +1256,20 @@
     color: white;
 }
 
+.review-button:hover:not(:disabled),
+.save-button:hover:not(:disabled) {
+    background: #1e40af;
+
+    transform: translateY(-1px);
+}
+
 .review-button:disabled,
 .save-button:disabled {
     background: #d5dbe4;
 
     cursor: not-allowed;
+
+    transform: none;
 }
 
 
@@ -1174,6 +1661,8 @@
     white-space: nowrap;
 
     flex-shrink: 0;
+
+    text-align: right;
 }
 
 .session-info-row strong.online {
@@ -1256,7 +1745,7 @@
     width: 80%;
 }
 
-.preview-title .preview-table {
+.preview-title {
     font-size: 6px;
 
     font-weight: 800;
@@ -1277,14 +1766,24 @@
     gap: 2px;
 }
 
-
-
 .preview-table span {
     height: 13px;
 
     background: white;
 
     border: 1px solid #dce2ea;
+}
+
+.preview-placeholder {
+    margin: 7px 0 0;
+
+    color: #9aa4b2;
+
+    font-size: 7px;
+
+    text-align: center;
+
+    line-height: 1.4;
 }
 
 .preview-button {
@@ -1305,6 +1804,54 @@
     font-size: 9px;
 
     cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.preview-button:hover:not(:disabled) {
+    background: #eff6ff;
+
+    border-color: #bfdbfe;
+}
+
+.preview-button:disabled {
+    color: #a3adba;
+
+    background: #f8fafc;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   PDF PREVIEW
+========================================================= */
+
+.pdf-preview-container {
+    width: 100%;
+
+    height: 360px;
+
+    border: 1px solid #e3e8ef;
+
+    border-radius: 6px;
+
+    background: #f8fafc;
+
+    overflow: hidden;
+}
+
+.pdf-preview {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    border: none;
+
+    background: white;
 }
 
 
@@ -1378,10 +1925,6 @@
 
 @media (max-width: 750px) {
 
-    /*
-     * If your sidebar disappears/collapses on mobile,
-     * remove the desktop sidebar offset.
-     */
     .measurement-page {
         margin-left: 0;
 
@@ -1441,6 +1984,10 @@
 
     .live-badge {
         margin-top: 2px;
+    }
+
+    .mode-buttons {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -1516,6 +2063,35 @@
             7px;
     }
 
+    .personnel-mode {
+        padding: 11px;
+    }
+
+    .mode-button {
+        height: 40px;
+    }
+
+    .rfid-scanner {
+        padding: 17px 13px;
+    }
+
+    .rfid-scanner-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .rfid-uid {
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 4px;
+    }
+
+    .rfid-uid strong {
+        text-align: left;
+    }
+
     .session-actions {
         flex-direction: column-reverse;
 
@@ -1540,6 +2116,10 @@
     .bmi-result strong {
         font-size: 36px;
     }
+
+    .pdf-preview-container {
+        height: 320px;
+    }
 }
 
 
@@ -1562,6 +2142,7 @@
 
     .section-header {
         flex-direction: column;
+
         align-items: flex-start;
     }
 
@@ -1592,5 +2173,13 @@
 
     .result-details > div {
         align-items: flex-start;
+    }
+
+    .rfid-scanner h3 {
+        font-size: 12px;
+    }
+
+    .rfid-scanner > p {
+        font-size: 8px;
     }
 }

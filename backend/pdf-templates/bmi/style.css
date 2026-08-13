@@ -1,0 +1,497 @@
+@page {
+    size: A4 portrait;
+    margin: 0.20in 1in 0.20in 1in;
+}
+
+/* IMPORTANT: universal selector */
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    background: #ffffff;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000000;
+}
+
+
+/* =====================================================
+   A4 PRINTABLE AREA
+
+   A4:
+   Width  = 8.27in
+   Height = 11.69in
+
+   Margins:
+   Top    = 0.20in
+   Bottom = 0.20in
+   Left   = 1.00in
+   Right  = 1.00in
+
+   Printable:
+   Width  = 6.27in
+   Height = 11.29in
+
+   Each form:
+   11.29 / 2 = 5.645in
+   ===================================================== */
+
+.a4-page {
+    position: relative;
+
+    width: 6.27in;
+    height: 11.29in;
+
+    margin: 0 auto;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    overflow: hidden;
+}
+
+
+/* =====================================================
+   EACH BMI FORM
+
+   EXACTLY HALF OF PRINTABLE A4 HEIGHT
+   ===================================================== */
+
+.bmi-form {
+    width: 6.27in;
+    height: 5.645in;
+
+    flex: 0 0 5.645in;
+
+    margin: 0;
+    padding: 0;
+
+    border: none;
+
+    overflow: hidden;
+
+    /*
+       Center the contents vertically
+       inside each half of the page.
+    */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+
+/* =====================================================
+   HEADER
+   ===================================================== */
+
+.header {
+    width: 100%;
+    height: 1.10in;
+
+    flex: 0 0 1.10in;
+
+    display: grid;
+    grid-template-columns: 0.75in 1fr 0.75in;
+
+    align-items: stretch;
+}
+
+
+/* =====================================================
+   LOGOS
+   ===================================================== */
+
+.logo {
+    width: 0.75in;
+    height: 1.10in;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    padding: 0;
+}
+
+.logo img {
+    width: 0.65in;
+    height: 1.00in;
+
+    object-fit: contain;
+}
+
+
+/* HSS LOGO */
+
+.right-logo img {
+    width: 0.75in;
+    height: 1.00in;
+
+    object-fit: contain;
+}
+
+
+/* =====================================================
+   HEADER TEXT
+   ===================================================== */
+
+.header-text {
+    width: 100%;
+    height: 1.10in;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: flex-start;
+    align-items: center;
+
+    text-align: center;
+
+    padding-top: 0.10in;
+
+    line-height: 1.05;
+
+    font-size: 10px;
+}
+
+.header-text > div {
+    font-size: 10px;
+}
+
+.header-text strong {
+    display: block;
+
+    font-size: 11px;
+
+    font-weight: 700;
+}
+
+
+/* BMI TITLE */
+
+.header-text h1 {
+    margin: 0.07in 0 0;
+
+    font-size: 15px;
+
+    font-weight: 700;
+
+    line-height: 1;
+}
+
+
+/* =====================================================
+   TABLES
+   ===================================================== */
+
+.form-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: fixed;
+
+    margin: 0;
+    padding: 0;
+
+    font-size: 9px;
+}
+
+.form-table th,
+.form-table td {
+    border: 1px solid #000000;
+
+    padding: 0;
+
+    vertical-align: middle;
+}
+
+
+/* =====================================================
+   TABLE HEADER ROWS
+   ===================================================== */
+
+.label-row th {
+    height: 0.18in;
+
+    background: #d9d9d9;
+
+    text-align: center;
+
+    font-weight: 700;
+
+    font-size: 9px;
+}
+
+
+/* =====================================================
+   PERSONNEL TABLE
+   ===================================================== */
+
+.personnel-table .rank-col {
+    width: 9.5%;
+}
+
+.personnel-table .surname-col {
+    width: 30.5%;
+}
+
+.personnel-table .firstname-col {
+    width: 30.5%;
+}
+
+.personnel-table .mi-col {
+    width: 6.2%;
+}
+
+.personnel-table .q-col {
+    width: 6.2%;
+}
+
+.personnel-table .signature-col {
+    width: 17.1%;
+}
+
+
+/* =====================================================
+   PERSONNEL INPUT ROW
+   ===================================================== */
+
+.input-row td {
+    height: 0.25in;
+
+    text-align: center;
+
+    font-size: 9px;
+}
+
+.personnel-table .second-info td {
+    height: 0.27in;
+}
+
+
+/* =====================================================
+   MEASUREMENTS TABLE
+   ===================================================== */
+
+.measurements-table .charts-col {
+    width: 33.5%;
+}
+
+.measurements-table .result-col {
+    width: 33.5%;
+}
+
+.measurements-table .remarks-col {
+    width: 33%;
+}
+
+
+/* =====================================================
+   MEASUREMENT LABEL
+   ===================================================== */
+
+.measurement-label {
+    height: 0.21in;
+
+    padding-left: 0.06in !important;
+
+    font-weight: 700;
+
+    text-align: left;
+
+    font-size: 9px;
+}
+
+
+/* =====================================================
+   RESULT
+   ===================================================== */
+
+.result-cell {
+    height: 0.21in;
+
+    text-align: center;
+
+    font-size: 9px;
+}
+
+
+/* =====================================================
+   REMARKS
+   ===================================================== */
+
+.remarks-cell {
+    padding: 0.03in !important;
+
+    vertical-align: top !important;
+
+    font-size: 8px;
+}
+
+.remarks-cell div {
+    min-height: 0.35in;
+
+    display: flex;
+
+    align-items: flex-start;
+}
+
+
+/* =====================================================
+   BMI RESULT
+   ===================================================== */
+
+.bmi-row .measurement-label,
+.bmi-row .result-cell {
+    height: 0.29in;
+
+    font-size: 10px;
+}
+
+.bmi-remarks div {
+    min-height: 0.20in;
+
+    font-size: 8px;
+}
+
+
+/* =====================================================
+   REPRESENTATIVES
+   ===================================================== */
+
+.representative-labels th {
+    height: 0.19in;
+
+    background: #d9d9d9;
+
+    text-align: center;
+
+    font-weight: 700;
+
+    font-size: 8px;
+}
+
+
+/* =====================================================
+   SIGNATURE AREA
+   ===================================================== */
+
+.signature-area td {
+    height: 0.30in;
+}
+
+
+/* =====================================================
+   CUTTING LINE
+
+   EXACT CENTER OF PRINTABLE AREA
+
+   11.29 / 2 = 5.645in
+   ===================================================== */
+
+.cutting-line {
+    position: absolute;
+
+    left: 0;
+
+    width: 100%;
+
+    top: 5.645in;
+
+    border-top: 1px dashed rgba(0, 0, 0, 0.35);
+
+    height: 0;
+
+    z-index: 100;
+
+    pointer-events: none;
+}
+
+.cutting-line span {
+    position: absolute;
+
+    left: 50%;
+
+    transform: translate(-50%, -50%);
+
+    background: #ffffff;
+
+    padding: 0 0.08in;
+
+    font-size: 7px;
+
+    color: rgba(0, 0, 0, 0.45);
+
+    white-space: nowrap;
+}
+
+
+/* =====================================================
+   PRINT
+   ===================================================== */
+
+@media print {
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .a4-page {
+        width: 6.27in;
+        height: 11.29in;
+
+        margin: 0;
+        padding: 0;
+
+        display: flex;
+        flex-direction: column;
+
+        overflow: hidden;
+
+        position: relative;
+    }
+
+    .bmi-form {
+        width: 6.27in;
+        height: 5.645in;
+
+        flex: 0 0 5.645in;
+
+        margin: 0;
+        padding: 0;
+
+        overflow: hidden;
+
+        border: none;
+
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .cutting-line {
+        display: block;
+
+        position: absolute;
+
+        left: 0;
+
+        top: 5.645in;
+
+        width: 100%;
+    }
+}

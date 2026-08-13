@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+<title>Body Mass Index (BMI) Form</title>
+
+<link rel="stylesheet" href="./style.css">
+
+
+</head>
+
+<body>
+
+<div class="a4-page">
+
+
+<!-- =====================================================
+     FORM 1
+====================================================== -->
+
+<div class="bmi-form">
+
+    <!-- HEADER -->
+    <header class="header">
+
+        <div class="logo left-logo">
+            <img src="./pnpc-logo.png" alt="PNP Logo">
+        </div>
+
+        <div class="header-text">
+
+            <div>Republic of the Philippines</div>
+
+            <div>NATIONAL POLICE COMMISSION</div>
+
+            <strong>
+                PHILIPPINE NATIONAL POLICE, HEALTH SERVICE
+            </strong>
+
+            <strong>
+                GENERAL HOSPITAL
+            </strong>
+
+            <div>
+                Camp BGen Rafael T Crame, Quezon City
+            </div>
+
+            <h1>
+                BODY MASS INDEX (BMI) FORM
+            </h1>
+
+        </div>
+
+        <div class="logo right-logo">
+            <img src="./hss-logo.png" alt="Health Service Logo">
+        </div>
+
+    </header>
+
+
+    <!-- PERSONNEL INFORMATION -->
+
+    <table class="form-table personnel-table">
+
+        <colgroup>
+            <col class="rank-col">
+            <col class="surname-col">
+            <col class="firstname-col">
+            <col class="mi-col">
+            <col class="q-col">
+            <col class="signature-col">
+        </colgroup>
+
+        <tr class="label-row">
+            <th>Rank</th>
+            <th>Surname</th>
+            <th>First name</th>
+            <th>MI</th>
+            <th>Q</th>
+            <th>Signature</th>
+        </tr>
+
+        <tr class="input-row">
+            <td>{{rank}}</td>
+            <td>{{surname}}</td>
+            <td>{{firstName}}</td>
+            <td>{{middleInitial}}</td>
+            <td>{{q}}</td>
+            <td>{{signature}}</td>
+        </tr>
+
+        <tr class="label-row">
+            <th>Age</th>
+            <th>Sex</th>
+            <th colspan="3">Office</th>
+            <th>Date</th>
+        </tr>
+
+        <tr class="input-row second-info">
+            <td>{{age}}</td>
+            <td>{{sex}}</td>
+            <td colspan="3">{{office}}</td>
+            <td>{{date}}</td>
+        </tr>
+
+    </table>
+
+
+    <!-- BMI MEASUREMENTS -->
+
+    <table class="form-table measurements-table">
+
+        <colgroup>
+            <col class="charts-col">
+            <col class="result-col">
+            <col class="remarks-col">
+        </colgroup>
+
+        <tr class="label-row">
+            <th>Charts</th>
+            <th>Result</th>
+            <th>Remarks</th>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Height (cm)
+            </td>
+
+            <td class="result-cell">
+                {{height}}
+            </td>
+
+            <td class="remarks-cell" rowspan="5">
+
+                <div>
+                    <strong>IBW:</strong>&nbsp;{{ibw}} kg
+                </div>
+
+                <div>
+                    <strong>Weight to lose:</strong>&nbsp;{{weightToLose}} kg
+                </div>
+
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Weight (kilogram)
+            </td>
+
+            <td class="result-cell">
+                {{weight}}
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Waist (cm)
+            </td>
+
+            <td class="result-cell">
+                {{waist}}
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Hip (cm)
+            </td>
+
+            <td class="result-cell">
+                {{hip}}
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Wrist (cm)
+            </td>
+
+            <td class="result-cell">
+                {{wrist}}
+            </td>
+        </tr>
+
+        <tr class="bmi-row">
+
+            <td class="measurement-label">
+                BMI Result
+            </td>
+
+            <td class="result-cell">
+                {{bmi}} kg/m²
+            </td>
+
+            <td class="remarks-cell bmi-remarks">
+
+                <div>
+                    <strong>PNP:</strong>&nbsp;{{pnpClassification}}
+                </div>
+
+                <div>
+                    <strong>WHO:</strong>&nbsp;{{whoClassification}}
+                </div>
+
+            </td>
+
+        </tr>
+
+        <tr class="representative-labels">
+
+            <th>
+                Unit Representative:
+            </th>
+
+            <th>
+                Health Service Representative:
+            </th>
+
+            <th>
+                Encoder:
+            </th>
+
+        </tr>
+
+        <tr class="signature-area">
+
+            <td>{{unitRepresentative}}</td>
+            <td>{{healthServiceRepresentative}}</td>
+            <td>{{encoder}}</td>
+
+        </tr>
+
+    </table>
+
+</div>
+
+
+
+<!-- =====================================================
+     FORM 2
+====================================================== -->
+
+<div class="bmi-form">
+
+    <!-- HEADER -->
+    <header class="header">
+
+        <div class="logo left-logo">
+            <img src="./pnpc-logo.png" alt="PNP Logo">
+        </div>
+
+        <div class="header-text">
+
+            <div>Republic of the Philippines</div>
+
+            <div>NATIONAL POLICE COMMISSION</div>
+
+            <strong>
+                PHILIPPINE NATIONAL POLICE, HEALTH SERVICE
+            </strong>
+
+            <strong>
+                GENERAL HOSPITAL
+            </strong>
+
+            <div>
+                Camp BGen Rafael T Crame, Quezon City
+            </div>
+
+            <h1>
+                BODY MASS INDEX (BMI) FORM
+            </h1>
+
+        </div>
+
+        <div class="logo right-logo">
+            <img src="./hss-logo.png" alt="Health Service Logo">
+        </div>
+
+    </header>
+
+
+    <!-- PERSONNEL INFORMATION -->
+
+    <table class="form-table personnel-table">
+
+        <colgroup>
+            <col class="rank-col">
+            <col class="surname-col">
+            <col class="firstname-col">
+            <col class="mi-col">
+            <col class="q-col">
+            <col class="signature-col">
+        </colgroup>
+
+        <tr class="label-row">
+            <th>Rank</th>
+            <th>Surname</th>
+            <th>First name</th>
+            <th>MI</th>
+            <th>Q</th>
+            <th>Signature</th>
+        </tr>
+
+        <tr class="input-row">
+            <td>{{rank}}</td>
+            <td>{{surname}}</td>
+            <td>{{firstName}}</td>
+            <td>{{middleInitial}}</td>
+            <td>{{q}}</td>
+            <td>{{signature}}</td>
+        </tr>
+
+        <tr class="label-row">
+            <th>Age</th>
+            <th>Sex</th>
+            <th colspan="3">Office</th>
+            <th>Date</th>
+        </tr>
+
+        <tr class="input-row second-info">
+            <td>{{age}}</td>
+            <td>{{sex}}</td>
+            <td colspan="3">{{office}}</td>
+            <td>{{date}}</td>
+        </tr>
+
+    </table>
+
+
+    <!-- BMI MEASUREMENTS -->
+
+    <table class="form-table measurements-table">
+
+        <colgroup>
+            <col class="charts-col">
+            <col class="result-col">
+            <col class="remarks-col">
+        </colgroup>
+
+        <tr class="label-row">
+            <th>Charts</th>
+            <th>Result</th>
+            <th>Remarks</th>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Height (cm)
+            </td>
+
+            <td class="result-cell">
+                {{height}}
+            </td>
+
+            <td class="remarks-cell" rowspan="5">
+
+                <div>
+                    <strong>IBW:</strong>&nbsp;{{ibw}} kg
+                </div>
+
+                <div>
+                    <strong>Weight to lose:</strong>&nbsp;{{weightToLose}} kg
+                </div>
+
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Weight (kilogram)
+            </td>
+
+            <td class="result-cell">
+                {{weight}}
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Waist (cm)
+            </td>
+
+            <td class="result-cell">
+                {{waist}}
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Hip (cm)
+            </td>
+
+            <td class="result-cell">
+                {{hip}}
+            </td>
+        </tr>
+
+        <tr>
+            <td class="measurement-label">
+                Wrist (cm)
+            </td>
+
+            <td class="result-cell">
+                {{wrist}}
+            </td>
+        </tr>
+
+        <tr class="bmi-row">
+
+            <td class="measurement-label">
+                BMI Result
+            </td>
+
+            <td class="result-cell">
+                {{bmi}} kg/m²
+            </td>
+
+            <td class="remarks-cell bmi-remarks">
+
+                <div>
+                    <strong>PNP:</strong>&nbsp;{{pnpClassification}}
+                </div>
+
+                <div>
+                    <strong>WHO:</strong>&nbsp;{{whoClassification}}
+                </div>
+
+            </td>
+
+        </tr>
+
+        <tr class="representative-labels">
+
+            <th>
+                Unit Representative:
+            </th>
+
+            <th>
+                Health Service Representative:
+            </th>
+
+            <th>
+                Encoder:
+            </th>
+
+        </tr>
+
+        <tr class="signature-area">
+
+            <td>{{unitRepresentative}}</td>
+            <td>{{healthServiceRepresentative}}</td>
+            <td>{{encoder}}</td>
+
+        </tr>
+
+    </table>
+
+    <div class="cutting-line">
+        <span>✂ CUT HERE</span>
+    </div>
+
+</div>
+
+</div>
+
+</body>
+
+</html>

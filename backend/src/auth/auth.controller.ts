@@ -8,7 +8,9 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.validateAndLogin(loginDto);
-  }
+    async login(@Body() loginDto: LoginDto) {
+  console.log('BODY:', loginDto);
+
+  return this.authService.validateAndLogin(loginDto);
+}
 }

@@ -1,7 +1,18 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import "./MainLayout.css";
 
 export default function MainLayout() {
+  const navigate = useNavigate();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const handleLogout = () => {
+    // Clear stored auth session
+    localStorage.removeItem("authToken");
+    // Redirect to login page
+    navigate("/login");
+  };
+
   return (
     <div className="app-layout">
 
@@ -112,25 +123,34 @@ export default function MainLayout() {
 
           <div className="topbar-actions">
 
-            <button className="notification-button">
-              🔔
-            </button>
+            <div className="profile-wrapper">
+              <div 
+                className="profile"
+                onClick={() => setDropdownOpen((prev) => !prev)}
+              >
 
-            <div className="profile">
+                <div className="profile-avatar">
+                  AD
+                </div>
 
-              <div className="profile-avatar">
-                AD
+                <div className="profile-info">
+                  <strong>Administrator</strong>
+                  <small>Health Service</small>
+                </div>
+
+                <span className={`profile-arrow ${dropdownOpen ? "open" : ""}`}>
+                  ▾
+                </span>
+
               </div>
 
-              <div className="profile-info">
-                <strong>Administrator</strong>
-                <small>Health Service</small>
-              </div>
-
-              <span className="profile-arrow">
-                ▾
-              </span>
-
+              {dropdownOpen && (
+                <div className="profile-dropdown">
+                  <button className="logout-button" onClick={handleLogout}>
+                    <span>➔</span> Log Out
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

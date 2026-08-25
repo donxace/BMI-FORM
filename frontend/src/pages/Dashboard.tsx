@@ -1,597 +1,572 @@
+import { useEffect, useMemo, useState } from "react";
 import "./Dashboard.css";
+import { useNavigate } from "react-router-dom";
 
-type Assessment = {
-  id: number;
-  name: string;
+/*
+ * ============================================================
+ * TYPES & INTERFACES (Matching Assessment Reference)
+ * ============================================================
+ */
+
+type Classification = "Underweight" | "Normal" | "Overweight" | "Obese";
+
+type Personnel = {
+  personnel_id: number;
+  rfid_uid: string;
   rank: string;
-  office: string;
-  bmi: number;
-  classification: "Normal" | "Underweight" | "Overweight" | "Obese";
-  date: string;
+  surname: string;
+  first_name: string;
+  middle_initial: string | null;
+  office: string | null;
+  age: number | null;
+  sex: string | null;
 };
 
-const recentAssessments: Assessment[] = [
-  {
-    id: 1,
-    name: "Juan Dela Cruz",
-    rank: "PCPL",
-    office: "PNP Health Service",
-    bmi: 22.4,
-    classification: "Normal",
-    date: "Aug 11, 2026",
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    rank: "PSSG",
-    office: "Personnel Division",
-    bmi: 27.1,
-    classification: "Overweight",
-    date: "Aug 11, 2026",
-  },
-  {
-    id: 3,
-    name: "Pedro Reyes",
-    rank: "PCPT",
-    office: "Finance Division",
-    bmi: 31.2,
-    classification: "Obese",
-    date: "Aug 10, 2026",
-  },
-  {
-    id: 4,
-    name: "Ana Garcia",
-    rank: "PAT",
-    office: "Administrative Division",
-    bmi: 18.2,
-    classification: "Underweight",
-    date: "Aug 10, 2026",
-  },
-];
+type Assessment = {
+  assessment_id: number;
+  personnel_id: number;
+  height: number;
+  weight: number;
+  waist: number | null;
+  hip: number | null;
+  wrist: number | null;
+  bmi: number;
+  ibw: number | null;
+  weight_to_lose: number | null;
+  pnp_classification: string;
+  who_classification: Classification;
+  assessment_date: string;
+  unit_representative: string | null;
+  health_service_representative: string | null;
+  encoder: string | null;
+  personnel: Personnel;
+};
 
-const bmiDistribution = [
-  {
-    label: "Underweight",
-    count: 38,
-    percentage: 12,
-  },
-  {
-    label: "Normal",
-    count: 214,
-    percentage: 65,
-  },
-  {
-    label: "Overweight",
-    count: 52,
-    percentage: 16,
-  },
-  {
-    label: "Obese",
-    count: 24,
-    percentage: 7,
-  },
-];
+type AssessmentApiResponse = {
+  assessment_assessment_id: string | number;
+  assessment_personnel_id: string | number;
+  assessment_height: string | number;
+  assessment_weight: string | number;
+  assessment_waist: string | number | null;
+  assessment_hip: string | number | null;
+  assessment_wrist: string | number | null;
+  assessment_bmi: string | number;
+  assessment_ibw: string | number | null;
+  assessment_weight_to_lose: string | number | null;
+  assessment_pnp_classification: string | null;
+  assessment_who_classification: string | null;
+  assessment_assessment_date: string;
+  assessment_unit_representative: string | null;
+  assessment_health_service_representative: string | null;
+  assessment_encoder: string | null;
+  assessment_created_at?: string;
+  personnel_rfid_uid: string | null;
+  personnel_rank: string | null;
+  personnel_surname: string | null;
+  personnel_first_name: string | null;
+  personnel_middle_initial: string | null;
+  personnel_q?: string | null;
+  personnel_age: number | string | null;
+  personnel_sex: string | null;
+  personnel_office: string | null;
+};
 
-function classificationClass(
-  classification: Assessment["classification"],
-) {
-  return classification.toLowerCase();
+/*
+ * ============================================================
+ * HELPER FUNCTIONS
+ * ============================================================
+ */
+
+function normalizeClassification(
+  classification: string | null | undefined
+): Classification {
+  const value = classification?.toLowerCase().trim();
+
+  if (!value) return "Normal";
+  if (value === "underweight" || value.includes("underweight")) return "Underweight";
+  if (value === "overweight" || value.includes("overweight")) return "Overweight";
+  if (value === "obese" || value.includes("obesity")) return "Obese";
+  if (value === "normal" || value.includes("normal weight")) return "Normal";
+
+  return "Normal";
 }
 
+function classificationClass(classification: string) {
+  return classification.toLowerCase().replace(/\s+/g, "-");
+}
+
+function getFullName(personnel?: Personnel) {
+  if (!personnel) return "Unknown Personnel";
+  return [personnel.first_name, personnel.middle_initial, personnel.surname]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getInitials(personnel?: Personnel) {
+  if (!personnel) return "NA";
+  const firstInitial = personnel.first_name?.charAt(0) ?? "";
+  const lastInitial = personnel.surname?.charAt(0) ?? "";
+  return `${firstInitial}${lastInitial}`.toUpperCase();
+}
+
+function formatDate(date: string) {
+  if (!date) return "—";
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) return date;
+  return parsedDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function numberOrNull(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+/*
+ * ============================================================
+ * DASHBOARD COMPONENT
+ * ============================================================
+ */
+
 export default function Dashboard() {
+  const navigate = useNavigate();
+
+  const [assessmentList, setAssessmentList] = useState<Assessment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  /*
+   * ------------------------------------------------------------
+   * FETCH DATA FROM BACKEND API
+   * ------------------------------------------------------------
+   */
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch("http://localhost:3000/bmi-assessments");
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const rawData = (await response.json()) as AssessmentApiResponse[];
+
+        if (!Array.isArray(rawData)) {
+          throw new Error("Invalid assessment data returned by the server.");
+        }
+
+        const convertedData: Assessment[] = rawData.map((item) => {
+          const personnelId = Number(item.assessment_personnel_id);
+
+          const personnel: Personnel = {
+            personnel_id: personnelId,
+            rfid_uid: item.personnel_rfid_uid ?? "",
+            rank: item.personnel_rank ?? "",
+            surname: item.personnel_surname ?? "",
+            first_name: item.personnel_first_name ?? "",
+            middle_initial: item.personnel_middle_initial ?? null,
+            office: item.personnel_office ?? null,
+            age: numberOrNull(item.personnel_age),
+            sex: item.personnel_sex ?? null,
+          };
+
+          return {
+            assessment_id: Number(item.assessment_assessment_id),
+            personnel_id: personnelId,
+            height: Number(item.assessment_height) || 0,
+            weight: Number(item.assessment_weight) || 0,
+            waist: numberOrNull(item.assessment_waist),
+            hip: numberOrNull(item.assessment_hip),
+            wrist: numberOrNull(item.assessment_wrist),
+            bmi: Number(item.assessment_bmi) || 0,
+            ibw: numberOrNull(item.assessment_ibw),
+            weight_to_lose: numberOrNull(item.assessment_weight_to_lose),
+            pnp_classification: item.assessment_pnp_classification ?? "N/A",
+            who_classification: normalizeClassification(
+              item.assessment_who_classification
+            ),
+            assessment_date: item.assessment_assessment_date ?? "",
+            unit_representative: item.assessment_unit_representative ?? null,
+            health_service_representative:
+              item.assessment_health_service_representative ?? null,
+            encoder: item.assessment_encoder ?? null,
+            personnel,
+          };
+        });
+
+        setAssessmentList(convertedData);
+      } catch (err) {
+        console.error("DASHBOARD FETCH ERROR:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load dashboard records."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssessments();
+  }, []);
+
+  /*
+   * ------------------------------------------------------------
+   * COMPUTED METRICS & DERIVED STATS
+   * ------------------------------------------------------------
+   */
+  const totalAssessments = assessmentList.length;
+
+  const uniquePersonnelCount = useMemo(() => {
+    const ids = new Set(assessmentList.map((a) => a.personnel_id));
+    return ids.size;
+  }, [assessmentList]);
+
+  const normalCount = useMemo(
+    () => assessmentList.filter((a) => a.who_classification === "Normal").length,
+    [assessmentList]
+  );
+
+  const overweightCount = useMemo(
+    () => assessmentList.filter((a) => a.who_classification === "Overweight").length,
+    [assessmentList]
+  );
+
+  const obeseCount = useMemo(
+    () => assessmentList.filter((a) => a.who_classification === "Obese").length,
+    [assessmentList]
+  );
+
+  const underweightCount = useMemo(
+    () => assessmentList.filter((a) => a.who_classification === "Underweight").length,
+    [assessmentList]
+  );
+
+  const needsAttentionCount = overweightCount + obeseCount + underweightCount;
+
+  const averageBmi = useMemo(() => {
+    if (totalAssessments === 0) return "0.0";
+    const sum = assessmentList.reduce((acc, curr) => acc + (curr.bmi || 0), 0);
+    return (sum / totalAssessments).toFixed(1);
+  }, [assessmentList, totalAssessments]);
+
+  const bmiDistribution = useMemo(() => {
+    const calcPercentage = (count: number) =>
+      totalAssessments > 0 ? Math.round((count / totalAssessments) * 100) : 0;
+
+    return [
+      {
+        label: "Underweight",
+        count: underweightCount,
+        percentage: calcPercentage(underweightCount),
+      },
+      {
+        label: "Normal",
+        count: normalCount,
+        percentage: calcPercentage(normalCount),
+      },
+      {
+        label: "Overweight",
+        count: overweightCount,
+        percentage: calcPercentage(overweightCount),
+      },
+      {
+        label: "Obese",
+        count: obeseCount,
+        percentage: calcPercentage(obeseCount),
+      },
+    ];
+  }, [totalAssessments, underweightCount, normalCount, overweightCount, obeseCount]);
+
+  // Sort by latest assessment ID and slice top 5 for "Recent Assessments"
+  const recentAssessments = useMemo(() => {
+    return [...assessmentList]
+      .sort((a, b) => b.assessment_id - a.assessment_id)
+      .slice(0, 5);
+  }, [assessmentList]);
+
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
     <div className="dashboard">
-      {/* MAIN */}
       <main className="main-content">
-
         <div className="content">
-
-          {/* DATE + ACTIONS */}
+          {/* HEADER */}
           <div className="content-header">
-
             <div>
-              <span className="date-label">
-                MONTH OF 
-              </span>
-
-              <strong>
-                August 11, 2026
-              </strong>
+              <span className="date-label">TODAY IS</span>
+              <strong>{currentDate}</strong>
             </div>
 
             <div className="header-actions">
-
-              <button className="secondary-button">
-                ⬇ Export Report
-              </button>
-
-              <button className="primary-button">
+              <button onClick={() => navigate("/Report")} className="secondary-button">⬇ Export Report</button>
+              <button 
+                className="primary-button"
+                onClick={() => navigate("/Measurement")}
+              >
                 + New Assessment
               </button>
-
             </div>
-
           </div>
+
+          {error && (
+            <div className="assessment-error" style={{ marginBottom: "20px" }}>
+              <strong>Unable to load dashboard data</strong>
+              <span>{error}</span>
+            </div>
+          )}
 
           {/* STAT CARDS */}
           <section className="stat-grid">
-
             <div className="stat-card">
-
               <div className="stat-top">
                 <span>Total Personnel</span>
-                <div className="stat-icon blue">
-                  ♙
-                </div>
+                <div className="stat-icon blue">♙</div>
               </div>
-
-              <h2>1,245</h2>
-
+              <h2>{loading ? "..." : uniquePersonnelCount}</h2>
               <div className="stat-change positive">
-                ↑ 4.8%
-                <span>from last month</span>
+                <span>Unique personnel assessed</span>
               </div>
-
             </div>
 
             <div className="stat-card">
-
               <div className="stat-top">
-                <span>Assessments</span>
-
-                <div className="stat-icon purple">
-                  ▣
-                </div>
+                <span>Total Assessments</span>
+                <div className="stat-icon purple">▣</div>
               </div>
-
-              <h2>328</h2>
-
+              <h2>{loading ? "..." : totalAssessments}</h2>
               <div className="stat-change positive">
-                ↑ 12.6%
-                <span>this month</span>
+                <span>Recorded in system</span>
               </div>
-
             </div>
 
             <div className="stat-card">
-
               <div className="stat-top">
                 <span>Normal BMI</span>
-
-                <div className="stat-icon green">
-                  ✓
-                </div>
+                <div className="stat-icon green">✓</div>
               </div>
-
-              <h2>214</h2>
-
+              <h2>{loading ? "..." : normalCount}</h2>
               <div className="stat-change neutral">
-                65.2%
-                <span>of assessments</span>
+                {totalAssessments > 0
+                  ? `${((normalCount / totalAssessments) * 100).toFixed(1)}%`
+                  : "0%"}
+                <span> of assessments</span>
               </div>
-
             </div>
 
             <div className="stat-card">
-
               <div className="stat-top">
                 <span>Needs Attention</span>
-
-                <div className="stat-icon orange">
-                  !
-                </div>
+                <div className="stat-icon orange">!</div>
               </div>
-
-              <h2>114</h2>
-
+              <h2>{loading ? "..." : needsAttentionCount}</h2>
               <div className="stat-change warning">
-                34.8%
-                <span>need monitoring</span>
+                {totalAssessments > 0
+                  ? `${((needsAttentionCount / totalAssessments) * 100).toFixed(1)}%`
+                  : "0%"}
+                <span> need monitoring</span>
               </div>
-
             </div>
-
           </section>
 
           {/* MAIN DASHBOARD GRID */}
           <section className="dashboard-grid">
-
             {/* BMI DISTRIBUTION */}
             <div className="card bmi-card">
-
               <div className="card-header">
-
                 <div>
                   <h3>BMI Distribution</h3>
-                  <p>
-                    Current assessment classification
-                  </p>
+                  <p>Current assessment classification breakdown</p>
                 </div>
-
-                <button className="card-menu">
-                  ⋮
-                </button>
-
               </div>
 
               <div className="distribution">
-
                 {bmiDistribution.map((item) => (
-
-                  <div
-                    className="distribution-row"
-                    key={item.label}
-                  >
-
+                  <div className="distribution-row" key={item.label}>
                     <div className="distribution-info">
-
-                      <span>
-                        {item.label}
-                      </span>
-
-                      <strong>
-                        {item.count}
-                      </strong>
-
+                      <span>{item.label}</span>
+                      <strong>{item.count}</strong>
                     </div>
 
                     <div className="progress">
-
                       <div
-                        className={`progress-bar ${item.label
-                          .toLowerCase()
-                          .replace(" ", "-")}`}
-                        style={{
-                          width: `${item.percentage}%`,
-                        }}
+                        className={`progress-bar ${item.label.toLowerCase()}`}
+                        style={{ width: `${item.percentage}%` }}
                       />
-
                     </div>
 
-                    <span className="percentage">
-                      {item.percentage}%
-                    </span>
-
+                    <span className="percentage">{item.percentage}%</span>
                   </div>
-
                 ))}
-
               </div>
-
             </div>
 
             {/* QUICK ACTIONS */}
             <div className="card quick-card">
-
               <div className="card-header">
-
                 <div>
                   <h3>Quick Actions</h3>
-                  <p>
-                    Frequently used functions
-                  </p>
+                  <p>Frequently used functions</p>
                 </div>
-
               </div>
 
               <div className="quick-actions">
-
-                <button>
-                  <span className="quick-icon blue">
-                    +
-                  </span>
-
+                <button onClick={() => navigate("/Measurement")}>
+                  <span className="quick-icon blue">+</span>
                   <div>
-                    <strong>
-                      New Assessment
-                    </strong>
-
-                    <small>
-                      Record BMI measurement
-                    </small>
+                    <strong>New Assessment</strong>
+                    <small>Record BMI measurement</small>
                   </div>
-
                   <span>›</span>
                 </button>
 
-                <button>
-                  <span className="quick-icon green">
-                    ♙
-                  </span>
-
+                <button onClick={() => navigate("/Personnel")}>
+                  <span className="quick-icon green">♙</span>
                   <div>
-                    <strong>
-                      Add Personnel
-                    </strong>
-
-                    <small>
-                      Register new personnel
-                    </small>
+                    <strong>Add Personnel</strong>
+                    <small>Register new personnel</small>
                   </div>
-
                   <span>›</span>
                 </button>
 
-                <button>
-                  <span className="quick-icon purple">
-                    ▤
-                  </span>
-
+                <button onClick={() => navigate("/Report")}>
+                  <span className="quick-icon purple">▤</span>
                   <div>
-                    <strong>
-                      Generate Report
-                    </strong>
-
-                    <small>
-                      Create BMI report
-                    </small>
+                    <strong>Generate Report</strong>
+                    <small>Create BMI report</small>
                   </div>
-
                   <span>›</span>
                 </button>
-
               </div>
-
             </div>
-
           </section>
 
-          {/* RECENT ASSESSMENTS */}
+          {/* RECENT ASSESSMENTS TABLE */}
           <section className="card assessments-card">
-
             <div className="card-header">
-
               <div>
                 <h3>Recent BMI Assessments</h3>
-
-                <p>
-                  Latest personnel assessments
-                </p>
+                <p>Latest personnel assessment records</p>
               </div>
-
-              <button className="view-all">
-                View all →
-              </button>
-
             </div>
 
             <div className="table-container">
-
-              <table>
-
-                <thead>
-
-                  <tr>
-                    <th>PERSONNEL</th>
-                    <th>RANK</th>
-                    <th>OFFICE</th>
-                    <th>BMI</th>
-                    <th>CLASSIFICATION</th>
-                    <th>DATE</th>
-                    <th></th>
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {recentAssessments.map(
-                    (assessment) => (
-
-                      <tr key={assessment.id}>
-
-                        <td>
-
-                          <div className="person-cell">
-
-                            <div className="person-avatar">
-                              {assessment.name
-                                .split(" ")
-                                .map((word) =>
-                                  word[0],
-                                )
-                                .slice(0, 2)
-                                .join("")}
-                            </div>
-
-                            <div>
-                              <strong>
-                                {assessment.name}
-                              </strong>
-
-                              <small>
-                                Personnel ID #{String(
-                                  assessment.id,
-                                ).padStart(4, "0")}
-                              </small>
-                            </div>
-
-                          </div>
-
+              {loading ? (
+                <div style={{ padding: "2rem", textAlign: "center" }}>
+                  Loading recent assessments...
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>PERSONNEL</th>
+                      <th>RANK</th>
+                      <th>OFFICE</th>
+                      <th>BMI</th>
+                      <th>CLASSIFICATION</th>
+                      <th>DATE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentAssessments.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>
+                          No recent assessments found.
                         </td>
-
-                        <td>
-                          {assessment.rank}
-                        </td>
-
-                        <td>
-                          {assessment.office}
-                        </td>
-
-                        <td>
-
-                          <strong className="bmi-value">
-                            {assessment.bmi}
-                          </strong>
-
-                          <small>
-                            kg/m²
-                          </small>
-
-                        </td>
-
-                        <td>
-
-                          <span
-                            className={`badge ${classificationClass(
-                              assessment.classification,
-                            )}`}
-                          >
-                            <span className="badge-dot" />
-                            {assessment.classification}
-                          </span>
-
-                        </td>
-
-                        <td>
-                          {assessment.date}
-                        </td>
-
-                        <td>
-
-                          <button className="row-menu">
-                            ⋮
-                          </button>
-
-                        </td>
-
                       </tr>
+                    ) : (
+                      recentAssessments.map((assessment) => (
+                        <tr key={assessment.assessment_id}>
+                          <td>
+                            <div className="person-cell">
+                              <div className="person-avatar">
+                                {getInitials(assessment.personnel)}
+                              </div>
+                              <div>
+                                <strong>
+                                  {getFullName(assessment.personnel)}
+                                </strong>
+                                <small>
+                                  Personnel ID #
+                                  {String(assessment.personnel_id).padStart(4, "0")}
+                                </small>
+                              </div>
+                            </div>
+                          </td>
 
-                    ),
-                  )}
+                          <td>{assessment.personnel.rank || "—"}</td>
 
-                </tbody>
+                          <td>{assessment.personnel.office || "No office"}</td>
 
-              </table>
+                          <td>
+                            <strong className="bmi-value">
+                              {assessment.bmi > 0 ? assessment.bmi.toFixed(1) : "N/A"}
+                            </strong>
+                            <small> kg/m²</small>
+                          </td>
 
+                          <td>
+                            <span
+                              className={`badge ${classificationClass(
+                                assessment.who_classification
+                              )}`}
+                            >
+                              <span className="badge-dot" />
+                              {assessment.who_classification}
+                            </span>
+                          </td>
+
+                          <td>{formatDate(assessment.assessment_date)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
-
           </section>
 
-          {/* BOTTOM GRID */}
+          {/* SYSTEM SUMMARY */}
           <section className="bottom-grid">
-
-            <div className="card">
-
-              <div className="card-header">
-
-                <div>
-                  <h3>Assessment Activity</h3>
-                  <p>
-                    Number of assessments this week
-                  </p>
-                </div>
-
-                <select>
-                  <option>This Week</option>
-                  <option>This Month</option>
-                  <option>This Year</option>
-                </select>
-
-              </div>
-
-              <div className="activity-chart">
-
-                <div className="chart-y">
-                  <span>80</span>
-                  <span>60</span>
-                  <span>40</span>
-                  <span>20</span>
-                  <span>0</span>
-                </div>
-
-                <div className="chart-area">
-
-                  {[45, 62, 38, 75, 55, 68, 82].map(
-                    (height, index) => (
-
-                      <div
-                        className="chart-column"
-                        key={index}
-                      >
-
-                        <div
-                          className="chart-bar"
-                          style={{
-                            height: `${height}%`,
-                          }}
-                        />
-
-                        <span>
-                          {
-                            [
-                              "Mon",
-                              "Tue",
-                              "Wed",
-                              "Thu",
-                              "Fri",
-                              "Sat",
-                              "Sun",
-                            ][index]
-                          }
-                        </span>
-
-                      </div>
-
-                    ),
-                  )}
-
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* SYSTEM SUMMARY */}
             <div className="card system-card">
-
               <div className="card-header">
-
                 <div>
                   <h3>System Summary</h3>
-                  <p>
-                    BMI monitoring status
-                  </p>
+                  <p>BMI monitoring status</p>
                 </div>
-
               </div>
 
               <div className="summary-list">
-
                 <div>
-                  <span>Personnel Records</span>
-                  <strong>1,245</strong>
+                  <span>Assessed Personnel</span>
+                  <strong>{uniquePersonnelCount}</strong>
                 </div>
 
                 <div>
                   <span>Total Assessments</span>
-                  <strong>3,842</strong>
+                  <strong>{totalAssessments}</strong>
                 </div>
 
                 <div>
                   <span>Average BMI</span>
-                  <strong>24.8</strong>
+                  <strong>{averageBmi}</strong>
                 </div>
-
-                <div>
-                  <span>Assessments Today</span>
-                  <strong>42</strong>
-                </div>
-
               </div>
-
-              <button className="full-report-button">
-                View Analytics →
-              </button>
-
             </div>
-
           </section>
-
         </div>
-
       </main>
-
     </div>
   );
 }

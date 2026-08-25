@@ -153,7 +153,7 @@ export default function Personnel() {
       const data: Personnel[] = rawData.map((person: any) => ({
         personnel_id: Number(person.personnel_id),
         rfid_uid: person.rfid_uid,
-        rank: person.rank,
+        rank: person.rank || "N/A",
         surname: person.surname,
         first_name: person.first_name,
         middle_initial: person.middle_initial,
@@ -233,13 +233,20 @@ export default function Personnel() {
   }, [personnelList]);
 
   const ranks = useMemo(() => {
-    // If availableRanks has data, map its rank names; otherwise, fallback to unique ranks from current personnel list
+    let rankSet: string[];
     if (availableRanks.length > 0) {
-      return availableRanks.map((r) => r.rank_name);
+      rankSet = availableRanks.map((r) => r.rank_name);
+    } else {
+      rankSet = Array.from(
+        new Set(personnelList.map((person) => person.rank).filter(Boolean))
+      );
     }
-    return Array.from(
-      new Set(personnelList.map((person) => person.rank).filter(Boolean))
-    );
+
+    if (!rankSet.includes("N/A")) {
+      rankSet.push("N/A");
+    }
+
+    return rankSet;
   }, [availableRanks, personnelList]);
 
   /*
@@ -937,6 +944,7 @@ export default function Personnel() {
                       }}
                     >
                       <option value="">Select PNP Rank</option>
+                      <option value="N/A">N/A</option>
                       {availableRanks.map((r) => (
                         <option key={r.rank_id} value={r.rank_name}>
                           {r.rank_name}

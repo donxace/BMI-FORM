@@ -5,6 +5,8 @@ import { HealthReportsModule } from './health-reports/health-reports.module';
 import { PersonnelModule } from './personnel/personnel.module';
 import { BmiAssessmentsModule } from './bmi-assessments/bmi-assessments.module';
 import { AuthModule } from './auth/auth.module'; 
+import { RanksModule } from './ranks/ranks.module';
+import { Rank } from './ranks/rank.entity';
 
 @Module({
   imports: [
@@ -15,9 +17,10 @@ import { AuthModule } from './auth/auth.module';
       username: 'root',
       password: '',
       database: 'bmi_monitoring',
-
+      entities: [Rank /* , Personnel */], // Add Rank here
+      synchronize: false, 
       autoLoadEntities: true,
-      synchronize: false,
+
     }),
 
     HealthReportsModule,
@@ -27,6 +30,8 @@ import { AuthModule } from './auth/auth.module';
     BmiAssessmentsModule,
 
     AuthModule,
+
+    RanksModule,
   ],
 })
 export class AppModule {}

@@ -1,3 +1,7 @@
+/* =========================================================
+   GLOBAL
+========================================================= */
+
 * {
   box-sizing: border-box;
 }
@@ -17,11 +21,180 @@ body,
   overflow-x: hidden;
 }
 
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
 .sidebar {
   width: 240px;
   min-width: 240px;
   flex-shrink: 0;
+  position: relative;
 }
+
+
+/* =========================================================
+   SLIDING BLUE INDICATOR
+========================================================= */
+
+.sidebar::before {
+  content: "";
+
+  position: absolute;
+
+  /*
+     Starting position:
+     Dashboard
+  */
+  top: 70px;
+  left: 15px;
+
+  width: calc(100% - 30px);
+  height: 55px;
+
+  background: #2453d8;
+  border-radius: 10px;
+
+  z-index: 0;
+  pointer-events: none;
+
+  transform: translateY(0);
+
+  /*
+     Smooth sliding animation
+  */
+  transition: transform 0.30s ease-in-out;
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+.navigation {
+  position: relative;
+  z-index: 1;
+}
+
+
+/*
+   Navigation items stay above the blue slider.
+*/
+
+.nav-item {
+  position: relative;
+  z-index: 2;
+
+  cursor: pointer;
+
+  background: transparent !important;
+
+  transition:
+    color 0.2s ease;
+}
+
+
+/*
+   Active navigation item
+*/
+
+.nav-item.active {
+  background: transparent !important;
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   SLIDING BLUE INDICATOR POSITIONS
+========================================================= */
+
+/*
+   DASHBOARD
+   Starting position = 70px
+*/
+
+.sidebar:has(.nav-item.active[href="/"])::before {
+  transform: translateY(-10px);
+}
+
+
+/*
+   MEASUREMENT
+   70 + 54 = 124px
+*/
+
+.sidebar:has(.nav-item.active[href="/measurement"])::before {
+  transform: translateY(35px);
+}
+
+
+/*
+   PERSONNEL
+   70 + 108 = 178px
+*/
+
+.sidebar:has(.nav-item.active[href="/personnel"])::before {
+  transform: translateY(85px);
+}
+
+
+/*
+   ASSESSMENTS
+   70 + 162 = 232px
+*/
+
+.sidebar:has(.nav-item.active[href="/assessments"])::before {
+  transform: translateY(130px);
+}
+
+
+/*
+   REPORTS
+   70 + 216 = 286px
+*/
+
+.sidebar:has(.nav-item.active[href="/report"])::before {
+  transform: translateY(180px);
+}
+
+
+/*
+   ANALYTICS
+   70 + 270 = 340px
+*/
+
+.sidebar:has(.nav-item.active[href="/analytics"])::before {
+  transform: translateY(228px);
+}
+
+
+/*
+   SETTINGS
+
+   There is a larger gap because of the SYSTEM heading.
+*/
+
+.sidebar:has(.nav-item.active[href="/settings"])::before {
+  transform: translateY(335px);
+}
+
+
+/* =========================================================
+   MENU TEXT / ICONS
+========================================================= */
+
+.nav-item span,
+.nav-item svg,
+.nav-item i {
+  position: relative;
+  z-index: 3;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
 
 .app-main {
   flex: 1;
@@ -35,7 +208,11 @@ body,
   overflow-x: hidden;
 }
 
-/* Profile Wrapper & Base Toggle */
+
+/* =========================================================
+   PROFILE
+========================================================= */
+
 .profile-wrapper {
   position: relative;
 }
@@ -46,8 +223,11 @@ body,
   gap: 10px;
   cursor: pointer;
   user-select: none;
+
   padding: 4px 8px;
+
   border-radius: 8px;
+
   transition: background 0.15s ease;
 }
 
@@ -55,11 +235,17 @@ body,
   background: #f1f5f9;
 }
 
-/* Rotating Arrow Animation */
+
+/* =========================================================
+   PROFILE ARROW
+========================================================= */
+
 .profile-arrow {
   display: inline-block;
+
   font-size: 11px;
   color: #8a95a5;
+
   transition: transform 0.2s ease;
 }
 
@@ -67,33 +253,58 @@ body,
   transform: rotate(180deg);
 }
 
-/* Dropdown Menu */
+
+/* =========================================================
+   PROFILE DROPDOWN
+========================================================= */
+
 .profile-dropdown {
   position: absolute;
+
   top: calc(100% + 8px);
   right: 0;
+
   width: 150px;
+
   background: #ffffff;
+
   border: 1px solid #e7ebf1;
   border-radius: 8px;
+
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+
   padding: 5px;
+
   z-index: 100;
 }
 
+
+/* =========================================================
+   LOGOUT BUTTON
+========================================================= */
+
 .logout-button {
   width: 100%;
+
   display: flex;
   align-items: center;
   gap: 8px;
+
   padding: 8px 12px;
+
   border: none;
+
   background: transparent;
+
   color: #dc2626;
+
   font-size: 11px;
   font-weight: 600;
+
   border-radius: 6px;
+
   cursor: pointer;
+
   transition: background 0.15s ease;
 }
 
@@ -101,14 +312,22 @@ body,
   background: #fef2f2;
 }
 
-/* topbar */
+
+/* =========================================================
+   TOPBAR
+========================================================= */
+
 .topbar {
   height: 100px !important;
   width: 100%;
+
   background: #ffffff;
+
   border-bottom: 1px solid #e7ebf1;
+
   display: flex;
   align-items: center;
+
   padding: 0 24px;
 }
 
@@ -116,58 +335,70 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   width: 100%;
 }
 
-/* Branding Section */
+
+/* =========================================================
+   BRANDING
+========================================================= */
+
 .topbar-branding {
   display: flex;
   align-items: center;
   gap: 12px;
+
   flex-shrink: 0;
+
   margin-left: 250px;
 }
 
-/* Adjust logo size here */
 .topbar-logo {
-  height: 80px; /* Set desired height */
-  width: 80px;  /* Match width for 1:1 aspect ratio */
+  height: 80px;
+  width: 80px;
+
   object-fit: contain;
+
   flex-shrink: 0;
+
   display: block;
 }
 
 .branding-text {
   display: flex;
   flex-direction: column;
+
   text-align: left;
 }
 
 .branding-text strong {
   font-size: 30px;
   font-weight: 700;
+
   color: #0f172a;
+
   line-height: 1.2;
 }
 
 .branding-text small {
   font-size: 11px;
+
   color: #64748b;
+
   line-height: 1.2;
 }
 
 .brand {
-  text-align: left;     /* Centers text lines */
+  text-align: left;
   padding: 16px;
 }
 
-/* Heading font size */
 .brand h2 {
-  font-size: 20px !important; /* Adjust as needed (e.g., 18px, 22px, 24px) */
+  font-size: 20px !important;
   margin: 0;
 }
 
-/* Subtitle/Span font size */
 .brand span {
-  font-size: 12px; /* Adjust subtitle size */
+  font-size: 12px;
 }

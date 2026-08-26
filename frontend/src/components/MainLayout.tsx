@@ -9,6 +9,7 @@ export default function MainLayout() {
   const handleLogout = () => {
     // Clear stored auth session
     localStorage.removeItem("authToken");
+
     // Redirect to login page
     navigate("/login");
   };
@@ -17,45 +18,87 @@ export default function MainLayout() {
     <div className="app-layout">
       {/* Sidebar */}
       <aside className="sidebar">
-
-
         <nav className="navigation">
           <p className="nav-title">MAIN MENU</p>
 
-          <NavLink to="/" className="nav-item">
-            <span>▦</span> Dashboard
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>▦</span>
+            Dashboard
           </NavLink>
 
-          <NavLink to="/measurement" className="nav-item">
-            <span>⚖</span> Measurement
+          <NavLink
+            to="/measurement"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>⚖</span>
+            Measurement
           </NavLink>
 
-          <NavLink to="/personnel" className="nav-item">
-            <span>♙</span> Personnel
+          <NavLink
+            to="/personnel"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>♙</span>
+            Personnel
           </NavLink>
 
-          <NavLink to="/assessments" className="nav-item">
-            <span>▣</span> Assessments
+          <NavLink
+            to="/assessments"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>▣</span>
+            Assessments
           </NavLink>
 
-          <NavLink to="/report" className="nav-item">
-            <span>▤</span> Reports
+          <NavLink
+            to="/report"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>▤</span>
+            Reports
           </NavLink>
 
-          <NavLink to="/analytics" className="nav-item">
-            <span>◔</span> Analytics
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>◔</span>
+            Analytics
           </NavLink>
 
           <p className="nav-title second">SYSTEM</p>
 
-          <NavLink to="/settings" className="nav-item">
-            <span>⚙</span> Settings
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>⚙</span>
+            Settings
           </NavLink>
         </nav>
 
         <div className="sidebar-footer">
           <div className="health-status">
             <span className="status-dot" />
+
             <div>
               <strong>System Online</strong>
               <small>All services operational</small>
@@ -68,13 +111,15 @@ export default function MainLayout() {
       <div className="app-main">
         <header className="topbar">
           <div className="topbar-actions">
+
             {/* System Branding Section */}
             <div className="topbar-branding">
-              <img 
-                src="/PNP-ITMS-BMI-LOGO.png" 
-                alt="PNP ITMS BMI Logo" 
-                className="topbar-logo" 
+              <img
+                src="/PNP-ITMS-BMI-LOGO.png"
+                alt="PNP ITMS BMI Logo"
+                className="topbar-logo"
               />
+
               <div className="branding-text">
                 <strong>PNP AUTOMATED BMI SYSTEM</strong>
                 <small>PNP - ITMS Department</small>
@@ -83,30 +128,43 @@ export default function MainLayout() {
 
             {/* Profile Wrapper */}
             <div className="profile-wrapper">
-              <div 
+              <div
                 className="profile"
-                onClick={() => setDropdownOpen((prev) => !prev)}
+                onClick={() =>
+                  setDropdownOpen((prev) => !prev)
+                }
               >
-                <div className="profile-avatar">AD</div>
+                <div className="profile-avatar">
+                  AD
+                </div>
 
                 <div className="profile-info">
                   <strong>Administrator</strong>
                   <small>Health Service</small>
                 </div>
 
-                <span className={`profile-arrow ${dropdownOpen ? "open" : ""}`}>
+                <span
+                  className={`profile-arrow ${
+                    dropdownOpen ? "open" : ""
+                  }`}
+                >
                   ▾
                 </span>
               </div>
 
               {dropdownOpen && (
                 <div className="profile-dropdown">
-                  <button className="logout-button" onClick={handleLogout}>
-                    <span>➔</span> Log Out
+                  <button
+                    className="logout-button"
+                    onClick={handleLogout}
+                  >
+                    <span>➔</span>
+                    Log Out
                   </button>
                 </div>
               )}
             </div>
+
           </div>
         </header>
 

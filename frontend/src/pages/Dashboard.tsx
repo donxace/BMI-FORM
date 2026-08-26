@@ -950,7 +950,7 @@ export default function Dashboard() {
                 <button
                   onClick={() =>
                     navigate(
-                      "/Personnel"
+                      "/Personnel?add=true"
                     )
                   }
                 >

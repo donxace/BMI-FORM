@@ -1,4 +1,10 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+// personnel.service.ts
+
+import { 
+  Injectable, 
+  ConflictException, 
+  NotFoundException // <--- ADD THIS IMPORT
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Personnel } from './personnel.entity';
@@ -42,6 +48,10 @@ export class PersonnelService {
   }
 
   async remove(personnel_id: number): Promise<void> {
-    await this.personnelRepository.delete(personnel_id);
+    const result = await this.personnelRepository.delete(personnel_id);
+
+    if (result.affected === 0) {
+      throw new NotFoundException(`Personnel with ID ${personnel_id} not found.`);
+    }
   }
 }

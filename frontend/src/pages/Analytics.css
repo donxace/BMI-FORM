@@ -1003,3 +1003,175 @@
     font-size: 8px;
   }
 }
+
+/* ============================================================
+ * MODERN LINE CHART STYLES (Glassmorphism & Cyber-Health Theme)
+ * ============================================================ */
+
+:root {
+  --chart-bg: #0f172a;
+  --chart-card-bg: rgba(30, 41, 59, 0.7);
+  --chart-border: rgba(255, 255, 255, 0.08);
+  --chart-text-primary: #f8fafc;
+  --chart-text-secondary: #94a3b8;
+  --chart-grid-line: rgba(255, 255, 255, 0.05);
+  --chart-accent-glow: rgba(37, 99, 235, 0.35);
+}
+
+/* Card Wrapper with Modern Dark Glassmorphism */
+.analytics-card-chart {
+  background: var(--chart-card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--chart-border);
+  border-radius: 16px;
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3),
+              inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.analytics-card-chart:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5),
+              inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Header & Typography */
+.chart-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--chart-border);
+}
+
+.chart-card-heading h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--chart-text-primary);
+  margin: 0 0 0.35rem 0;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.chart-card-heading p {
+  font-size: 0.875rem;
+  color: var(--chart-text-secondary);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Pill Badge Accent */
+.chart-card-tag {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  font-size: 0.725rem;
+  font-weight: 700;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
+}
+
+/* Chart Container Box */
+.chart-container-wrapper {
+  width: 100%;
+  height: 380px;
+  margin-top: 1rem;
+  position: relative;
+}
+
+/* Recharts Customization & Overrides */
+.recharts-cartesian-grid-line {
+  stroke: var(--chart-grid-line) !important;
+}
+
+.recharts-tooltip-cursor {
+  stroke: rgba(148, 163, 184, 0.3) !important;
+  stroke-dasharray: 6 6 !important;
+}
+
+/* Floating Glass Tooltip Box */
+.recharts-default-tooltip {
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  padding: 0.85rem 1.15rem !important;
+}
+
+.recharts-tooltip-label {
+  color: #38bdf8 !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  margin-bottom: 0.6rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.recharts-tooltip-item {
+  color: #f1f5f9 !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  padding: 0.2rem 0 !important;
+}
+
+/* Modern Legend Layout */
+.recharts-default-legend {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 1.5rem !important;
+  padding-top: 1.5rem !important;
+}
+
+.recharts-legend-item {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.recharts-legend-item:hover {
+  opacity: 0.8;
+}
+
+.recharts-legend-item-text {
+  color: var(--chart-text-secondary) !important;
+  font-weight: 600 !important;
+  font-size: 0.825rem !important;
+  letter-spacing: 0.01em;
+}
+
+/* Line & Marker Glow Effect */
+.recharts-line-dot {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.4));
+}
+
+.recharts-line-curve {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));
+}
+
+/* Fallback Empty State */
+.chart-analytics-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 220px;
+  color: var(--chart-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}

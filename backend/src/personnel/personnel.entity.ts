@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { BmiAssessment } from '../bmi-assessments/entities/bmi-assessment.entity'; // Adjust path as needed
 
 @Entity('personnel')
 export class Personnel {
@@ -43,4 +45,9 @@ export class Personnel {
 
   @UpdateDateColumn({ type: 'datetime' })
   updated_at!: Date;
+
+  @OneToMany(() => BmiAssessment, (assessment) => assessment.personnel, {
+    onDelete: 'CASCADE',
+  })
+  bmi_assessments!: BmiAssessment[];
 }

@@ -1,4 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import "./Analytics.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -92,6 +102,17 @@ function formatDate(date: string) {
     year: "numeric",
   });
 }
+
+// Distinct colors for each office line
+const OFFICE_COLORS = [
+  "#2563eb", // Blue
+  "#16a34a", // Green
+  "#dc2626", // Red
+  "#9333ea", // Purple
+  "#ea580c", // Orange
+  "#0891b2", // Cyan
+  "#d97706", // Amber
+];
 
 /*
  * ============================================================
@@ -522,6 +543,69 @@ export default function Analytics() {
 
   /*
    * ==========================================================
+   * OFFICE BMI TREND LINE CHART DATA
+   * ==========================================================
+   */
+  const officeTrendData = useMemo(() => {
+    const monthMap = new Map<
+      string,
+      {
+        monthKey: string;
+        monthLabel: string;
+        offices: Record<string, { sum: number; count: number }>;
+      }
+    >();
+
+    filteredAssessments.forEach((assessment) => {
+      if (!assessment.assessment_date) return;
+
+      const date = new Date(assessment.assessment_date);
+      if (isNaN(date.getTime())) return;
+
+      const monthKey = `${date.getFullYear()}-${String(
+        date.getMonth() + 1,
+      ).padStart(2, "0")}`;
+
+      const monthLabel = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+
+      const officeName = assessment.personnel?.office || "Unassigned";
+
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, {
+          monthKey,
+          monthLabel,
+          offices: {},
+        });
+      }
+
+      const entry = monthMap.get(monthKey)!;
+
+      if (!entry.offices[officeName]) {
+        entry.offices[officeName] = { sum: 0, count: 0 };
+      }
+
+      entry.offices[officeName].sum += assessment.bmi;
+      entry.offices[officeName].count += 1;
+    });
+
+    return Array.from(monthMap.values())
+      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+      .map((item) => {
+        const row: Record<string, any> = { month: item.monthLabel };
+
+        Object.entries(item.offices).forEach(([officeName, stats]) => {
+          row[officeName] = Number((stats.sum / stats.count).toFixed(2));
+        });
+
+        return row;
+      });
+  }, [filteredAssessments]);
+
+  /*
+   * ==========================================================
    * OFFICE ANALYTICS
    * ==========================================================
    */
@@ -749,6 +833,8 @@ export default function Analytics() {
         </div>
 
       </div>
+
+      
 
       {/* ANALYTICS FILTERS */}
 
@@ -1129,6 +1215,76 @@ export default function Analytics() {
 
         </div>
 
+      </section>
+
+      {/* OFFICE BMI TREND LINE CHART */}
+      <section className="analytics-card">
+        <div className="card-heading">
+          <div>
+            <h3>BMI Trend by Office</h3>
+            <p>
+              Average BMI trends over time across different PNP offices.
+            </p>
+          </div>
+          <span className="card-tag">MONTHLY TREND</span>
+        </div>
+
+        {officeTrendData.length === 0 ? (
+          <div className="analytics-empty">
+            No historical trend data available.
+          </div>
+        ) : (
+          <div style={{ width: "100%", height: 350, marginTop: "1rem" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={officeTrendData}
+                margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="month"
+                  stroke="#64748b"
+                  style={{ fontSize: "0.85rem" }}
+                />
+                <YAxis
+                  domain={["dataMin - 1", "dataMax + 1"]}
+                  stroke="#64748b"
+                  style={{ fontSize: "0.85rem" }}
+                  unit=" BMI"
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1e293b",
+                    borderColor: "#334155",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontSize: "0.85rem",
+                  }}
+                  itemStyle={{ color: "#fff" }}
+                />
+                <Legend
+                  wrapperStyle={{
+                    paddingTop: "15px",
+                    fontSize: "0.85rem",
+                  }}
+                />
+                {officeOptions.map((officeName, index) => (
+                  <Line
+                    key={officeName}
+                    type="monotone"
+                    dataKey={officeName}
+                    name={officeName}
+                    stroke={OFFICE_COLORS[index % OFFICE_COLORS.length]}
+                    strokeWidth={3}
+                    dot={{ r: 5 }}
+                    activeDot={{ r: 8 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </section>
 
       {/* CLASSIFICATION DISTRIBUTION */}

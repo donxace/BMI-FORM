@@ -100,3 +100,58 @@ body,
 .logout-button:hover {
   background: #fef2f2;
 }
+
+/* topbar */
+.topbar {
+  height: 150px !important;
+  width: 100%;
+  background: #ffffff;
+  border-bottom: 1px solid #e7ebf1;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Branding Section */
+.topbar-branding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-left: 250px;
+}
+
+/* Adjust logo size here */
+.topbar-logo {
+  height: 120px; /* Set desired height */
+  width: 120px;  /* Match width for 1:1 aspect ratio */
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.branding-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.branding-text strong {
+  font-size: 30px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.branding-text small {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.2;
+}

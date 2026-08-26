@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 13, 2026 at 02:20 AM
+-- Generation Time: Aug 26, 2026 at 02:39 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -90,7 +90,33 @@ INSERT INTO `bmi_assessments` (`assessment_id`, `personnel_id`, `height`, `weigh
 (36, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-12', NULL, NULL, NULL, '2026-08-12 13:13:12'),
 (37, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-12', NULL, NULL, NULL, '2026-08-12 13:13:22'),
 (38, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-12', NULL, NULL, NULL, '2026-08-12 13:13:32'),
-(39, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-12', NULL, NULL, NULL, '2026-08-12 14:45:54');
+(39, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-12', NULL, NULL, NULL, '2026-08-12 14:45:54'),
+(40, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:19:46'),
+(41, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:20:47'),
+(42, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:21:57'),
+(43, 1, 170.00, 65.00, 80.00, 95.00, 999.99, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:22:09'),
+(44, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:28:10'),
+(45, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:28:21'),
+(46, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:28:31'),
+(47, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:28:41'),
+(48, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:28:51'),
+(49, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:29:01'),
+(50, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:29:12'),
+(51, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:29:37'),
+(52, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:29:47'),
+(53, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:29:58'),
+(54, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:30:08'),
+(55, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:30:18'),
+(56, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:30:28'),
+(57, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:30:38'),
+(58, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:30:48'),
+(59, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:30:59'),
+(60, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:31:09'),
+(61, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:31:19'),
+(62, 1, 170.00, 65.00, 80.00, 95.00, 17.00, 22.49, 63.58, 1.42, 'Normal', 'Normal', '2026-08-13', NULL, NULL, NULL, '2026-08-13 11:31:41'),
+(63, 7, 123.00, 123.00, 123.00, 123.00, 123.00, 81.30, 33.28, 89.72, 'Obese Class II', 'Obese', '2026-08-13', NULL, NULL, NULL, '2026-08-13 12:28:32'),
+(64, 7, 123.00, 123.00, 123.00, 123.00, 123.00, 81.30, 33.28, 89.72, 'Obese Class II', 'Obese', '2026-08-13', NULL, NULL, NULL, '2026-08-13 12:29:08'),
+(65, 4, 12.00, 12.00, 121.00, 999.99, 123.00, 833.33, 0.32, 11.68, 'Obese Class II', 'Obese', '2026-08-26', NULL, NULL, NULL, '2026-08-26 08:32:39');
 
 -- --------------------------------------------------------
 
@@ -130,6 +156,58 @@ INSERT INTO `personnel` (`personnel_id`, `rfid_uid`, `rank`, `surname`, `first_n
 (10, 'RFID010', 'PMAJ', 'Castillo', 'Fernando', 'I', 'Q1', 42, 'Male', 'PNP Health Service', '2026-08-11 15:11:49', '2026-08-11 15:11:49'),
 (11, 'RFID011', 'PCPL', 'Villanueva', 'Sofia', 'J', 'Q3', 26, 'Female', 'PNP Health Service', '2026-08-11 15:11:49', '2026-08-11 15:11:49');
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ranks`
+--
+
+CREATE TABLE `ranks` (
+  `id` int(11) NOT NULL,
+  `rank` varchar(20) NOT NULL,
+  `sort_order` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `ranks`
+--
+
+INSERT INTO `ranks` (`id`, `rank`, `sort_order`) VALUES
+(1, 'NUP', 14),
+(2, 'PAT', 13),
+(3, 'PCPL', 12),
+(4, 'PSSG', 11),
+(5, 'PMSG', 10),
+(6, 'PSMS', 9),
+(7, 'PCMS', 8),
+(8, 'PEMS', 7),
+(9, 'PLT', 6),
+(10, 'PCPT', 5),
+(11, 'PMAJ', 4),
+(12, 'PLTCOL', 3),
+(13, 'PCOL', 2),
+(14, 'PBGEN', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `role` varchar(50) NOT NULL DEFAULT 'user'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `password_hash`, `role`) VALUES
+(1, 'admin', '$2b$10$y7IOhoEhZg7J0ERynuJPR.TZ.7y1.htIfZys4z6slZnAaor9wage6', 'admin');
+
 --
 -- Indexes for dumped tables
 --
@@ -149,6 +227,21 @@ ALTER TABLE `personnel`
   ADD UNIQUE KEY `rfid_uid` (`rfid_uid`);
 
 --
+-- Indexes for table `ranks`
+--
+ALTER TABLE `ranks`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_rank` (`rank`),
+  ADD UNIQUE KEY `unique_sort_order` (`sort_order`);
+
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `username` (`username`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -156,13 +249,25 @@ ALTER TABLE `personnel`
 -- AUTO_INCREMENT for table `bmi_assessments`
 --
 ALTER TABLE `bmi_assessments`
-  MODIFY `assessment_id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
+  MODIFY `assessment_id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=66;
 
 --
 -- AUTO_INCREMENT for table `personnel`
 --
 ALTER TABLE `personnel`
   MODIFY `personnel_id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `ranks`
+--
+ALTER TABLE `ranks`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables

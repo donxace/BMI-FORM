@@ -76,7 +76,7 @@ export default function MainLayout() {
                 className="topbar-logo" 
               />
               <div className="branding-text">
-                <strong>PNP DUTYFIT</strong>
+                <strong>PNP AUTOMATED BMI SYSTEM</strong>
                 <small>PNP - ITMS Department</small>
               </div>
             </div>

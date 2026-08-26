@@ -103,6 +103,25 @@ export default function Personnel() {
    * ============================================================
    */
 
+  /*
+   * ============================================================
+   * EDIT PERSONNEL MODAL STATE
+   * ============================================================
+   */
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPersonnelId, setEditingPersonnelId] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    rfid_uid: "",
+    rank: "",
+    surname: "",
+    first_name: "",
+    middle_initial: "",
+    q: "",
+    age: "",
+    sex: "",
+    office: "",
+  });
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [savingPersonnel, setSavingPersonnel] = useState(false);
 
@@ -487,14 +506,111 @@ export default function Personnel() {
     );
   };
 
-  const handleEditPersonnel = (
-    personnel: Personnel
-  ) => {
-    console.log(
-      "Edit personnel:",
-      personnel
-    );
-  };
+  /*
+    * ============================================================
+    * OPEN / CLOSE / SUBMIT EDIT MODAL
+    * ============================================================
+    */
+
+    const handleEditPersonnel = (personnel: Personnel) => {
+      setEditingPersonnelId(personnel.personnel_id);
+      setEditFormData({
+        rfid_uid: personnel.rfid_uid || "",
+        rank: personnel.rank === "N/A" ? "" : personnel.rank || "",
+        surname: personnel.surname || "",
+        first_name: personnel.first_name || "",
+        middle_initial: personnel.middle_initial || "",
+        q: personnel.q || "",
+        age: personnel.age !== null ? String(personnel.age) : "",
+        sex: personnel.sex || "",
+        office: personnel.office || "",
+      });
+      setShowEditModal(true);
+    };
+
+    const handleCloseEditModal = () => {
+      if (savingPersonnel) return;
+      setShowEditModal(false);
+      setEditingPersonnelId(null);
+    };
+
+    const handleEditFormChange = (
+      event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    ) => {
+      const { name, value } = event.target;
+      setEditFormData((current) => ({
+        ...current,
+        [name]: value,
+      }));
+    };
+
+    const handleUpdatePersonnel = async (event: React.FormEvent) => {
+      event.preventDefault();
+
+      if (!editingPersonnelId) return;
+
+      if (!editFormData.rank) {
+        alert("Please select a rank.");
+        return;
+      }
+      if (!editFormData.surname) {
+        alert("Please enter the surname.");
+        return;
+      }
+      if (!editFormData.first_name) {
+        alert("Please enter the first name.");
+        return;
+      }
+      if (!editFormData.sex) {
+        alert("Please select the sex.");
+        return;
+      }
+
+      try {
+        setSavingPersonnel(true);
+
+        const updatedData = {
+          rfid_uid: editFormData.rfid_uid,
+          rank: editFormData.rank,
+          surname: editFormData.surname,
+          first_name: editFormData.first_name,
+          middle_initial: editFormData.middle_initial || null,
+          q: editFormData.q || null,
+          age: editFormData.age ? Number(editFormData.age) : null,
+          sex: editFormData.sex,
+          office: editFormData.office || null,
+        };
+
+        const response = await fetch(
+          `${API_BASE_URL}/personnel/${editingPersonnelId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(updatedData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || `HTTP ${response.status}`);
+        }
+
+        alert("Personnel updated successfully!");
+        setShowEditModal(false);
+        setEditingPersonnelId(null);
+
+        await fetchPersonnel();
+      } catch (error) {
+        console.error("UPDATE PERSONNEL ERROR:", error);
+        alert(
+          error instanceof Error ? error.message : "Failed to update personnel."
+        );
+      } finally {
+        setSavingPersonnel(false);
+      }
+    };
 
   const handleDeletePersonnel = async (
     personnel: Personnel
@@ -707,6 +823,366 @@ export default function Personnel() {
         </div>
 
       </section>
+
+      {/* ======================================================
+          EDIT PERSONNEL MODAL
+          ====================================================== */}
+
+      {showEditModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px",
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseEditModal();
+            }
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "700px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#ffffff",
+              borderRadius: "16px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+            }}
+          >
+            {/* MODAL HEADER */}
+            <div
+              style={{
+                padding: "24px 28px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "22px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Edit Personnel
+                </h2>
+                <p
+                  style={{
+                    margin: "6px 0 0",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                  }}
+                >
+                  Modify registered personnel details for ID #{editingPersonnelId}.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseEditModal}
+                disabled={savingPersonnel}
+                style={{
+                  border: "none",
+                  background: "#f3f4f6",
+                  width: "38px",
+                  height: "38px",
+                  borderRadius: "50%",
+                  fontSize: "22px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* MODAL FORM */}
+            <form onSubmit={handleUpdatePersonnel}>
+              <div style={{ padding: "28px" }}>
+                {/* RFID READONLY */}
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "12px",
+                    padding: "18px",
+                    marginBottom: "24px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "6px",
+                      fontWeight: 600,
+                      color: "#475569",
+                    }}
+                  >
+                    RFID CARD UID
+                  </label>
+                  <input
+                    type="text"
+                    name="rfid_uid"
+                    value={editFormData.rfid_uid}
+                    readOnly
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      padding: "12px 14px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      background: "#f1f5f9",
+                      fontWeight: 600,
+                      color: "#334155",
+                    }}
+                  />
+                </div>
+
+                {/* FORM FIELDS GRID */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: "18px",
+                  }}
+                >
+                  {/* RANK */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Rank *
+                    </label>
+                    <select
+                      name="rank"
+                      value={editFormData.rank}
+                      onChange={handleEditFormChange}
+                      required
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <option value="">Select PNP Rank</option>
+                      <option value="N/A">N/A</option>
+                      {availableRanks.map((r) => (
+                        <option key={r.rank_id} value={r.rank_name}>
+                          {r.rank_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* SURNAME */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Surname *
+                    </label>
+                    <input
+                      type="text"
+                      name="surname"
+                      value={editFormData.surname}
+                      onChange={handleEditFormChange}
+                      required
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </div>
+
+                  {/* FIRST NAME */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="first_name"
+                      value={editFormData.first_name}
+                      onChange={handleEditFormChange}
+                      required
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </div>
+
+                  {/* MIDDLE INITIAL */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Middle Initial
+                    </label>
+                    <input
+                      type="text"
+                      name="middle_initial"
+                      maxLength={2}
+                      value={editFormData.middle_initial}
+                      onChange={handleEditFormChange}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </div>
+
+                  {/* Q */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Q
+                    </label>
+                    <input
+                      type="text"
+                      name="q"
+                      value={editFormData.q}
+                      onChange={handleEditFormChange}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </div>
+
+                  {/* AGE */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      name="age"
+                      min="1"
+                      max="120"
+                      value={editFormData.age}
+                      onChange={handleEditFormChange}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </div>
+
+                  {/* SEX */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Sex *
+                    </label>
+                    <select
+                      name="sex"
+                      value={editFormData.sex}
+                      onChange={handleEditFormChange}
+                      required
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <option value="">Select sex</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+
+                  {/* OFFICE */}
+                  <div>
+                    <label style={{ display: "block", marginBottom: "7px", fontWeight: 600 }}>
+                      Office
+                    </label>
+                    <input
+                      type="text"
+                      name="office"
+                      value={editFormData.office}
+                      onChange={handleEditFormChange}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "11px 13px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* MODAL FOOTER */}
+              <div
+                style={{
+                  padding: "18px 28px",
+                  borderTop: "1px solid #e5e7eb",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "12px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleCloseEditModal}
+                  disabled={savingPersonnel}
+                  style={{
+                    padding: "11px 20px",
+                    border: "1px solid #d1d5db",
+                    background: "#ffffff",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingPersonnel}
+                  style={{
+                    padding: "11px 22px",
+                    border: "none",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    borderRadius: "8px",
+                    cursor: savingPersonnel ? "not-allowed" : "pointer",
+                    fontWeight: 600,
+                    opacity: savingPersonnel ? 0.7 : 1,
+                  }}
+                >
+                  {savingPersonnel ? "Updating..." : "Update Personnel"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ======================================================
           PERSONNEL TABLE
@@ -1244,6 +1720,9 @@ export default function Personnel() {
         </div>
 
       </section>
+
+
+  
 
       {/* ======================================================
           ADD PERSONNEL MODAL

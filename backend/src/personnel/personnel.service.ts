@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Personnel } from './personnel.entity';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
+import { UpdatePersonnelDto } from './dto/update-personnel.dto';
 
 @Injectable()
 export class PersonnelService {
@@ -53,5 +54,29 @@ export class PersonnelService {
     if (result.affected === 0) {
       throw new NotFoundException(`Personnel with ID ${personnel_id} not found.`);
     }
+  }
+
+  async update(personnel_id: number, dto: UpdatePersonnelDto): Promise<Personnel> {
+    const personnel = await this.personnelRepository.findOne({
+      where: { personnel_id },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException(`Personnel with ID ${personnel_id} not found.`);
+    }
+
+    // Check if RFID is being updated and already belongs to someone else
+    if (dto.rfid_uid && dto.rfid_uid !== personnel.rfid_uid) {
+      const existingRfid = await this.personnelRepository.findOne({
+        where: { rfid_uid: dto.rfid_uid },
+      });
+
+      if (existingRfid) {
+        throw new ConflictException('RFID Card is already assigned to another personnel.');
+      }
+    }
+
+    Object.assign(personnel, dto);
+    return await this.personnelRepository.save(personnel);
   }
 }

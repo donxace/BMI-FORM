@@ -17,13 +17,7 @@ export default function MainLayout() {
     <div className="app-layout">
       {/* Sidebar */}
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-logo">PNP</div>
-          <div>
-            <h2>BMI System</h2>
-            <span>Health Service</span>
-          </div>
-        </div>
+
 
         <nav className="navigation">
           <p className="nav-title">MAIN MENU</p>
@@ -82,7 +76,7 @@ export default function MainLayout() {
                 className="topbar-logo" 
               />
               <div className="branding-text">
-                <strong>BMI Monitoring System</strong>
+                <strong>PNP DUTYFIT</strong>
                 <small>PNP - ITMS Department</small>
               </div>
             </div>

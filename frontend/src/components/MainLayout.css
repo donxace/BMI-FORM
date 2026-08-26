@@ -103,7 +103,7 @@ body,
 
 /* topbar */
 .topbar {
-  height: 150px !important;
+  height: 100px !important;
   width: 100%;
   background: #ffffff;
   border-bottom: 1px solid #e7ebf1;
@@ -130,8 +130,8 @@ body,
 
 /* Adjust logo size here */
 .topbar-logo {
-  height: 120px; /* Set desired height */
-  width: 120px;  /* Match width for 1:1 aspect ratio */
+  height: 80px; /* Set desired height */
+  width: 80px;  /* Match width for 1:1 aspect ratio */
   object-fit: contain;
   flex-shrink: 0;
   display: block;
@@ -154,4 +154,20 @@ body,
   font-size: 11px;
   color: #64748b;
   line-height: 1.2;
+}
+
+.brand {
+  text-align: left;     /* Centers text lines */
+  padding: 16px;
+}
+
+/* Heading font size */
+.brand h2 {
+  font-size: 20px !important; /* Adjust as needed (e.g., 18px, 22px, 24px) */
+  margin: 0;
+}
+
+/* Subtitle/Span font size */
+.brand span {
+  font-size: 12px; /* Adjust subtitle size */
 }

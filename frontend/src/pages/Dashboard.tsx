@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import "./Dashboard.css";
 import { useNavigate } from "react-router-dom";
 
+const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
 /*
  * ============================================================
  * TYPES & INTERFACES
@@ -243,7 +245,7 @@ export default function Dashboard() {
     const fetchPersonnel = async () => {
       try {
         const response = await fetch(
-          "http://localhost:3000/personnel"
+          `${API_BASE_URL}/personnel`
         );
 
         if (!response.ok) {
@@ -290,8 +292,10 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
+        
+
         const response = await fetch(
-          "http://localhost:3000/bmi-assessments"
+          `${API_BASE_URL}/bmi-assessments`
         );
 
         if (!response.ok) {

@@ -23,7 +23,7 @@ import "./Measurement.css";
  * ============================================================
  */
 
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
 /*
  * ============================================================

@@ -22,14 +22,17 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const response = await fetch("http://localhost:3000/auth/login", {
+      // Dynamically resolves to 'localhost' or your LAN IP (e.g. 192.168.x.x)
+      const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password }),
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(

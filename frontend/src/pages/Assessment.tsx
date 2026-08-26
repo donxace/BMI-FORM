@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Assessment.css";
 
+const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
 /*
  * ============================================================
  * CLASSIFICATION TYPE
@@ -336,7 +338,7 @@ export default function Assessment() {
         );
 
         const response = await fetch(
-          "http://localhost:3000/bmi-assessments",
+         `${API_BASE_URL}/bmi-assessments`,
         );
 
         console.log(
@@ -656,7 +658,7 @@ export default function Assessment() {
     assessmentId: number,
   ) => {
     window.open(
-      `http://localhost:3000/health-reports/bmi/${assessmentId}/pdf`,
+      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf`,
       "_blank",
     );
   };

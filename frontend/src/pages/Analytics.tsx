@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Analytics.css";
 
+const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
 /*
  * ============================================================
  * TYPES
@@ -141,7 +143,7 @@ export default function Analytics() {
         setError("");
 
         const response = await fetch(
-          "http://localhost:3000/bmi-assessments",
+          `${API_BASE_URL}/bmi-assessments`,
         );
 
         if (!response.ok) {

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import "./Personnel.css";
 
+const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
 /*
  * ============================================================
  * TYPES
@@ -130,7 +132,7 @@ export default function Personnel() {
 
   const fetchRanks = async () => {
     try {
-      const response = await fetch("http://localhost:3000/ranks");
+      const response = await fetch(`${API_BASE_URL}/ranks`);
       
       if (response.ok) {
         const data: Rank[] = await response.json();
@@ -152,7 +154,7 @@ export default function Personnel() {
       setLoadingPersonnel(true);
       setPersonnelError("");
 
-      const response = await fetch("http://localhost:3000/personnel");
+      const response = await fetch(`${API_BASE_URL}/personnel`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -428,7 +430,7 @@ export default function Personnel() {
       };
 
       const response = await fetch(
-        "http://localhost:3000/personnel",
+        `${API_BASE_URL}/personnel`,
         {
           method: "POST",
           headers: {
@@ -507,7 +509,7 @@ export default function Personnel() {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/personnel/${personnel.personnel_id}`,
+        `${API_BASE_URL}/personnel/${personnel.personnel_id}`,
         {
           method: "DELETE",
         }

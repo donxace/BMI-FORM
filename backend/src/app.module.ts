@@ -7,6 +7,7 @@ import { BmiAssessmentsModule } from './bmi-assessments/bmi-assessments.module';
 import { AuthModule } from './auth/auth.module'; 
 import { RanksModule } from './ranks/ranks.module';
 import { Rank } from './ranks/rank.entity';
+import { IntrusionDetectionModule } from './intrusion-detection/intrusion-detection.module';
 
 @Module({
   imports: [
@@ -32,6 +33,8 @@ import { Rank } from './ranks/rank.entity';
     AuthModule,
 
     RanksModule,
+
+    IntrusionDetectionModule,
   ],
 })
 export class AppModule {}

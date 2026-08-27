@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -7,6 +12,7 @@ import { User } from './user.entity';
 import { Personnel } from '../personnel/personnel.entity';
 import { LoginDto } from './dto/login.dto';
 import { PersonnelLoginDto } from './dto/personnel-login.dto';
+import { PersonnelRegisterDto } from './dto/personnel-register.dto';
 
 @Injectable()
 export class AuthService {
@@ -100,6 +106,12 @@ export class AuthService {
       throw new UnauthorizedException('RFID card is not registered.');
     }
 
+    if (!personnel.is_claimed) {
+      throw new UnauthorizedException(
+        'This card has not been registered yet. Please complete registration first.',
+      );
+    }
+
     if (!personnel.pin_hash) {
       // First-time use: the PIN entered now becomes the account's PIN.
       personnel.pin_hash = await bcrypt.hash(pin, 10);
@@ -120,6 +132,73 @@ export class AuthService {
 
     return {
       message: 'Login successful',
+      token,
+      user: {
+        personnel_id: personnel.personnel_id,
+        rfid_uid: personnel.rfid_uid,
+        rank: personnel.rank,
+        surname: personnel.surname,
+        first_name: personnel.first_name,
+        role: 'personnel',
+      },
+    };
+  }
+
+  /*
+   * =========================================================
+   * PERSONNEL SELF-REGISTRATION (claim a provisioned card)
+   *
+   * An admin must have already provisioned the rfid_uid (see
+   * PersonnelService.provision) — this fills in the profile and
+   * PIN for that card and logs the person in, in one step.
+   * =========================================================
+   */
+
+  async personnelRegister(dto: PersonnelRegisterDto) {
+    const rfid_uid = dto.rfid_uid?.trim();
+    const pin = dto.pin?.trim();
+
+    if (!rfid_uid || !pin) {
+      throw new UnauthorizedException('RFID and PIN are required.');
+    }
+
+    const personnel = await this.personnelRepository.findOne({
+      where: { rfid_uid },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException(
+        'This RFID card has not been provisioned. Contact your administrator.',
+      );
+    }
+
+    if (personnel.is_claimed) {
+      throw new ConflictException(
+        'This card is already registered. Please sign in instead.',
+      );
+    }
+
+    personnel.rank = dto.rank;
+    personnel.surname = dto.surname;
+    personnel.first_name = dto.first_name;
+    personnel.middle_initial = dto.middle_initial ?? null;
+    personnel.sex = dto.sex ?? null;
+    personnel.age = dto.age ?? null;
+    personnel.office = dto.office ?? null;
+    personnel.q = dto.q ?? null;
+    personnel.pin_hash = await bcrypt.hash(pin, 10);
+    personnel.is_claimed = true;
+
+    await this.personnelRepository.save(personnel);
+
+    const token = await this.jwtService.signAsync({
+      sub: personnel.personnel_id,
+      rfid_uid: personnel.rfid_uid,
+      role: 'personnel',
+    });
+
+    return {
+      message: 'Registration successful',
       token,
       user: {
         personnel_id: personnel.personnel_id,

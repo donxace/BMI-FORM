@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import "./Personnel.css";
 
@@ -13,6 +13,7 @@ const API_BASE_URL = `http://${window.location.hostname}:3000`;
 type Personnel = {
   personnel_id: number;
   rfid_uid: string;
+  is_claimed: boolean;
   rank: string;
   surname: string;
   first_name: string;
@@ -127,6 +128,87 @@ export default function Personnel() {
 
   /*
    * ============================================================
+   * PROVISION RFID CARD
+   *
+   * Registers a bare rfid_uid ahead of time (e.g. handing out
+   * physical stickers) so personnel can later claim it
+   * themselves at login — fill in their own name/rank/PIN via
+   * the "Use Badge ID" / scan flow on the Login page.
+   * ============================================================
+   */
+
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [provisionRfidUid, setProvisionRfidUid] = useState("");
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionError, setProvisionError] = useState("");
+  const [provisionScanStatus, setProvisionScanStatus] = useState<
+    "waiting" | "detected"
+  >("waiting");
+
+  /*
+   * While the modal is open, poll the same RFID endpoint the
+   * ESP32 reader reports to, so tapping a blank card on the
+   * reader fills in its UID automatically instead of the admin
+   * having to know/type it (blank stickers have no visible ID).
+   */
+
+  useEffect(() => {
+    if (!showProvisionModal) {
+      return;
+    }
+
+    setProvisionScanStatus("waiting");
+
+    let cancelled = false;
+    let lastSeenUid: string | null = null;
+
+    const checkRfid = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/personnel/rfid/latest`,
+          {
+            method: "GET",
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        const data = await response.json();
+
+        if (!data.rfid_uid || data.rfid_uid === lastSeenUid) {
+          return;
+        }
+
+        lastSeenUid = data.rfid_uid;
+
+        setProvisionRfidUid(data.rfid_uid);
+        setProvisionScanStatus("detected");
+        setProvisionError(
+          data.personnel
+            ? "This card is already assigned to someone — scan a blank one, or edit the UID above."
+            : ""
+        );
+      } catch (err) {
+        console.error("PROVISION RFID SCAN POLL ERROR:", err);
+      }
+    };
+
+    checkRfid();
+
+    const interval = window.setInterval(checkRfid, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [showProvisionModal]);
+
+  /*
+   * ============================================================
    * ADD PERSONNEL FORM
    * ============================================================
    */
@@ -184,6 +266,7 @@ export default function Personnel() {
       const data: Personnel[] = rawData.map((person: any) => ({
         personnel_id: Number(person.personnel_id),
         rfid_uid: person.rfid_uid,
+        is_claimed: person.is_claimed !== false,
         rank: person.rank || "N/A",
         surname: person.surname,
         first_name: person.first_name,
@@ -488,6 +571,60 @@ export default function Personnel() {
       );
     } finally {
       setSavingPersonnel(false);
+    }
+  };
+
+  const handleProvisionSubmit = async (
+    event: SyntheticEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    setProvisionError("");
+
+    if (!provisionRfidUid.trim()) {
+      setProvisionError("Please enter the RFID UID printed on the card.");
+      return;
+    }
+
+    try {
+      setProvisioning(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/personnel/provision`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            rfid_uid: provisionRfidUid.trim(),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => null);
+
+        throw new Error(
+          errorData?.message || `HTTP ${response.status}`
+        );
+      }
+
+      setShowProvisionModal(false);
+      setProvisionRfidUid("");
+
+      await fetchPersonnel();
+    } catch (error) {
+      console.error("PROVISION RFID ERROR:", error);
+
+      setProvisionError(
+        error instanceof Error
+          ? error.message
+          : "Failed to provision this RFID card."
+      );
+    } finally {
+      setProvisioning(false);
     }
   };
 
@@ -1208,14 +1345,31 @@ export default function Personnel() {
             </div>
           </div>
 
-          {/* NORMAL ADD BUTTON */}
+          <div className="personnel-header-actions">
 
-          <button
-            className="add-personnel-button"
-            onClick={handleAddPersonnel}
-          >
-            + Add Personnel
-          </button>
+            {/* PROVISION RFID CARD */}
+
+            <button
+              className="provision-rfid-button"
+              onClick={() => {
+                setProvisionError("");
+                setProvisionRfidUid("");
+                setShowProvisionModal(true);
+              }}
+            >
+              + Provision RFID Card
+            </button>
+
+            {/* NORMAL ADD BUTTON */}
+
+            <button
+              className="add-personnel-button"
+              onClick={handleAddPersonnel}
+            >
+              + Add Personnel
+            </button>
+
+          </div>
         </div>
 
         {/* ====================================================
@@ -1405,18 +1559,24 @@ export default function Personnel() {
                           <div className="person-cell">
 
                             <div className="person-avatar">
-                              {getInitials(
-                                personnel
-                              )}
+                              {personnel.is_claimed
+                                ? getInitials(personnel)
+                                : "—"}
                             </div>
 
                             <div>
 
-                              <strong>
-                                {getFullName(
-                                  personnel
-                                )}
-                              </strong>
+                              {personnel.is_claimed ? (
+                                <strong>
+                                  {getFullName(
+                                    personnel
+                                  )}
+                                </strong>
+                              ) : (
+                                <span className="unclaimed-badge">
+                                  Awaiting Registration
+                                </span>
+                              )}
 
                               <small>
                                 Personnel ID #
@@ -2430,6 +2590,210 @@ export default function Personnel() {
                     : "Save Personnel"}
                 </button>
 
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ======================================================
+          PROVISION RFID CARD MODAL
+      ====================================================== */}
+
+      {showProvisionModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px",
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowProvisionModal(false);
+            }
+          }}
+        >
+
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#ffffff",
+              borderRadius: "16px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+              padding: "28px",
+            }}
+          >
+
+            <h2
+              style={{
+                margin: "0 0 6px",
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "#172033",
+              }}
+            >
+              Provision RFID Card
+            </h2>
+
+            <p
+              style={{
+                margin: "0 0 16px",
+                fontSize: "13px",
+                color: "#667085",
+                lineHeight: 1.5,
+              }}
+            >
+              Registers a blank card's UID so its holder can
+              claim it themselves later — filling in their own
+              name, rank, and PIN on the Login page.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "16px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                border:
+                  provisionScanStatus === "detected"
+                    ? "1px solid #bbf7d0"
+                    : "1px solid #dbeafe",
+                background:
+                  provisionScanStatus === "detected"
+                    ? "#f0fdf4"
+                    : "#eff6ff",
+              }}
+            >
+              <span
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  background:
+                    provisionScanStatus === "detected"
+                      ? "#16a34a"
+                      : "#2563eb",
+                }}
+              />
+
+              <span
+                style={{
+                  fontSize: "12px",
+                  color:
+                    provisionScanStatus === "detected"
+                      ? "#15803d"
+                      : "#1d4ed8",
+                }}
+              >
+                {provisionScanStatus === "detected"
+                  ? "Card detected — UID filled in below."
+                  : "Waiting for a card on the RFID reader..."}
+              </span>
+            </div>
+
+            <form onSubmit={handleProvisionSubmit}>
+
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "7px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#536071",
+                }}
+              >
+                RFID UID
+              </label>
+
+              <input
+                type="text"
+                placeholder="Tap a card on the reader, or type the UID"
+                value={provisionRfidUid}
+                onChange={(event) =>
+                  setProvisionRfidUid(event.target.value)
+                }
+                disabled={provisioning}
+                autoFocus
+                style={{
+                  width: "100%",
+                  height: "42px",
+                  padding: "0 12px",
+                  border: "1px solid #dce2ea",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                  outline: "none",
+                }}
+              />
+
+              {provisionError && (
+                <p
+                  style={{
+                    margin: "10px 0 0",
+                    fontSize: "12px",
+                    color: "#dc2626",
+                  }}
+                >
+                  {provisionError}
+                </p>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "22px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowProvisionModal(false)}
+                  disabled={provisioning}
+                  style={{
+                    padding: "10px 18px",
+                    border: "1px solid #dce2ea",
+                    borderRadius: "8px",
+                    background: "#ffffff",
+                    color: "#536071",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={provisioning}
+                  style={{
+                    padding: "10px 18px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    opacity: provisioning ? 0.6 : 1,
+                  }}
+                >
+                  {provisioning ? "Provisioning..." : "Provision Card"}
+                </button>
               </div>
 
             </form>

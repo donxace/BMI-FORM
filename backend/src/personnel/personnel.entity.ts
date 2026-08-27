@@ -19,6 +19,9 @@ export class Personnel {
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   pin_hash!: string | null;
 
+  @Column({ type: 'boolean', default: true })
+  is_claimed!: boolean;
+
   @Column({ type: 'varchar', length: 50 })
   rank!: string;
 

@@ -9,11 +9,12 @@ type LoginMode = "admin" | "personnel";
 
 type PersonnelMethod = "scan" | "badge";
 
-type RfidStatus = "Scanning" | "Found" | "Error";
+type RfidStatus = "Scanning" | "Found" | "Unclaimed" | "Error";
 
 type ScannedPersonnel = {
   personnel_id: number;
   rfid_uid: string;
+  is_claimed: boolean;
   rank: string;
   surname: string;
   first_name: string;
@@ -22,6 +23,11 @@ type ScannedPersonnel = {
 type RfidLatestResponse = {
   rfid_uid: string | null;
   personnel: ScannedPersonnel | null;
+};
+
+type Rank = {
+  rank_id: number;
+  rank_name: string;
 };
 
 export default function Login() {
@@ -111,6 +117,46 @@ export default function Login() {
   const [personnelLoading, setPersonnelLoading] = useState(false);
   const [personnelError, setPersonnelError] = useState("");
 
+  /*
+   * ============================================================
+   * PERSONNEL SELF-REGISTRATION (claim a provisioned card)
+   *
+   * An admin provisions a bare rfid_uid ahead of time (Personnel
+   * page -> Provision RFID Card). Scanning/typing that UID here
+   * shows this form instead of the PIN prompt, since the card
+   * has no profile yet.
+   * ============================================================
+   */
+
+  const [registering, setRegistering] = useState(false);
+  const [registerRfidUid, setRegisterRfidUid] = useState("");
+
+  const [availableRanks, setAvailableRanks] = useState<Rank[]>([]);
+
+  const [regRank, setRegRank] = useState("");
+  const [regSurname, setRegSurname] = useState("");
+  const [regFirstName, setRegFirstName] = useState("");
+  const [regMiddleInitial, setRegMiddleInitial] = useState("");
+  const [regSex, setRegSex] = useState("");
+  const [regAge, setRegAge] = useState("");
+  const [regOffice, setRegOffice] = useState("");
+  const [regPin, setRegPin] = useState("");
+
+  const isRegistrationMode =
+    (personnelMethod === "scan" && rfidStatus === "Unclaimed") ||
+    (personnelMethod === "badge" && registering);
+
+  useEffect(() => {
+    if (mode !== "personnel" || availableRanks.length > 0) {
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/ranks`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data: Rank[]) => setAvailableRanks(data))
+      .catch(() => {});
+  }, [mode, availableRanks.length]);
+
   useEffect(() => {
     if (mode !== "personnel" || personnelMethod !== "scan") {
       return;
@@ -160,8 +206,11 @@ export default function Login() {
         }
 
         setScannedPersonnel(data.personnel);
-        setRfidStatus("Found");
         setPersonnelError("");
+
+        setRfidStatus(
+          data.personnel.is_claimed ? "Found" : "Unclaimed"
+        );
       } catch (err) {
         if (cancelled) {
           return;
@@ -236,7 +285,21 @@ export default function Login() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || "Invalid PIN.");
+        const message = errorData?.message || "Invalid PIN.";
+
+        // Provisioned but not yet claimed — switch to registration
+        // instead of showing this as a plain login failure.
+        if (
+          personnelMethod === "badge" &&
+          message.includes("has not been registered yet")
+        ) {
+          setRegisterRfidUid(rfidUid ?? "");
+          setRegistering(true);
+          setPersonnelError("");
+          return;
+        }
+
+        throw new Error(message);
       }
 
       const data = await response.json();
@@ -251,6 +314,83 @@ export default function Login() {
       navigate("/my/records");
     } catch (err) {
       console.error("PERSONNEL LOGIN ERROR:", err);
+      setPersonnelError(
+        err instanceof Error ? err.message : "An unexpected error occurred."
+      );
+    } finally {
+      setPersonnelLoading(false);
+    }
+  };
+
+  const handlePersonnelRegisterSubmit = async (
+    e: SyntheticEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+    setPersonnelError("");
+
+    const rfidUid =
+      personnelMethod === "scan"
+        ? scannedPersonnel?.rfid_uid
+        : registerRfidUid.trim();
+
+    if (!rfidUid) {
+      setPersonnelError("Missing RFID UID — please scan or enter it again.");
+      return;
+    }
+
+    if (!regRank || !regSurname.trim() || !regFirstName.trim()) {
+      setPersonnelError(
+        "Please fill in your rank, surname, and first name."
+      );
+      return;
+    }
+
+    if (!regPin.trim()) {
+      setPersonnelError("Please set a PIN.");
+      return;
+    }
+
+    try {
+      setPersonnelLoading(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/auth/personnel-register`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rfid_uid: rfidUid,
+            pin: regPin,
+            rank: regRank,
+            surname: regSurname.trim(),
+            first_name: regFirstName.trim(),
+            middle_initial: regMiddleInitial.trim() || undefined,
+            sex: regSex || undefined,
+            age: regAge ? Number(regAge) : undefined,
+            office: regOffice.trim() || undefined,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.message || "Unable to complete registration."
+        );
+      }
+
+      const data = await response.json();
+
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("userRole", "personnel");
+      localStorage.setItem(
+        "personnelName",
+        `${data.user.rank} ${data.user.first_name} ${data.user.surname}`
+      );
+
+      navigate("/my/records");
+    } catch (err) {
+      console.error("PERSONNEL REGISTER ERROR:", err);
       setPersonnelError(
         err instanceof Error ? err.message : "An unexpected error occurred."
       );
@@ -374,6 +514,8 @@ export default function Login() {
                     setPersonnelError("");
                     setBadgeId("");
                     setBadgePassword("");
+                    setRegistering(false);
+                    setRegisterRfidUid("");
                   }}
                 >
                   Scan RFID Card
@@ -392,6 +534,8 @@ export default function Login() {
                     setPersonnelMethod("badge");
                     setPersonnelError("");
                     setPin("");
+                    setRegistering(false);
+                    setRegisterRfidUid("");
                   }}
                 >
                   Use Badge ID
@@ -416,6 +560,8 @@ export default function Login() {
                     <div className="rfid-scan-core">
                       {rfidStatus === "Found" ? (
                         <span className="rfid-scan-check">✓</span>
+                      ) : rfidStatus === "Unclaimed" ? (
+                        <span className="rfid-scan-card-icon">＋</span>
                       ) : rfidStatus === "Error" ? (
                         <span className="rfid-scan-cross">✕</span>
                       ) : (
@@ -425,16 +571,20 @@ export default function Login() {
                   </div>
 
                   <strong>
-                    {scannedPersonnel
+                    {scannedPersonnel && rfidStatus === "Found"
                       ? `${scannedPersonnel.rank} ${scannedPersonnel.first_name} ${scannedPersonnel.surname}`
+                      : rfidStatus === "Unclaimed"
+                      ? "New Card Detected"
                       : rfidStatus === "Error"
                       ? "Card Not Recognized"
                       : "Scan Your RFID Card"}
                   </strong>
 
                   <small>
-                    {scannedPersonnel
+                    {rfidStatus === "Found"
                       ? "Identity confirmed — enter your PIN below."
+                      : rfidStatus === "Unclaimed"
+                      ? "This card isn't registered yet — complete your profile below."
                       : rfidStatus === "Error"
                       ? "This card is not registered in the system."
                       : "Hold your card near the scanner..."}
@@ -442,79 +592,244 @@ export default function Login() {
                 </div>
               )}
 
-              <form
-                onSubmit={handlePersonnelSubmit}
-                className="login-form"
-              >
-                {personnelMethod === "badge" && (
+              {isRegistrationMode ? (
+                <form
+                  onSubmit={handlePersonnelRegisterSubmit}
+                  className="login-form"
+                >
+                  {personnelMethod === "badge" && (
+                    <div className="registration-notice">
+                      Badge ID <strong>{registerRfidUid}</strong> isn't
+                      registered yet. Complete your profile to claim it.
+                    </div>
+                  )}
+
                   <div className="form-group">
-                    <label htmlFor="badgeId">Badge ID</label>
-                    <div className="input-with-icon">
-                      <span className="input-icon">▭</span>
+                    <label htmlFor="regRank">Rank</label>
+                    <select
+                      id="regRank"
+                      value={regRank}
+                      onChange={(e) => setRegRank(e.target.value)}
+                      disabled={personnelLoading}
+                    >
+                      <option value="">Select rank...</option>
+                      {availableRanks.map((rank) => (
+                        <option key={rank.rank_id} value={rank.rank_name}>
+                          {rank.rank_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="reg-field-row">
+                    <div className="form-group">
+                      <label htmlFor="regSurname">Surname</label>
                       <input
-                        id="badgeId"
+                        id="regSurname"
                         type="text"
-                        placeholder="Enter your Badge ID"
-                        value={badgeId}
-                        onChange={(e) => setBadgeId(e.target.value)}
+                        className="plain-field"
+                        placeholder="Surname"
+                        value={regSurname}
+                        onChange={(e) => setRegSurname(e.target.value)}
                         disabled={personnelLoading}
-                        autoComplete="username"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="regFirstName">First Name</label>
+                      <input
+                        id="regFirstName"
+                        type="text"
+                        className="plain-field"
+                        placeholder="First name"
+                        value={regFirstName}
+                        onChange={(e) => setRegFirstName(e.target.value)}
+                        disabled={personnelLoading}
                       />
                     </div>
                   </div>
-                )}
 
-                <div className="form-group">
-                  <label htmlFor="personnel-credential">
-                    {personnelMethod === "scan" ? "PIN" : "Password"}
-                  </label>
-                  <div className="input-with-icon">
-                    <span className="input-icon">⚿</span>
-                    {personnelMethod === "scan" ? (
+                  <div className="reg-field-row">
+                    <div className="form-group">
+                      <label htmlFor="regMiddleInitial">M.I.</label>
                       <input
-                        id="personnel-credential"
+                        id="regMiddleInitial"
+                        type="text"
+                        className="plain-field"
+                        placeholder="M."
+                        maxLength={2}
+                        value={regMiddleInitial}
+                        onChange={(e) => setRegMiddleInitial(e.target.value)}
+                        disabled={personnelLoading}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="regSex">Sex</label>
+                      <select
+                        id="regSex"
+                        value={regSex}
+                        onChange={(e) => setRegSex(e.target.value)}
+                        disabled={personnelLoading}
+                      >
+                        <option value="">Select...</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="regAge">Age</label>
+                      <input
+                        id="regAge"
+                        type="number"
+                        className="plain-field"
+                        min="1"
+                        max="120"
+                        placeholder="Age"
+                        value={regAge}
+                        onChange={(e) => setRegAge(e.target.value)}
+                        disabled={personnelLoading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="regOffice">Office (optional)</label>
+                    <input
+                      id="regOffice"
+                      type="text"
+                      className="plain-field"
+                      placeholder="Enter office"
+                      value={regOffice}
+                      onChange={(e) => setRegOffice(e.target.value)}
+                      disabled={personnelLoading}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="regPin">Set PIN</label>
+                    <div className="input-with-icon">
+                      <span className="input-icon">⚿</span>
+                      <input
+                        id="regPin"
                         type="password"
                         inputMode="numeric"
                         maxLength={6}
-                        placeholder="Enter your PIN"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value)}
-                        disabled={personnelLoading || !scannedPersonnel}
-                      />
-                    ) : (
-                      <input
-                        id="personnel-credential"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={badgePassword}
-                        onChange={(e) => setBadgePassword(e.target.value)}
+                        placeholder="Choose a PIN"
+                        value={regPin}
+                        onChange={(e) => setRegPin(e.target.value)}
                         disabled={personnelLoading}
-                        autoComplete="current-password"
                       />
-                    )}
+                    </div>
                   </div>
-                  <small className="login-hint">
-                    {personnelMethod === "scan"
-                      ? "First time using this card? The PIN you enter now becomes your PIN."
-                      : "First time signing in? The password you enter now becomes your password."}
-                  </small>
-                </div>
 
-                <button
-                  type="submit"
-                  className="login-button"
-                  disabled={
-                    personnelLoading ||
-                    (personnelMethod === "scan" && !scannedPersonnel)
-                  }
-                >
-                  {personnelLoading ? (
-                    <div className="spinner" />
-                  ) : (
-                    <>Sign In <span className="login-button-arrow">→</span></>
+                  <button
+                    type="submit"
+                    className="login-button"
+                    disabled={personnelLoading}
+                  >
+                    {personnelLoading ? (
+                      <div className="spinner" />
+                    ) : (
+                      <>Register & Sign In <span className="login-button-arrow">→</span></>
+                    )}
+                  </button>
+
+                  {personnelMethod === "badge" && (
+                    <button
+                      type="button"
+                      className="registration-cancel-link"
+                      onClick={() => {
+                        setRegistering(false);
+                        setRegisterRfidUid("");
+                        setPersonnelError("");
+                      }}
+                    >
+                      Already registered? Sign in instead
+                    </button>
                   )}
-                </button>
-              </form>
+                </form>
+              ) : (
+                <form
+                  onSubmit={handlePersonnelSubmit}
+                  className="login-form"
+                >
+                  {personnelMethod === "badge" && (
+                    <div className="form-group">
+                      <label htmlFor="badgeId">Badge ID</label>
+                      <div className="input-with-icon">
+                        <span className="input-icon">▭</span>
+                        <input
+                          id="badgeId"
+                          type="text"
+                          placeholder="Enter your Badge ID"
+                          value={badgeId}
+                          onChange={(e) => setBadgeId(e.target.value)}
+                          disabled={personnelLoading}
+                          autoComplete="username"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label htmlFor="personnel-credential">
+                      {personnelMethod === "scan" ? "PIN" : "Password"}
+                    </label>
+                    <div className="input-with-icon">
+                      <span className="input-icon">⚿</span>
+                      {personnelMethod === "scan" ? (
+                        <input
+                          id="personnel-credential"
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="Enter your PIN"
+                          value={pin}
+                          onChange={(e) => setPin(e.target.value)}
+                          disabled={
+                            personnelLoading ||
+                            !scannedPersonnel ||
+                            rfidStatus !== "Found"
+                          }
+                        />
+                      ) : (
+                        <input
+                          id="personnel-credential"
+                          type="password"
+                          placeholder="Enter your password"
+                          value={badgePassword}
+                          onChange={(e) => setBadgePassword(e.target.value)}
+                          disabled={personnelLoading}
+                          autoComplete="current-password"
+                        />
+                      )}
+                    </div>
+                    <small className="login-hint">
+                      {personnelMethod === "scan"
+                        ? "First time using this card? The PIN you enter now becomes your PIN."
+                        : "New here? Enter your Badge ID above and we'll walk you through registration."}
+                    </small>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="login-button"
+                    disabled={
+                      personnelLoading ||
+                      (personnelMethod === "scan" &&
+                        (!scannedPersonnel || rfidStatus !== "Found"))
+                    }
+                  >
+                    {personnelLoading ? (
+                      <div className="spinner" />
+                    ) : (
+                      <>Sign In <span className="login-button-arrow">→</span></>
+                    )}
+                  </button>
+                </form>
+              )}
             </>
           )}
 

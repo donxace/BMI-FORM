@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Personnel } from './personnel.entity';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { UpdatePersonnelDto } from './dto/update-personnel.dto';
+import { ProvisionPersonnelDto } from './dto/provision-personnel.dto';
 
 @Injectable()
 export class PersonnelService {
@@ -34,6 +35,37 @@ export class PersonnelService {
 
     const newPersonnel = this.personnelRepository.create(dto);
     return await this.personnelRepository.save(newPersonnel);
+  }
+
+  /*
+   * =========================================================
+   * PROVISION A BLANK RFID CARD
+   *
+   * Admin registers a bare rfid_uid ahead of time (e.g. handing
+   * out physical stickers) without knowing who will claim it
+   * yet. The person fills in their own profile + PIN later via
+   * POST /auth/personnel-register.
+   * =========================================================
+   */
+
+  async provision(dto: ProvisionPersonnelDto): Promise<Personnel> {
+    const existing = await this.personnelRepository.findOne({
+      where: { rfid_uid: dto.rfid_uid },
+    });
+
+    if (existing) {
+      throw new ConflictException('RFID Card is already provisioned or assigned.');
+    }
+
+    const blank = this.personnelRepository.create({
+      rfid_uid: dto.rfid_uid,
+      rank: '',
+      surname: '',
+      first_name: '',
+      is_claimed: false,
+    });
+
+    return await this.personnelRepository.save(blank);
   }
 
   async findAll(): Promise<Personnel[]> {

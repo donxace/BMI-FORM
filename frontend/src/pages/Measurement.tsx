@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./Measurement.css";
 
 /*
@@ -186,6 +187,30 @@ export default function Measurement() {
     personnelError,
     setPersonnelError,
   ] = useState("");
+
+  const [
+    personnelSearchQuery,
+    setPersonnelSearchQuery,
+  ] = useState("");
+
+  const [
+    personnelDropdownOpen,
+    setPersonnelDropdownOpen,
+  ] = useState(false);
+
+  const [
+    personnelHighlightIndex,
+    setPersonnelHighlightIndex,
+  ] = useState(0);
+
+  const personnelSearchRef = useRef<HTMLDivElement>(null);
+  const personnelDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [personnelDropdownRect, setPersonnelDropdownRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   /*
    * ============================================================
@@ -786,7 +811,113 @@ export default function Measurement() {
       setSelectedPersonnel(
         personnel ?? null
       );
+
+      setPersonnelSearchQuery(
+        personnel
+          ? `${personnel.rank} — ${getFullName(personnel)}`
+          : ""
+      );
+
+      setPersonnelDropdownOpen(false);
+      setPersonnelHighlightIndex(0);
     };
+
+  const filteredPersonnelList = useMemo(() => {
+    const query = personnelSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return personnelList;
+    }
+
+    return personnelList.filter((person) => {
+      const haystack = [
+        person.rank,
+        getFullName(person),
+        person.office,
+        person.rfid_uid,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [personnelList, personnelSearchQuery]);
+
+  /*
+   * The dropdown is rendered through a portal (see below) so it
+   * can escape .measurement-card's `overflow: hidden` instead of
+   * being clipped. Since it's no longer a normal child of
+   * .personnel-search, its position has to be tracked manually.
+   */
+
+  useLayoutEffect(() => {
+    if (!personnelDropdownOpen) {
+      return;
+    }
+
+    const updateRect = () => {
+      const el = personnelSearchRef.current;
+
+      if (!el) {
+        return;
+      }
+
+      const rect = el.getBoundingClientRect();
+
+      setPersonnelDropdownRect({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updateRect();
+
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [personnelDropdownOpen, filteredPersonnelList.length]);
+
+  useEffect(() => {
+    if (!personnelDropdownOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      const clickedInsideInput =
+        personnelSearchRef.current?.contains(target) ?? false;
+
+      // The dropdown is portaled to document.body, so it's not
+      // a DOM descendant of personnelSearchRef — check it too.
+      const clickedInsideDropdown =
+        personnelDropdownRef.current?.contains(target) ?? false;
+
+      if (!clickedInsideInput && !clickedInsideDropdown) {
+        setPersonnelDropdownOpen(false);
+
+        // Snap the visible text back to the actual selection
+        // (or clear it) if the user clicked away mid-search.
+        setPersonnelSearchQuery(
+          selectedPersonnel
+            ? `${selectedPersonnel.rank} — ${getFullName(selectedPersonnel)}`
+            : ""
+        );
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [personnelDropdownOpen, selectedPersonnel]);
 
   /*
    * ============================================================
@@ -803,6 +934,9 @@ export default function Measurement() {
       setPersonnelMode(mode);
 
       setSelectedPersonnel(null);
+
+      setPersonnelSearchQuery("");
+      setPersonnelDropdownOpen(false);
 
       setRfidUid("");
 
@@ -855,6 +989,9 @@ export default function Measurement() {
 
   const resetSession = () => {
     setSelectedPersonnel(null);
+
+    setPersonnelSearchQuery("");
+    setPersonnelDropdownOpen(false);
 
     setSessionStarted(false);
 
@@ -1412,61 +1549,142 @@ export default function Measurement() {
                   Personnel
                 </label>
 
-                <select
-                  value={
-                    selectedPersonnel
-                      ?.personnel_id ??
-                    ""
-                  }
-                  onChange={(event) => {
-
-                    const id =
-                      Number(
-                        event.target.value
-                      );
-
-                    handleManualPersonnelChange(
-                      id
-                    );
-
-                  }}
-                  disabled={
-                    sessionStarted ||
-                    loadingPersonnel
-                  }
+                <div
+                  className="personnel-search"
+                  ref={personnelSearchRef}
                 >
 
-                  <option value="">
+                  <input
+                    type="text"
+                    className="personnel-search-input"
+                    placeholder={
+                      loadingPersonnel
+                        ? "Loading personnel..."
+                        : "Search by name, rank, or office..."
+                    }
+                    value={personnelSearchQuery}
+                    disabled={
+                      sessionStarted ||
+                      loadingPersonnel
+                    }
+                    onFocus={(event) => {
+                      setPersonnelDropdownOpen(true);
+                      setPersonnelHighlightIndex(0);
+                      event.target.select();
+                    }}
+                    onChange={(event) => {
+                      setPersonnelSearchQuery(
+                        event.target.value
+                      );
+                      setPersonnelDropdownOpen(true);
+                      setPersonnelHighlightIndex(0);
 
-                    {loadingPersonnel
-                      ? "Loading personnel..."
-                      : "Select personnel..."}
+                      if (selectedPersonnel) {
+                        setSelectedPersonnel(null);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (!personnelDropdownOpen) {
+                        return;
+                      }
 
-                  </option>
-
-                  {personnelList.map(
-                    (person) => (
-
-                      <option
-                        value={
-                          person.personnel_id
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setPersonnelHighlightIndex((index) =>
+                          Math.min(
+                            index + 1,
+                            filteredPersonnelList.length - 1
+                          )
+                        );
+                      } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setPersonnelHighlightIndex((index) =>
+                          Math.max(index - 1, 0)
+                        );
+                      } else if (event.key === "Enter") {
+                        event.preventDefault();
+                        const match =
+                          filteredPersonnelList[
+                            personnelHighlightIndex
+                          ];
+                        if (match) {
+                          handleManualPersonnelChange(
+                            match.personnel_id
+                          );
                         }
-                        key={
-                          person.personnel_id
-                        }
+                      } else if (event.key === "Escape") {
+                        setPersonnelDropdownOpen(false);
+                      }
+                    }}
+                  />
+
+                  {personnelDropdownOpen &&
+                    personnelDropdownRect &&
+                    createPortal(
+
+                      <div
+                        ref={personnelDropdownRef}
+                        className="personnel-search-dropdown"
+                        style={{
+                          position: "fixed",
+                          top: personnelDropdownRect.top,
+                          left: personnelDropdownRect.left,
+                          width: personnelDropdownRect.width,
+                        }}
                       >
 
-                        {person.rank} —{" "}
-                        {getFullName(
-                          person
+                        {filteredPersonnelList.length === 0 ? (
+
+                          <div className="personnel-search-empty">
+                            No personnel match "{personnelSearchQuery}".
+                          </div>
+
+                        ) : (
+
+                          filteredPersonnelList.map(
+                            (person, index) => (
+
+                              <button
+                                type="button"
+                                key={person.personnel_id}
+                                className={
+                                  index === personnelHighlightIndex
+                                    ? "personnel-search-option active"
+                                    : "personnel-search-option"
+                                }
+                                onMouseDown={(event) => {
+                                  // Fires before the input's blur/click-outside handler.
+                                  event.preventDefault();
+                                  handleManualPersonnelChange(
+                                    person.personnel_id
+                                  );
+                                }}
+                                onMouseEnter={() =>
+                                  setPersonnelHighlightIndex(index)
+                                }
+                              >
+
+                                <strong>
+                                  {person.rank} — {getFullName(person)}
+                                </strong>
+
+                                {person.office && (
+                                  <small>{person.office}</small>
+                                )}
+
+                              </button>
+
+                            )
+                          )
+
                         )}
 
-                      </option>
+                      </div>,
 
-                    )
-                  )}
+                      document.body
+                    )}
 
-                </select>
+                </div>
 
                 {personnelError && (
 

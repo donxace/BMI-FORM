@@ -33,7 +33,7 @@ const char* sessionStatusUrl =
 // the personnel table to identify a different person.
 
 const int RFID_BUTTON_PIN = 0; // BOOT button on most ESP32 dev boards
-const char* FAKE_RFID_UID = "RFID-1002"; // Reyes, Carlo D. - PAT
+const char* FAKE_RFID_UID = "RFID-125421521"; // Reyes, Carlo D. - PAT
 
 const unsigned long RFID_DEBOUNCE_MS = 200;
 

@@ -2,6 +2,7 @@ import { Controller, Get, Post, Delete, Body, Param, ParseIntPipe, Put} from '@n
 import { PersonnelService } from './personnel.service';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { UpdatePersonnelDto } from './dto/update-personnel.dto';
+import { ProvisionPersonnelDto } from './dto/provision-personnel.dto';
 
 @Controller('personnel')
 export class PersonnelController {
@@ -10,6 +11,12 @@ export class PersonnelController {
   @Post()
   async createPersonnel(@Body() createDto: CreatePersonnelDto) {
     return this.personnelService.create(createDto);
+  }
+
+  // ADMIN: register a blank RFID card for later self-registration
+  @Post('provision')
+  async provision(@Body() dto: ProvisionPersonnelDto) {
+    return this.personnelService.provision(dto);
   }
 
   @Put(':id')

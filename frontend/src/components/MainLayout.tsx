@@ -92,6 +92,16 @@ export default function MainLayout() {
             Intrusion Detection
           </NavLink>
 
+          <NavLink
+            to="/environment-monitoring"
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "active" : ""}`
+            }
+          >
+            <span>🔥</span>
+            Smoke & Temperature
+          </NavLink>
+
           <p className="nav-title second">SYSTEM</p>
 
           <NavLink

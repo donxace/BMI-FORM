@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 
 import { IntrusionDetectionService } from './intrusion-detection.service';
 
@@ -10,14 +10,23 @@ export class IntrusionDetectionController {
 
   // ESP32 SAVE
   @Post('event')
-  reportEvent(@Body() data: any) {
+  async reportEvent(@Body() data: any) {
     console.log('ESP32 INTRUSION EVENT:', data);
 
-    return this.intrusionDetectionService.reportEvent(data);
+    return await this.intrusionDetectionService.reportEvent(data);
   }
 
   @Get('latest')
   getLatest() {
     return this.intrusionDetectionService.getLatest();
+  }
+
+  @Get('logs')
+  async getLogs(@Query('limit') limit?: string) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+
+    return await this.intrusionDetectionService.getLogs(
+      parsedLimit && parsedLimit > 0 ? parsedLimit : undefined,
+    );
   }
 }

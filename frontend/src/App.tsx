@@ -6,6 +6,8 @@ import {
 
 import MainLayout from "./components/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import ProtectedRoute
+import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
+import PersonnelLayout from "./components/PersonnelLayout";
 
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
@@ -17,6 +19,8 @@ import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
+import MyRecords from "./pages/MyRecords";
+import MyMeasurement from "./pages/MyMeasurement";
 
 function App() {
   return (
@@ -78,6 +82,25 @@ function App() {
             <Route
               path="/settings"
               element={<SettingsPage />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            PERSONNEL SELF-SERVICE ROUTES (RFID + PIN login)
+        ====================================================== */}
+        <Route element={<PersonnelProtectedRoute />}>
+          <Route element={<PersonnelLayout />}>
+
+            <Route
+              path="/my/records"
+              element={<MyRecords />}
+            />
+
+            <Route
+              path="/my/measurement"
+              element={<MyMeasurement />}
             />
 
           </Route>

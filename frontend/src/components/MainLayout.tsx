@@ -1,10 +1,17 @@
-import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useLayoutEffect, useRef, useState } from "react";
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import "./MainLayout.css";
 
 export default function MainLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
 
   const handleLogout = () => {
     // Clear stored auth session
@@ -14,10 +21,50 @@ export default function MainLayout() {
     navigate("/login");
   };
 
+  /*
+   * ============================================================
+   * SLIDING NAV HIGHLIGHT
+   *
+   * Measures the active .nav-item's actual position instead of
+   * relying on a hardcoded pixel offset per route — so the
+   * highlight stays aligned no matter how many menu items exist
+   * or get added later.
+   * ============================================================
+   */
+
+  useLayoutEffect(() => {
+    const sidebar = sidebarRef.current;
+
+    if (!sidebar) {
+      return;
+    }
+
+    const activeItem = sidebar.querySelector<HTMLElement>(
+      ".nav-item.active"
+    );
+
+    if (!activeItem) {
+      sidebar.style.setProperty("--nav-indicator-opacity", "0");
+      return;
+    }
+
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const itemRect = activeItem.getBoundingClientRect();
+
+    const indicatorHeight = 55;
+    const top =
+      itemRect.top -
+      sidebarRect.top -
+      (indicatorHeight - itemRect.height) / 2;
+
+    sidebar.style.setProperty("--nav-indicator-top", `${top}px`);
+    sidebar.style.setProperty("--nav-indicator-opacity", "1");
+  }, [location.pathname]);
+
   return (
     <div className="app-layout">
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className="sidebar" ref={sidebarRef}>
         <nav className="navigation">
           <p className="nav-title">MAIN MENU</p>
 
@@ -88,7 +135,7 @@ export default function MainLayout() {
               `nav-item ${isActive ? "active" : ""}`
             }
           >
-            <span>⚡</span>
+            <span>⚡︎</span>
             Intrusion Detection
           </NavLink>
 
@@ -98,7 +145,7 @@ export default function MainLayout() {
               `nav-item ${isActive ? "active" : ""}`
             }
           >
-            <span>🔥</span>
+            <span>♨</span>
             Smoke & Temperature
           </NavLink>
 

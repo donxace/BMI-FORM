@@ -1,0 +1,129 @@
+/* =========================================================
+   LAYOUT
+========================================================= */
+
+.personnel-layout {
+    min-height: 100vh;
+
+    background: #f5f7fb;
+}
+
+/* =========================================================
+   TOPBAR
+========================================================= */
+
+.personnel-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 16px 32px;
+
+    background: #ffffff;
+    border-bottom: 1px solid #e4e8f0;
+}
+
+.personnel-branding {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+}
+
+.personnel-logo {
+    width: 38px;
+    height: 38px;
+
+    object-fit: contain;
+}
+
+.personnel-branding strong {
+    display: block;
+
+    color: #172033;
+
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.personnel-branding small {
+    color: #8a95a5;
+
+    font-size: 11px;
+}
+
+.personnel-profile {
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+}
+
+.personnel-profile span {
+    color: #172033;
+
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.personnel-logout-button {
+    padding: 8px 16px;
+
+    background: #f1f4f9;
+    color: #dc2626;
+
+    border: none;
+    border-radius: 8px;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease;
+}
+
+.personnel-logout-button:hover {
+    background: #fde2e2;
+}
+
+/* =========================================================
+   TABS
+========================================================= */
+
+.personnel-tabs {
+    display: flex;
+
+    gap: 6px;
+
+    padding: 14px 32px 0;
+
+    background: #ffffff;
+    border-bottom: 1px solid #e4e8f0;
+}
+
+.personnel-tab {
+    padding: 10px 16px;
+
+    color: #667085;
+    text-decoration: none;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    border-bottom: 2px solid transparent;
+}
+
+.personnel-tab.active {
+    color: #2563eb;
+
+    border-bottom-color: #2563eb;
+}
+
+/* =========================================================
+   CONTENT
+========================================================= */
+
+.personnel-content {
+    padding: 32px;
+}

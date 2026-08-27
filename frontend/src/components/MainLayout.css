@@ -44,10 +44,13 @@ body,
   position: absolute;
 
   /*
-     Starting position:
-     Dashboard
+     Position is set at runtime by MainLayout.tsx as the
+     --nav-indicator-top custom property, measured from the
+     currently active .nav-item. This keeps the highlight
+     correctly aligned no matter how many menu items exist,
+     instead of relying on hardcoded per-item pixel offsets.
   */
-  top: 70px;
+  top: var(--nav-indicator-top, 70px);
   left: 15px;
 
   width: calc(100% - 30px);
@@ -59,12 +62,12 @@ body,
   z-index: 0;
   pointer-events: none;
 
-  transform: translateY(0);
+  opacity: var(--nav-indicator-opacity, 0);
 
   /*
      Smooth sliding animation
   */
-  transition: transform 0.30s ease-in-out;
+  transition: top 0.30s ease-in-out, opacity 0.2s ease;
 }
 
 
@@ -102,81 +105,6 @@ body,
 .nav-item.active {
   background: transparent !important;
   color: #ffffff;
-}
-
-
-/* =========================================================
-   SLIDING BLUE INDICATOR POSITIONS
-========================================================= */
-
-/*
-   DASHBOARD
-   Starting position = 70px
-*/
-
-.sidebar:has(.nav-item.active[href="/"])::before {
-  transform: translateY(-10px);
-}
-
-
-/*
-   MEASUREMENT
-   70 + 54 = 124px
-*/
-
-.sidebar:has(.nav-item.active[href="/measurement"])::before {
-  transform: translateY(35px);
-}
-
-
-/*
-   PERSONNEL
-   70 + 108 = 178px
-*/
-
-.sidebar:has(.nav-item.active[href="/personnel"])::before {
-  transform: translateY(85px);
-}
-
-
-/*
-   ASSESSMENTS
-   70 + 162 = 232px
-*/
-
-.sidebar:has(.nav-item.active[href="/assessments"])::before {
-  transform: translateY(130px);
-}
-
-
-/*
-   REPORTS
-   70 + 216 = 286px
-*/
-
-.sidebar:has(.nav-item.active[href="/report"])::before {
-  transform: translateY(180px);
-}
-
-
-/*
-   ANALYTICS
-   70 + 270 = 340px
-*/
-
-.sidebar:has(.nav-item.active[href="/analytics"])::before {
-  transform: translateY(228px);
-}
-
-
-/*
-   SETTINGS
-
-   There is a larger gap because of the SYSTEM heading.
-*/
-
-.sidebar:has(.nav-item.active[href="/settings"])::before {
-  transform: translateY(335px);
 }
 
 

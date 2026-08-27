@@ -16,6 +16,9 @@ export class Personnel {
   @Column({ type: 'varchar', length: 50, unique: true })
   rfid_uid!: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
+  pin_hash!: string | null;
+
   @Column({ type: 'varchar', length: 50 })
   rank!: string;
 

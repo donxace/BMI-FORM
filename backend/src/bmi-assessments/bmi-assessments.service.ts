@@ -21,6 +21,14 @@ import {
 
 @Injectable()
 export class BmiAssessmentsService {
+  private latestReading: {
+    height: number | null;
+    weight: number | null;
+    received_at: string | null;
+  } = { height: null, weight: null, received_at: null };
+
+  private sessionActive = false;
+
   constructor(
     @InjectRepository(BmiAssessment)
     private readonly bmiAssessmentRepository:
@@ -182,6 +190,66 @@ export class BmiAssessmentsService {
       );
 
     return savedAssessment;
+  }
+
+  /*
+   * =========================================================
+   * LIVE WEIGHT / HEIGHT READING (ESP32 SERIAL INPUT)
+   * =========================================================
+   */
+
+  reportReading(data: { height?: number; weight?: number }) {
+    this.latestReading = {
+      height:
+        data.height != null
+          ? Number(data.height)
+          : this.latestReading.height,
+
+      weight:
+        data.weight != null
+          ? Number(data.weight)
+          : this.latestReading.weight,
+
+      received_at: new Date().toISOString(),
+    };
+
+    return this.latestReading;
+  }
+
+  getLatestReading() {
+    return this.latestReading;
+  }
+
+  /*
+   * =========================================================
+   * MEASUREMENT SESSION (ADMIN-CONTROLLED)
+   *
+   * The microcontroller only prompts for/sends height and
+   * weight while a session is active, so it won't push data
+   * until the admin presses "Start Measurement" on the website.
+   * =========================================================
+   */
+
+  startSession() {
+    this.sessionActive = true;
+
+    this.latestReading = {
+      height: null,
+      weight: null,
+      received_at: null,
+    };
+
+    return { active: true };
+  }
+
+  endSession() {
+    this.sessionActive = false;
+
+    return { active: false };
+  }
+
+  getSessionStatus() {
+    return { active: this.sessionActive };
   }
 
   /*

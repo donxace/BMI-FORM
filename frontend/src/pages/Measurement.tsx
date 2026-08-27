@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./Measurement.css";
 
 /*
@@ -45,6 +45,10 @@ type RFIDStatus =
   | "Found"
   | "Error";
 
+type ReadingStatus =
+  | "Waiting"
+  | "Receiving";
+
 type Personnel = {
   personnel_id: number;
   rfid_uid: string;
@@ -61,6 +65,12 @@ type Personnel = {
 type RFIDResponse = {
   rfid_uid?: string | null;
   personnel?: Personnel | null;
+};
+
+type LiveReadingResponse = {
+  height: number | null;
+  weight: number | null;
+  received_at: string | null;
 };
 
 /*
@@ -198,7 +208,7 @@ export default function Measurement() {
   const [
     personnelMode,
     setPersonnelMode,
-  ] = useState<PersonnelMode>("manual");
+  ] = useState<PersonnelMode>("automatic");
 
   const [
     rfidStatus,
@@ -244,6 +254,9 @@ export default function Measurement() {
 
   const [weight, setWeight] =
     useState("");
+
+  const [readingStatus, setReadingStatus] =
+    useState<ReadingStatus>("Waiting");
 
   const [waist, setWaist] =
     useState("");
@@ -549,6 +562,116 @@ export default function Measurement() {
       );
     };
   }, [personnelMode]);
+
+  /*
+   * ============================================================
+   * LIVE WEIGHT / HEIGHT READING FROM MICROCONTROLLER
+   *
+   * Once a session is started (personnel identified via RFID),
+   * poll the backend for values typed into the ESP32's Serial
+   * terminal and auto-fill the Height/Weight fields as they
+   * arrive. The fields stay editable manually as a fallback.
+   * ============================================================
+   */
+
+  const lastAppliedReadingAt = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionStarted) {
+      return;
+    }
+
+    lastAppliedReadingAt.current = null;
+    setReadingStatus("Waiting");
+
+    /*
+     * Tell the backend a session is active, so the
+     * microcontroller (polling /bmi-assessments/session/status)
+     * knows it's allowed to start prompting for/sending
+     * height and weight.
+     */
+
+    fetch(`${API_BASE_URL}/bmi-assessments/session/start`, {
+      method: "POST",
+    }).catch((error) => {
+      console.error(
+        "SESSION START ERROR:",
+        error
+      );
+    });
+
+    let cancelled = false;
+
+    const checkReading = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/bmi-assessments/reading/latest`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data: LiveReadingResponse =
+          await response.json();
+
+        if (cancelled || !data.received_at) {
+          return;
+        }
+
+        if (
+          data.received_at ===
+          lastAppliedReadingAt.current
+        ) {
+          return;
+        }
+
+        lastAppliedReadingAt.current = data.received_at;
+
+        setReadingStatus("Receiving");
+
+        if (data.height != null) {
+          setHeight(String(data.height));
+        }
+
+        if (data.weight != null) {
+          setWeight(String(data.weight));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "LIVE READING POLL ERROR:",
+            error
+          );
+        }
+      }
+    };
+
+    checkReading();
+
+    const interval = window.setInterval(checkReading, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+
+      fetch(`${API_BASE_URL}/bmi-assessments/session/end`, {
+        method: "POST",
+      }).catch((error) => {
+        console.error(
+          "SESSION END ERROR:",
+          error
+        );
+      });
+    };
+  }, [sessionStarted]);
 
   /*
    * ============================================================
@@ -1012,6 +1135,16 @@ export default function Measurement() {
 
       default:
         return "RFID scanner ready.";
+    }
+  };
+
+  const getReadingStatusText = () => {
+    switch (readingStatus) {
+      case "Receiving":
+        return "Receiving height and weight data from the device...";
+
+      default:
+        return "Waiting for height and weight data from the device...";
     }
   };
 
@@ -1574,6 +1707,25 @@ export default function Measurement() {
               )}
 
             </div>
+
+            {sessionStarted && (
+
+              <div
+                className={`rfid-status ${
+                  readingStatus === "Receiving"
+                    ? "scanning"
+                    : "waiting"
+                }`}
+                style={{ marginBottom: "14px" }}
+              >
+
+                <span className="rfid-status-dot" />
+
+                {getReadingStatusText()}
+
+              </div>
+
+            )}
 
             <div className="measurement-grid">
 

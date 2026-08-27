@@ -1,30 +1,64 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-const char* ssid = "HMS PON";
-const char* password = "itsdhms@2026";
+const char* ssid = "HUAWEI-3j74";
+const char* password = "dxp2jzb9";
 
-const char* serverUrl =
-  "http://192.168.1.187:3000/bmi-assessments/esp32";
+const char* rfidScanUrl =
+  "http://192.168.1.22:3000/personnel/rfid/scan";
+
+const char* readingUrl =
+  "http://192.168.1.22:3000/bmi-assessments/reading";
+
+const char* sessionStatusUrl =
+  "http://192.168.1.22:3000/bmi-assessments/session/status";
 
 // ========================================
-// MANUAL MEASUREMENT VALUES
+// SEQUENCE
+// ========================================
+// 1. Hold BOOT to fake an RFID tap -> the Measurement page's
+//    Automatic mode identifies the personnel via
+//    /personnel/rfid/latest.
+// 2. Admin presses "Start Measurement" on the website -> the
+//    board polls /bmi-assessments/session/status and only then
+//    starts prompting for input.
+// 3. Type a height value into the Serial Monitor and press
+//    Enter, then a weight value and press Enter -> both are
+//    posted to /bmi-assessments/reading and auto-fill the
+//    Height/Weight fields on the Measurement page.
 // ========================================
 
-float height = 170;
-float weight = 65;
-float waist  = 80;
-float hip    = 95;
-float wrist  = 17;
+// ---- STEP 1: FAKE RFID TAP (NO READER WIRED UP YET) ----
+// Swap FAKE_RFID_UID for any other rfid_uid already seeded in
+// the personnel table to identify a different person.
 
-// RFID stays fixed
-const char* rfid_uid = "RFID001";
+const int RFID_BUTTON_PIN = 0; // BOOT button on most ESP32 dev boards
+const char* FAKE_RFID_UID = "RFID-1002"; // Reyes, Carlo D. - PAT
 
-bool sentSuccessfully = false;
+const unsigned long RFID_DEBOUNCE_MS = 200;
 
-void setup() {
-  Serial.begin(115200);
+unsigned long rfidCandidateSince = 0;
+bool rfidCandidateState = false;
+bool rfidLastSentPressed = false;
 
+// ---- STEP 2: SERIAL HEIGHT/WEIGHT INPUT ----
+
+enum ReadingInputStage {
+  WAITING_FOR_HEIGHT,
+  WAITING_FOR_WEIGHT,
+};
+
+ReadingInputStage readingStage = WAITING_FOR_HEIGHT;
+float pendingHeight = 0;
+
+// ---- SESSION STATE (SET BY THE ADMIN ON THE WEBSITE) ----
+
+bool sessionActive = false;
+
+const unsigned long SESSION_POLL_INTERVAL_MS = 1000;
+unsigned long lastSessionCheck = 0;
+
+void connectToWiFi() {
   WiFi.begin(ssid, password);
 
   Serial.print("Connecting to WiFi");
@@ -41,85 +75,214 @@ void setup() {
   Serial.println(WiFi.localIP());
 }
 
-void loop() {
-
-  // ========================================
-  // ALREADY SENT SUCCESSFULLY
-  // ========================================
-
-  if (sentSuccessfully) {
-    delay(1000);
+void sendFakeRfidScan() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected!");
     return;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  HTTPClient http;
 
-    HTTPClient http;
+  http.begin(rfidScanUrl);
+  http.addHeader("Content-Type", "application/json");
 
-    http.begin(serverUrl);
+  String json = "{";
+  json += "\"rfid_uid\":\"" + String(FAKE_RFID_UID) + "\"";
+  json += "}";
 
-    http.addHeader(
-      "Content-Type",
-      "application/json"
-    );
+  Serial.println();
+  Serial.println("================================");
+  Serial.println("FAKE RFID TAP");
+  Serial.println(json);
+  Serial.println("================================");
 
-    // ========================================
-    // CREATE JSON
-    // ========================================
+  int responseCode = http.POST(json);
 
-    String json = "{";
-    json += "\"rfid_uid\":\"" + String(rfid_uid) + "\",";
-    json += "\"height\":" + String(height, 1) + ",";
-    json += "\"weight\":" + String(weight, 1) + ",";
-    json += "\"waist\":" + String(waist, 1) + ",";
-    json += "\"hip\":" + String(hip, 1) + ",";
-    json += "\"wrist\":" + String(wrist, 1);
-    json += "}";
+  Serial.print("HTTP Response: ");
+  Serial.println(responseCode);
+  Serial.println(http.getString());
+
+  http.end();
+}
+
+void handleFakeRfidButton() {
+  bool pressedNow = (digitalRead(RFID_BUTTON_PIN) == LOW);
+
+  if (pressedNow != rfidCandidateState) {
+    rfidCandidateState = pressedNow;
+    rfidCandidateSince = millis();
+  }
+
+  bool debounced =
+    (millis() - rfidCandidateSince) >= RFID_DEBOUNCE_MS;
+
+  // Send once per press (rising edge), not repeatedly while held.
+  if (debounced &&
+      rfidCandidateState &&
+      !rfidLastSentPressed) {
+
+    sendFakeRfidScan();
+    rfidLastSentPressed = true;
+
+  } else if (debounced && !rfidCandidateState) {
+
+    rfidLastSentPressed = false;
+  }
+}
+
+bool fetchSessionActive() {
+  if (WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+
+  HTTPClient http;
+
+  http.begin(sessionStatusUrl);
+
+  int responseCode = http.GET();
+  bool active = false;
+
+  if (responseCode == 200) {
+    String body = http.getString();
+    active = body.indexOf("\"active\":true") >= 0;
+  }
+
+  http.end();
+
+  return active;
+}
+
+void handleSessionPolling() {
+  if (millis() - lastSessionCheck < SESSION_POLL_INTERVAL_MS) {
+    return;
+  }
+
+  lastSessionCheck = millis();
+
+  bool active = fetchSessionActive();
+
+  if (active && !sessionActive) {
+
+    sessionActive = true;
+    readingStage = WAITING_FOR_HEIGHT;
 
     Serial.println();
     Serial.println("================================");
-    Serial.println("Sending measurement...");
-    Serial.println(json);
+    Serial.println("Measurement session started by admin.");
     Serial.println("================================");
 
-    int responseCode = http.POST(json);
+    promptForHeight();
 
-    Serial.print("HTTP Response: ");
-    Serial.println(responseCode);
+  } else if (!active && sessionActive) {
 
-    String response = http.getString();
+    sessionActive = false;
+    readingStage = WAITING_FOR_HEIGHT;
 
-    Serial.println("Server response:");
-    Serial.println(response);
+    Serial.println();
+    Serial.println("================================");
+    Serial.println("Measurement session ended.");
+    Serial.println("Waiting for admin to start a new session...");
+    Serial.println("================================");
+  }
+}
 
-    // ========================================
-    // ONLY STOP AFTER SUCCESS
-    // ========================================
+void promptForHeight() {
+  Serial.println();
+  Serial.println("Enter HEIGHT in cm, then press Enter:");
+}
 
-    if (responseCode >= 200 && responseCode < 300) {
+void promptForWeight() {
+  Serial.println("Enter WEIGHT in kg, then press Enter:");
+}
 
-      sentSuccessfully = true;
-
-      Serial.println();
-      Serial.println("================================");
-      Serial.println("SUCCESS!");
-      Serial.println("Measurement saved.");
-      Serial.println("No more measurements will be sent.");
-      Serial.println("================================");
-
-    } else {
-
-      Serial.println();
-      Serial.println("Request failed.");
-      Serial.println("Will try again...");
-    }
-
-    http.end();
-
-  } else {
-
+void sendReading(float heightCm, float weightKg) {
+  if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected!");
+    return;
   }
 
-  delay(5000);
+  HTTPClient http;
+
+  http.begin(readingUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  String json = "{";
+  json += "\"height\":" + String(heightCm, 1) + ",";
+  json += "\"weight\":" + String(weightKg, 1);
+  json += "}";
+
+  Serial.println();
+  Serial.println("================================");
+  Serial.println("Sending live reading...");
+  Serial.println(json);
+
+  int responseCode = http.POST(json);
+
+  Serial.print("HTTP Response: ");
+  Serial.println(responseCode);
+  Serial.println(http.getString());
+  Serial.println("================================");
+
+  http.end();
+}
+
+void handleSerialInput() {
+  if (!Serial.available()) {
+    return;
+  }
+
+  String line = Serial.readStringUntil('\n');
+  line.trim();
+
+  if (line.length() == 0) {
+    return;
+  }
+
+  if (readingStage == WAITING_FOR_HEIGHT) {
+    pendingHeight = line.toFloat();
+
+    Serial.print("Height set to: ");
+    Serial.println(pendingHeight, 1);
+
+    readingStage = WAITING_FOR_WEIGHT;
+    promptForWeight();
+
+  } else {
+    float pendingWeight = line.toFloat();
+
+    Serial.print("Weight set to: ");
+    Serial.println(pendingWeight, 1);
+
+    sendReading(pendingHeight, pendingWeight);
+
+    readingStage = WAITING_FOR_HEIGHT;
+    promptForHeight();
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(RFID_BUTTON_PIN, INPUT_PULLUP);
+
+  connectToWiFi();
+
+  Serial.println();
+  Serial.println(
+    "Hold BOOT to fake an RFID tap (" +
+    String(FAKE_RFID_UID) + ")."
+  );
+
+  Serial.println("Waiting for admin to start a measurement session...");
+}
+
+void loop() {
+  handleFakeRfidButton();
+  handleSessionPolling();
+
+  if (sessionActive) {
+    handleSerialInput();
+  }
+
+  delay(20);
 }

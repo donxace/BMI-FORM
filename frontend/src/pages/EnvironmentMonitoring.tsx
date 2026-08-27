@@ -145,6 +145,48 @@ export default function EnvironmentMonitoring() {
 
   /*
    * ============================================================
+   * GAUGE MATH
+   * ============================================================
+   */
+
+  const TEMP_MAX = 60; // display ceiling, °C
+  const TEMP_HOT = 50; // matches the backend's high_temperature threshold
+  const TEMP_WARM = 35; // early-warning zone, below the actual alert
+
+  const SMOKE_MAX = 1800; // matches the backend's smoke_detected threshold
+  const SMOKE_CAUTION = 900; // early-warning zone, below the actual alert
+
+  const tempPct = Math.max(
+    0,
+    Math.min(100, ((temperature ?? 0) / TEMP_MAX) * 100)
+  );
+
+  const smokePct = Math.max(
+    0,
+    Math.min(100, ((smokeLevel ?? 0) / SMOKE_MAX) * 100)
+  );
+
+  const tempZone =
+    (temperature ?? 0) >= TEMP_HOT
+      ? "hot"
+      : (temperature ?? 0) >= TEMP_WARM
+      ? "warm"
+      : "cool";
+
+  const smokeZone =
+    (smokeLevel ?? 0) >= SMOKE_MAX
+      ? "danger"
+      : (smokeLevel ?? 0) >= SMOKE_CAUTION
+      ? "caution"
+      : "clear";
+
+  const SMOKE_RADIUS = 50;
+  const SMOKE_CIRCUMFERENCE = 2 * Math.PI * SMOKE_RADIUS;
+  const smokeDashOffset =
+    SMOKE_CIRCUMFERENCE * (1 - smokePct / 100);
+
+  /*
+   * ============================================================
    * RENDER
    * ============================================================
    */
@@ -223,11 +265,30 @@ export default function EnvironmentMonitoring() {
 
       <div className="environment-readings">
 
-        <div className="environment-reading-card">
+        {/* ==================================================
+            TEMPERATURE — ANIMATED THERMOMETER
+        =================================================== */}
+
+        <div className={`environment-reading-card zone-${tempZone}`}>
 
           <span className="environment-reading-label">
             TEMPERATURE
           </span>
+
+          <div className="thermometer">
+
+            <div className="thermometer-tube">
+              <div
+                className="thermometer-fill"
+                style={{ height: `${tempPct}%` }}
+              />
+            </div>
+
+            <div className="thermometer-bulb">
+              <div className="thermometer-bulb-core" />
+            </div>
+
+          </div>
 
           <strong>
             {temperature != null
@@ -235,17 +296,63 @@ export default function EnvironmentMonitoring() {
               : "—"}
           </strong>
 
+          <small className={`environment-reading-badge zone-${tempZone}`}>
+            {tempZone === "hot"
+              ? "High Temperature"
+              : tempZone === "warm"
+              ? "Elevated"
+              : "Normal"}
+          </small>
+
         </div>
 
-        <div className="environment-reading-card">
+        {/* ==================================================
+            SMOKE LEVEL — ANIMATED RADIAL GAUGE
+        =================================================== */}
+
+        <div className={`environment-reading-card zone-${smokeZone}`}>
 
           <span className="environment-reading-label">
             SMOKE LEVEL
           </span>
 
-          <strong>
-            {smokeLevel != null ? smokeLevel : "—"}
-          </strong>
+          <div className="smoke-gauge">
+
+            <svg viewBox="0 0 120 120" className="smoke-gauge-svg">
+              <circle
+                className="smoke-gauge-track"
+                cx="60"
+                cy="60"
+                r={SMOKE_RADIUS}
+              />
+              <circle
+                className="smoke-gauge-fill"
+                cx="60"
+                cy="60"
+                r={SMOKE_RADIUS}
+                strokeDasharray={SMOKE_CIRCUMFERENCE}
+                strokeDashoffset={smokeDashOffset}
+              />
+            </svg>
+
+            <div className="smoke-gauge-center">
+              <strong>{smokeLevel ?? "—"}</strong>
+              <small>/ {SMOKE_MAX}</small>
+            </div>
+
+            <div className="smoke-wisp wisp-1" />
+            <div className="smoke-wisp wisp-2" />
+            <div className="smoke-wisp wisp-3" />
+
+          </div>
+
+          <small className={`environment-reading-badge zone-${smokeZone}`}>
+            {smokeZone === "danger"
+              ? "Smoke Detected"
+              : smokeZone === "caution"
+              ? "Elevated"
+              : "Clear"}
+          </small>
 
         </div>
 

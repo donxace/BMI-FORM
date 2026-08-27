@@ -7,6 +7,8 @@ const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
 type LoginMode = "admin" | "personnel";
 
+type PersonnelMethod = "scan" | "badge";
+
 type RfidStatus = "Scanning" | "Found" | "Error";
 
 type ScannedPersonnel = {
@@ -85,25 +87,32 @@ export default function Login() {
 
   /*
    * ============================================================
-   * PERSONNEL LOGIN (RFID scan + PIN)
+   * PERSONNEL LOGIN (RFID scan OR badge ID + PIN)
    *
-   * Mirrors the automatic RFID mode already used on the
-   * Measurement page: poll /personnel/rfid/latest until a card
-   * is identified, then ask for a PIN. The first PIN entered
-   * for a card becomes that card's PIN going forward.
+   * Two ways in: scan mode mirrors the automatic RFID mode
+   * already used on the Measurement page (poll
+   * /personnel/rfid/latest until a card is identified), or the
+   * badge ID is typed in manually when a scanner isn't handy.
+   * Both submit to the same /auth/personnel-login endpoint — the
+   * first PIN entered for a badge becomes that badge's PIN.
    * ============================================================
    */
+
+  const [personnelMethod, setPersonnelMethod] =
+    useState<PersonnelMethod>("scan");
 
   const [rfidStatus, setRfidStatus] = useState<RfidStatus>("Scanning");
   const [scannedPersonnel, setScannedPersonnel] =
     useState<ScannedPersonnel | null>(null);
 
   const [pin, setPin] = useState("");
+  const [badgeId, setBadgeId] = useState("");
+  const [badgePassword, setBadgePassword] = useState("");
   const [personnelLoading, setPersonnelLoading] = useState(false);
   const [personnelError, setPersonnelError] = useState("");
 
   useEffect(() => {
-    if (mode !== "personnel") {
+    if (mode !== "personnel" || personnelMethod !== "scan") {
       return;
     }
 
@@ -175,7 +184,7 @@ export default function Login() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [mode]);
+  }, [mode, personnelMethod]);
 
   const handlePersonnelSubmit = async (
     e: SyntheticEvent<HTMLFormElement>
@@ -183,13 +192,30 @@ export default function Login() {
     e.preventDefault();
     setPersonnelError("");
 
-    if (!scannedPersonnel) {
+    const rfidUid =
+      personnelMethod === "scan"
+        ? scannedPersonnel?.rfid_uid
+        : badgeId.trim();
+
+    const credential =
+      personnelMethod === "scan" ? pin : badgePassword;
+
+    if (personnelMethod === "scan" && !scannedPersonnel) {
       setPersonnelError("Please scan your RFID card first.");
       return;
     }
 
-    if (!pin.trim()) {
-      setPersonnelError("Please enter your PIN.");
+    if (personnelMethod === "badge" && !badgeId.trim()) {
+      setPersonnelError("Please enter your Badge ID.");
+      return;
+    }
+
+    if (!credential.trim()) {
+      setPersonnelError(
+        personnelMethod === "scan"
+          ? "Please enter your PIN."
+          : "Please enter your password."
+      );
       return;
     }
 
@@ -202,8 +228,8 @@ export default function Login() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            rfid_uid: scannedPersonnel.rfid_uid,
-            pin,
+            rfid_uid: rfidUid,
+            pin: credential,
           }),
         }
       );
@@ -335,6 +361,43 @@ export default function Login() {
             </>
           ) : (
             <>
+              <div className="personnel-method-toggle">
+                <button
+                  type="button"
+                  className={
+                    personnelMethod === "scan"
+                      ? "personnel-method-link active"
+                      : "personnel-method-link"
+                  }
+                  onClick={() => {
+                    setPersonnelMethod("scan");
+                    setPersonnelError("");
+                    setBadgeId("");
+                    setBadgePassword("");
+                  }}
+                >
+                  Scan RFID Card
+                </button>
+
+                <span className="personnel-method-divider">•</span>
+
+                <button
+                  type="button"
+                  className={
+                    personnelMethod === "badge"
+                      ? "personnel-method-link active"
+                      : "personnel-method-link"
+                  }
+                  onClick={() => {
+                    setPersonnelMethod("badge");
+                    setPersonnelError("");
+                    setPin("");
+                  }}
+                >
+                  Use Badge ID
+                </button>
+              </div>
+
               {personnelError && (
                 <div className="login-error">
                   <span className="login-error-icon">!</span>
@@ -342,70 +405,108 @@ export default function Login() {
                 </div>
               )}
 
-              <div className={`rfid-scan-panel ${rfidStatus.toLowerCase()}`}>
+              {personnelMethod === "scan" && (
+                <div className={`rfid-scan-panel ${rfidStatus.toLowerCase()}`}>
 
-                <div className="rfid-scan-visual">
-                  <span className="rfid-scan-ring ring-1" />
-                  <span className="rfid-scan-ring ring-2" />
-                  <span className="rfid-scan-ring ring-3" />
+                  <div className="rfid-scan-visual">
+                    <span className="rfid-scan-ring ring-1" />
+                    <span className="rfid-scan-ring ring-2" />
+                    <span className="rfid-scan-ring ring-3" />
 
-                  <div className="rfid-scan-core">
-                    {rfidStatus === "Found" ? (
-                      <span className="rfid-scan-check">✓</span>
-                    ) : rfidStatus === "Error" ? (
-                      <span className="rfid-scan-cross">✕</span>
-                    ) : (
-                      <span className="rfid-scan-card-icon">▭</span>
-                    )}
+                    <div className="rfid-scan-core">
+                      {rfidStatus === "Found" ? (
+                        <span className="rfid-scan-check">✓</span>
+                      ) : rfidStatus === "Error" ? (
+                        <span className="rfid-scan-cross">✕</span>
+                      ) : (
+                        <span className="rfid-scan-card-icon">▭</span>
+                      )}
+                    </div>
                   </div>
+
+                  <strong>
+                    {scannedPersonnel
+                      ? `${scannedPersonnel.rank} ${scannedPersonnel.first_name} ${scannedPersonnel.surname}`
+                      : rfidStatus === "Error"
+                      ? "Card Not Recognized"
+                      : "Scan Your RFID Card"}
+                  </strong>
+
+                  <small>
+                    {scannedPersonnel
+                      ? "Identity confirmed — enter your PIN below."
+                      : rfidStatus === "Error"
+                      ? "This card is not registered in the system."
+                      : "Hold your card near the scanner..."}
+                  </small>
                 </div>
-
-                <strong>
-                  {scannedPersonnel
-                    ? `${scannedPersonnel.rank} ${scannedPersonnel.first_name} ${scannedPersonnel.surname}`
-                    : rfidStatus === "Error"
-                    ? "Card Not Recognized"
-                    : "Scan Your RFID Card"}
-                </strong>
-
-                <small>
-                  {scannedPersonnel
-                    ? "Identity confirmed — enter your PIN below."
-                    : rfidStatus === "Error"
-                    ? "This card is not registered in the system."
-                    : "Hold your card near the scanner..."}
-                </small>
-              </div>
+              )}
 
               <form
                 onSubmit={handlePersonnelSubmit}
                 className="login-form"
               >
+                {personnelMethod === "badge" && (
+                  <div className="form-group">
+                    <label htmlFor="badgeId">Badge ID</label>
+                    <div className="input-with-icon">
+                      <span className="input-icon">▭</span>
+                      <input
+                        id="badgeId"
+                        type="text"
+                        placeholder="Enter your Badge ID"
+                        value={badgeId}
+                        onChange={(e) => setBadgeId(e.target.value)}
+                        disabled={personnelLoading}
+                        autoComplete="username"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-group">
-                  <label htmlFor="pin">PIN</label>
+                  <label htmlFor="personnel-credential">
+                    {personnelMethod === "scan" ? "PIN" : "Password"}
+                  </label>
                   <div className="input-with-icon">
                     <span className="input-icon">⚿</span>
-                    <input
-                      id="pin"
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder="Enter your PIN"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      disabled={personnelLoading || !scannedPersonnel}
-                    />
+                    {personnelMethod === "scan" ? (
+                      <input
+                        id="personnel-credential"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="Enter your PIN"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        disabled={personnelLoading || !scannedPersonnel}
+                      />
+                    ) : (
+                      <input
+                        id="personnel-credential"
+                        type="password"
+                        placeholder="Enter your password"
+                        value={badgePassword}
+                        onChange={(e) => setBadgePassword(e.target.value)}
+                        disabled={personnelLoading}
+                        autoComplete="current-password"
+                      />
+                    )}
                   </div>
                   <small className="login-hint">
-                    First time using this card? The PIN you enter
-                    now becomes your PIN.
+                    {personnelMethod === "scan"
+                      ? "First time using this card? The PIN you enter now becomes your PIN."
+                      : "First time signing in? The password you enter now becomes your password."}
                   </small>
                 </div>
 
                 <button
                   type="submit"
                   className="login-button"
-                  disabled={personnelLoading || !scannedPersonnel}
+                  disabled={
+                    personnelLoading ||
+                    (personnelMethod === "scan" && !scannedPersonnel)
+                  }
                 >
                   {personnelLoading ? (
                     <div className="spinner" />

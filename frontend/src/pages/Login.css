@@ -163,6 +163,54 @@
 }
 
 /* =========================================================
+   PERSONNEL METHOD TOGGLE (scan vs badge ID)
+========================================================= */
+
+.personnel-method-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    margin-bottom: 18px;
+}
+
+.personnel-method-link {
+    border: none;
+    background: transparent;
+
+    padding: 2px;
+
+    color: #94a3b8;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: color 0.15s ease;
+}
+
+.personnel-method-link.active {
+    color: #2563eb;
+
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.personnel-method-link:hover:not(.active) {
+    color: #667085;
+}
+
+.personnel-method-divider {
+    color: #cbd5e1;
+
+    font-size: 10px;
+}
+
+/* =========================================================
    ERROR ALERT
 ========================================================= */
 

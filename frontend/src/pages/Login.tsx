@@ -242,130 +242,186 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-card">
+
+        <div className="login-brand-header">
+          <img
+            src="/PNP-ITMS-BMI-LOGO.png"
+            alt="PNP ITMS BMI System"
+            className="login-logo"
+          />
+
+          <div className="login-badge">PNP AUTOMATED BMI SYSTEM</div>
+        </div>
+
         <div className="login-header">
-          <div className="login-badge">PNP BMI SYSTEM</div>
-          <h1>Welcome Back</h1>
-          <p>Sign in to access assessments and reports</p>
+          <h1>Welcome back</h1>
+          <p>Sign in to continue to your dashboard</p>
         </div>
 
-        <div className="login-tabs">
-          <button
-            type="button"
-            className={mode === "admin" ? "login-tab active" : "login-tab"}
-            onClick={() => setMode("admin")}
-          >
-            Admin
-          </button>
-
-          <button
-            type="button"
-            className={
-              mode === "personnel" ? "login-tab active" : "login-tab"
-            }
-            onClick={() => setMode("personnel")}
-          >
-            Personnel
-          </button>
-        </div>
-
-        {mode === "admin" ? (
-          <>
-            {error && (
-              <div className="login-error">
-                <span>⚠️ {error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAdminSubmit} className="login-form">
-              <div className="form-group">
-                <label htmlFor="username">USERNAME / BADGE ID</label>
-                <input
-                  id="username"
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={loading}
-                  autoComplete="username"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="password">PASSWORD</label>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
-              </div>
-
-              <button type="submit" className="login-button" disabled={loading}>
-                {loading ? <div className="spinner" /> : "Sign In →"}
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            {personnelError && (
-              <div className="login-error">
-                <span>⚠️ {personnelError}</span>
-              </div>
-            )}
-
-            <div className="rfid-login-scanner">
-              <div className="rfid-login-icon">RFID</div>
-
-              <strong>
-                {scannedPersonnel
-                  ? `${scannedPersonnel.rank} ${scannedPersonnel.first_name} ${scannedPersonnel.surname}`
-                  : "Scan your RFID card"}
-              </strong>
-
-              <small>
-                {scannedPersonnel
-                  ? "Card identified — enter your PIN below."
-                  : rfidStatus === "Error"
-                  ? "Card not recognized."
-                  : "Waiting for a card to be scanned..."}
-              </small>
-            </div>
-
-            <form
-              onSubmit={handlePersonnelSubmit}
-              className="login-form"
+          <div className="login-tabs">
+            <button
+              type="button"
+              className={mode === "admin" ? "login-tab active" : "login-tab"}
+              onClick={() => setMode("admin")}
             >
-              <div className="form-group">
-                <label htmlFor="pin">PIN</label>
-                <input
-                  id="pin"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Enter your PIN"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  disabled={personnelLoading || !scannedPersonnel}
-                />
-                <small className="login-hint">
-                  First time using this card? The PIN you enter now
-                  becomes your PIN.
+              Administrator
+            </button>
+
+            <button
+              type="button"
+              className={
+                mode === "personnel" ? "login-tab active" : "login-tab"
+              }
+              onClick={() => setMode("personnel")}
+            >
+              Personnel
+            </button>
+          </div>
+
+          {mode === "admin" ? (
+            <>
+              {error && (
+                <div className="login-error">
+                  <span className="login-error-icon">!</span>
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleAdminSubmit} className="login-form">
+                <div className="form-group">
+                  <label htmlFor="username">Username</label>
+                  <div className="input-with-icon">
+                    <span className="input-icon">◈</span>
+                    <input
+                      id="username"
+                      type="text"
+                      placeholder="Enter your username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={loading}
+                      autoComplete="username"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="password">Password</label>
+                  <div className="input-with-icon">
+                    <span className="input-icon">⚿</span>
+                    <input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="login-button"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <div className="spinner" />
+                  ) : (
+                    <>Sign In <span className="login-button-arrow">→</span></>
+                  )}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              {personnelError && (
+                <div className="login-error">
+                  <span className="login-error-icon">!</span>
+                  {personnelError}
+                </div>
+              )}
+
+              <div className={`rfid-scan-panel ${rfidStatus.toLowerCase()}`}>
+
+                <div className="rfid-scan-visual">
+                  <span className="rfid-scan-ring ring-1" />
+                  <span className="rfid-scan-ring ring-2" />
+                  <span className="rfid-scan-ring ring-3" />
+
+                  <div className="rfid-scan-core">
+                    {rfidStatus === "Found" ? (
+                      <span className="rfid-scan-check">✓</span>
+                    ) : rfidStatus === "Error" ? (
+                      <span className="rfid-scan-cross">✕</span>
+                    ) : (
+                      <span className="rfid-scan-card-icon">▭</span>
+                    )}
+                  </div>
+                </div>
+
+                <strong>
+                  {scannedPersonnel
+                    ? `${scannedPersonnel.rank} ${scannedPersonnel.first_name} ${scannedPersonnel.surname}`
+                    : rfidStatus === "Error"
+                    ? "Card Not Recognized"
+                    : "Scan Your RFID Card"}
+                </strong>
+
+                <small>
+                  {scannedPersonnel
+                    ? "Identity confirmed — enter your PIN below."
+                    : rfidStatus === "Error"
+                    ? "This card is not registered in the system."
+                    : "Hold your card near the scanner..."}
                 </small>
               </div>
 
-              <button
-                type="submit"
-                className="login-button"
-                disabled={personnelLoading || !scannedPersonnel}
+              <form
+                onSubmit={handlePersonnelSubmit}
+                className="login-form"
               >
-                {personnelLoading ? <div className="spinner" /> : "Sign In →"}
-              </button>
-            </form>
-          </>
-        )}
+                <div className="form-group">
+                  <label htmlFor="pin">PIN</label>
+                  <div className="input-with-icon">
+                    <span className="input-icon">⚿</span>
+                    <input
+                      id="pin"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Enter your PIN"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value)}
+                      disabled={personnelLoading || !scannedPersonnel}
+                    />
+                  </div>
+                  <small className="login-hint">
+                    First time using this card? The PIN you enter
+                    now becomes your PIN.
+                  </small>
+                </div>
+
+                <button
+                  type="submit"
+                  className="login-button"
+                  disabled={personnelLoading || !scannedPersonnel}
+                >
+                  {personnelLoading ? (
+                    <div className="spinner" />
+                  ) : (
+                    <>Sign In <span className="login-button-arrow">→</span></>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
+
+          <div className="login-security-note">
+            <span className="login-security-icon">⛨</span>
+            Your credentials are encrypted and never stored in
+            plain text.
+          </div>
 
         <div className="login-footer">
           <small>Restricted System • Authorized Personnel Only</small>

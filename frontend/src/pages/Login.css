@@ -1,7 +1,5 @@
-
-
 /* =========================================================
-   LOGIN PAGE
+   PAGE — CENTERED CARD
 ========================================================= */
 
 .login-container {
@@ -15,8 +13,6 @@
     padding: 30px 20px;
 
     background: #f5f7fb;
-
-    box-sizing: border-box;
 }
 
 .login-container *,
@@ -26,38 +22,48 @@
 }
 
 /* =========================================================
-   LOGIN CARD
+   CARD
 ========================================================= */
 
 .login-card {
     width: 100%;
     max-width: 420px;
 
-    padding: 30px 28px;
+    padding: 34px 32px;
 
     border: 1px solid #e7ebf1;
-
-    border-radius: 11px;
+    border-radius: 14px;
 
     background: #ffffff;
 
-    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.03);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
 }
 
 /* =========================================================
-   HEADER
+   LOGO + BADGE
 ========================================================= */
 
-.login-header {
-    text-align: center;
+.login-brand-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 
-    margin-bottom: 25px;
+    margin-bottom: 20px;
+}
+
+.login-logo {
+    width: 68px;
+    height: 68px;
+
+    object-fit: contain;
+
+    margin-bottom: 12px;
+
+    filter: drop-shadow(0 3px 8px rgba(15, 23, 42, 0.15));
 }
 
 .login-badge {
     display: inline-block;
-
-    margin-bottom: 12px;
 
     padding: 5px 12px;
 
@@ -69,7 +75,7 @@
 
     color: #2563eb;
 
-    font-size: 8px;
+    font-size: 9px;
     font-weight: 800;
 
     letter-spacing: 0.1em;
@@ -77,13 +83,23 @@
     text-transform: uppercase;
 }
 
+/* =========================================================
+   HEADER
+========================================================= */
+
+.login-header {
+    margin-bottom: 24px;
+
+    text-align: center;
+}
+
 .login-header h1 {
     margin: 0 0 6px;
 
     color: #172033;
 
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 24px;
+    font-weight: 800;
     line-height: 1.2;
 }
 
@@ -92,12 +108,12 @@
 
     color: #7d8999;
 
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.5;
 }
 
 /* =========================================================
-   LOGIN TABS
+   TABS
 ========================================================= */
 
 .login-tabs {
@@ -105,111 +121,45 @@
 
     gap: 6px;
 
-    margin-bottom: 20px;
+    margin-bottom: 22px;
 
     padding: 4px;
 
-    border-radius: 9px;
+    border-radius: 10px;
 
-    background: #f1f4f9;
+    background: #eef1f6;
 }
 
 .login-tab {
     flex: 1;
 
-    padding: 9px 0;
+    padding: 10px 0;
 
     border: none;
-    border-radius: 6px;
+    border-radius: 7px;
 
     background: transparent;
 
     color: #667085;
 
     font-family: inherit;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
 
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
 
     cursor: pointer;
 
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .login-tab.active {
     background: #ffffff;
 
-    color: #2563eb;
+    color: #1d4ed8;
 
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-}
-
-/* =========================================================
-   RFID LOGIN SCANNER
-========================================================= */
-
-.rfid-login-scanner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    gap: 6px;
-
-    margin-bottom: 20px;
-    padding: 22px 18px;
-
-    border: 1px solid #e3e8ef;
-    border-radius: 10px;
-
-    background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
-
-    text-align: center;
-}
-
-.rfid-login-icon {
-    width: 44px;
-    height: 44px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    margin-bottom: 6px;
-
-    border-radius: 12px;
-
-    background: #dbeafe;
-
-    color: #2563eb;
-
-    font-size: 9px;
-    font-weight: 800;
-}
-
-.rfid-login-scanner strong {
-    color: #172033;
-
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.rfid-login-scanner small {
-    color: #8994a5;
-
-    font-size: 10px;
-}
-
-.login-hint {
-    display: block;
-
-    margin-top: 6px;
-
-    color: #8994a5;
-
-    font-size: 9px;
-    line-height: 1.4;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
 }
 
 /* =========================================================
@@ -220,26 +170,42 @@
     display: flex;
     align-items: center;
 
-    gap: 8px;
+    gap: 10px;
 
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 
     padding: 12px 14px;
 
     border: 1px solid #fecaca;
 
-    border-radius: 7px;
+    border-radius: 8px;
 
     background: #fef2f2;
 
-    color: #dc2626;
+    color: #b91c1c;
 
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
+
+    line-height: 1.4;
 }
 
-.login-error span {
-    color: #b91c1c;
+.login-error-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 18px;
+    height: 18px;
+
+    border-radius: 50%;
+
+    background: #dc2626;
+    color: #ffffff;
+
+    font-size: 11px;
+    font-weight: 800;
 }
 
 /* =========================================================
@@ -265,21 +231,39 @@
 
     color: #536071;
 
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
 
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
+}
+
+.input-with-icon {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 13px;
+
+    color: #a1aab7;
+
+    font-size: 13px;
+
+    pointer-events: none;
 }
 
 .form-group input {
     width: 100%;
-    height: 41px;
+    height: 44px;
 
-    padding: 0 12px;
+    padding: 0 14px 0 36px;
 
     border: 1px solid #dce2ea;
 
-    border-radius: 7px;
+    border-radius: 8px;
 
     outline: none;
 
@@ -289,9 +273,9 @@
 
     font-family: inherit;
 
-    font-size: 10px;
+    font-size: 13px;
 
-    transition: 
+    transition:
         border-color 0.15s ease,
         box-shadow 0.15s ease;
 }
@@ -303,7 +287,7 @@
 .form-group input:focus {
     border-color: #2563eb;
 
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .form-group input:disabled {
@@ -319,9 +303,9 @@
 ========================================================= */
 
 .login-button {
-    height: 41px;
+    height: 46px;
 
-    margin-top: 6px;
+    margin-top: 4px;
 
     display: flex;
     align-items: center;
@@ -329,38 +313,53 @@
 
     gap: 8px;
 
-    border: 1px solid #1d4ed8;
+    border: none;
 
-    border-radius: 7px;
+    border-radius: 8px;
 
-    background: #2563eb;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 
     color: #ffffff;
 
     font-family: inherit;
 
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
 
     cursor: pointer;
 
-    transition: 
-        background 0.15s ease,
-        transform 0.15s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        opacity 0.15s ease;
 }
 
 .login-button:hover:not(:disabled) {
-    background: #1d4ed8;
-
     transform: translateY(-1px);
+
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.34);
+}
+
+.login-button:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 .login-button:disabled {
-    opacity: 0.45;
+    opacity: 0.5;
 
     cursor: not-allowed;
 
-    transform: none;
+    box-shadow: none;
+}
+
+.login-button-arrow {
+    transition: transform 0.15s ease;
+}
+
+.login-button:hover:not(:disabled) .login-button-arrow {
+    transform: translateX(3px);
 }
 
 .spinner {
@@ -383,47 +382,261 @@
 }
 
 /* =========================================================
-   FOOTER
+   RFID SCAN PANEL
 ========================================================= */
 
-.login-footer {
+.rfid-scan-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 4px;
+
+    margin-bottom: 20px;
+    padding: 26px 18px 22px;
+
+    border: 1px solid #e3e8ef;
+    border-radius: 12px;
+
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+
+    text-align: center;
+
+    transition: border-color 0.2s ease;
+}
+
+.rfid-scan-panel strong {
+    color: #172033;
+
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.rfid-scan-panel small {
+    color: #8994a5;
+
+    font-size: 11px;
+}
+
+/* --- scanning visual: pulsing radar rings --- */
+
+.rfid-scan-visual {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 84px;
+    height: 84px;
+
+    margin-bottom: 16px;
+}
+
+.rfid-scan-ring {
+    position: absolute;
+    inset: 0;
+
+    border-radius: 50%;
+
+    border: 2px solid #93c5fd;
+
+    opacity: 0;
+}
+
+.rfid-scan-panel.scanning .rfid-scan-ring {
+    animation: rfid-ring-pulse 2.2s ease-out infinite;
+}
+
+.rfid-scan-panel.scanning .ring-2 {
+    animation-delay: 0.5s;
+}
+
+.rfid-scan-panel.scanning .ring-3 {
+    animation-delay: 1s;
+}
+
+@keyframes rfid-ring-pulse {
+    0% {
+        transform: scale(0.55);
+        opacity: 0.55;
+    }
+    100% {
+        transform: scale(1.35);
+        opacity: 0;
+    }
+}
+
+.rfid-scan-core {
+    position: relative;
+    z-index: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 52px;
+    height: 52px;
+
+    border-radius: 50%;
+
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+
+    color: #2563eb;
+
+    font-size: 20px;
+
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.rfid-scan-panel.scanning .rfid-scan-core {
+    animation: rfid-core-breathe 2.2s ease-in-out infinite;
+}
+
+@keyframes rfid-core-breathe {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.18);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+    }
+}
+
+/* --- found: success pop-in --- */
+
+.rfid-scan-panel.found {
+    border-color: #bbf7d0;
+    background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.rfid-scan-panel.found .rfid-scan-ring {
+    border-color: #86efac;
+}
+
+.rfid-scan-panel.found .rfid-scan-core {
+    background: #dcfce7;
+    border-color: #bbf7d0;
+    color: #16a34a;
+
+    animation: rfid-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rfid-pop-in {
+    0% {
+        transform: scale(0.4);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.rfid-scan-check {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+/* --- error: shake + red --- */
+
+.rfid-scan-panel.error {
+    border-color: #fecaca;
+    background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);
+}
+
+.rfid-scan-panel.error .rfid-scan-core {
+    background: #fee2e2;
+    border-color: #fecaca;
+    color: #dc2626;
+
+    animation: rfid-shake 0.4s ease;
+}
+
+@keyframes rfid-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+.rfid-scan-cross {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.rfid-scan-card-icon {
+    font-size: 18px;
+}
+
+/* =========================================================
+   HINT / SECURITY NOTE / FOOTER
+========================================================= */
+
+.login-hint {
+    display: block;
+
+    margin-top: 6px;
+
+    color: #8994a5;
+
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.login-security-note {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
     margin-top: 22px;
+    padding: 10px 12px;
 
-    padding-top: 16px;
+    border-radius: 8px;
 
-    border-top: 1px solid #edf0f4;
+    background: #f8fafc;
+
+    color: #667085;
+
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.login-security-icon {
+    flex-shrink: 0;
+
+    color: #94a3b8;
+
+    font-size: 13px;
+}
+
+.login-footer {
+    margin-top: 18px;
 
     text-align: center;
 }
 
 .login-footer small {
-    color: #8994a5;
+    color: #b0b8c4;
 
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 500;
 }
 
 /* =========================================================
-   RESPONSIVE - 500px
+   RESPONSIVE
 ========================================================= */
 
 @media (max-width: 500px) {
-
     .login-container {
         padding: 18px 14px;
     }
 
     .login-card {
-        padding: 24px 20px;
+        padding: 26px 20px;
     }
 
     .login-header h1 {
-        font-size: 20px;
+        font-size: 21px;
     }
-
-    .login-header p {
-        font-size: 10px;
-    }
-
 }
-

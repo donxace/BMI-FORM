@@ -1,0 +1,217 @@
+/* =========================================================
+   PAGE
+========================================================= */
+
+.intrusion-page {
+    min-height: calc(100vh - 82px);
+
+    margin-left: 250px;
+    width: calc(100% - 250px);
+
+    padding: 32px 38px 50px;
+
+    background: #f5f7fb;
+
+    box-sizing: border-box;
+
+    overflow-x: hidden;
+}
+
+.intrusion-page *,
+.intrusion-page *::before,
+.intrusion-page *::after {
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.intrusion-header {
+    margin-bottom: 25px;
+
+    text-align: left;
+}
+
+.intrusion-header .breadcrumb {
+    margin-bottom: 8px;
+
+    color: #8a95a5;
+
+    font-size: 12px;
+}
+
+.intrusion-header h1 {
+    margin: 0 0 6px;
+
+    color: #172033;
+
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.intrusion-header p {
+    margin: 0;
+
+    color: #667085;
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   LIVE STATUS CARD
+========================================================= */
+
+.intrusion-status-card {
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+
+    padding: 26px 30px;
+
+    background: #ffffff;
+    border: 1px solid #e4e8f0;
+    border-radius: 14px;
+
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.intrusion-status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 52px;
+    height: 52px;
+
+    border-radius: 50%;
+
+    font-size: 24px;
+}
+
+.intrusion-status-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    flex: 1;
+}
+
+.intrusion-status-label {
+    color: #8a95a5;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.intrusion-status-body strong {
+    color: #172033;
+
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.intrusion-status-body small {
+    color: #667085;
+
+    font-size: 13px;
+}
+
+/* --- status: connecting --- */
+
+.status-connecting .intrusion-status-icon {
+    background: #eef1f6;
+    color: #667085;
+}
+
+/* --- status: clear --- */
+
+.status-clear {
+    border-color: #d4f0e0;
+    background: #f4fcf8;
+}
+
+.status-clear .intrusion-status-icon {
+    background: #e2f7ec;
+    color: #16a34a;
+}
+
+/* --- status: triggered --- */
+
+.status-triggered {
+    border-color: #f8d3d3;
+    background: #fef4f4;
+
+    animation: intrusion-pulse 1.2s ease-in-out infinite;
+}
+
+.status-triggered .intrusion-status-icon {
+    background: #fde2e2;
+    color: #dc2626;
+}
+
+@keyframes intrusion-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+    }
+}
+
+/* --- status: offline --- */
+
+.status-offline .intrusion-status-icon {
+    background: #eef1f6;
+    color: #b1b8c4;
+}
+
+/* =========================================================
+   ACKNOWLEDGE BUTTON
+========================================================= */
+
+.intrusion-ack-button {
+    flex-shrink: 0;
+
+    padding: 10px 18px;
+
+    background: #dc2626;
+    color: #ffffff;
+
+    border: none;
+    border-radius: 8px;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease;
+}
+
+.intrusion-ack-button:hover {
+    background: #b91c1c;
+}
+
+/* =========================================================
+   MESSAGES
+========================================================= */
+
+.intrusion-last-triggered {
+    margin: 14px 2px 0;
+
+    color: #667085;
+
+    font-size: 13px;
+}
+
+.intrusion-error-message {
+    margin: 14px 2px 0;
+
+    color: #b45309;
+
+    font-size: 13px;
+}

@@ -1,0 +1,311 @@
+.my-measurement-page {
+    width: 100%;
+}
+
+.my-measurement-header {
+    margin-bottom: 22px;
+}
+
+/* =========================================================
+   LAYOUT — FORM LEFT, PREVIEW RIGHT
+========================================================= */
+
+.my-measurement-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
+
+    gap: 20px;
+    align-items: start;
+}
+
+.my-measurement-main,
+.my-measurement-sidebar {
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .my-measurement-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.my-measurement-header h1 {
+    margin: 0 0 6px;
+
+    color: #172033;
+
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.my-measurement-header p {
+    margin: 0;
+
+    color: #667085;
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   DEVICE STATUS
+========================================================= */
+
+.my-measurement-status {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    margin-bottom: 16px;
+    padding: 6px 12px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.my-measurement-status-dot {
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+}
+
+.my-measurement-status.waiting {
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.my-measurement-status.waiting .my-measurement-status-dot {
+    background: #94a3b8;
+}
+
+.my-measurement-status.receiving {
+    color: #1d4ed8;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+}
+
+.my-measurement-status.receiving .my-measurement-status-dot {
+    background: #2563eb;
+}
+
+.my-measurement-form {
+    padding: 24px;
+
+    background: #ffffff;
+    border: 1px solid #e4e8f0;
+    border-radius: 14px;
+}
+
+.my-measurement-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 16px;
+
+    margin-bottom: 16px;
+}
+
+.my-measurement-field {
+    display: flex;
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+.my-measurement-field label {
+    color: #536071;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.my-measurement-field input {
+    height: 40px;
+
+    padding: 0 12px;
+
+    border: 1px solid #dce2ea;
+    border-radius: 8px;
+
+    outline: none;
+
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.my-measurement-field input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.my-measurement-preview {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+
+    background: #eff6ff;
+    border-radius: 8px;
+
+    color: #1d4ed8;
+
+    font-size: 13px;
+}
+
+.my-measurement-error {
+    margin: 0 0 16px;
+
+    color: #dc2626;
+
+    font-size: 13px;
+}
+
+.my-measurement-submit {
+    height: 42px;
+    padding: 0 20px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #2563eb;
+    color: #ffffff;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease;
+}
+
+.my-measurement-submit:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.my-measurement-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.my-measurement-result {
+    margin-top: 20px;
+    padding: 18px 20px;
+
+    background: #f4fcf8;
+    border: 1px solid #d4f0e0;
+    border-radius: 12px;
+}
+
+.my-measurement-result strong {
+    color: #16a34a;
+
+    font-size: 14px;
+}
+
+.my-measurement-result p {
+    margin: 6px 0 0;
+
+    color: #172033;
+
+    font-size: 13px;
+}
+
+.my-measurement-result a {
+    color: #2563eb;
+}
+
+@media (max-width: 560px) {
+    .my-measurement-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================================================
+   PDF PREVIEW
+========================================================= */
+
+.my-measurement-pdf-card {
+    margin-top: 20px;
+    padding: 18px 20px;
+
+    background: #ffffff;
+    border: 1px solid #e4e8f0;
+    border-radius: 12px;
+}
+
+.my-measurement-pdf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 12px;
+}
+
+.my-measurement-pdf-header strong {
+    color: #172033;
+
+    font-size: 14px;
+}
+
+.my-measurement-pdf-open {
+    padding: 7px 14px;
+
+    background: #eff6ff;
+    color: #2563eb;
+
+    border: 1px solid #dbeafe;
+    border-radius: 7px;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.my-measurement-pdf-open:hover {
+    background: #dbeafe;
+}
+
+.pdf-preview-container {
+    width: 100%;
+    height: 360px;
+
+    border: 1px solid #e3e8ef;
+    border-radius: 7px;
+
+    background: #f8fafc;
+
+    overflow: hidden;
+}
+
+.pdf-preview {
+    display: block;
+    width: 100%;
+    height: 100%;
+
+    border: none;
+
+    background: white;
+}
+
+.my-measurement-pdf-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+
+    height: 360px;
+    padding: 20px;
+
+    border: 1px dashed #dce2ea;
+    border-radius: 7px;
+
+    background: #f8fafc;
+
+    color: #8a95a5;
+
+    font-size: 13px;
+}

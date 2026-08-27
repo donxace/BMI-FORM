@@ -50,6 +50,50 @@ export class BmiAssessmentsService {
 
   /*
    * =========================================================
+   * SHARED BMI CALCULATION
+   * =========================================================
+   */
+
+  private calculateBmiFields(height: number, weight: number) {
+    const heightMeters = height / 100;
+
+    const bmi = weight / (heightMeters * heightMeters);
+
+    const ibw = 22 * heightMeters * heightMeters;
+
+    const weightToLose = weight > ibw ? weight - ibw : 0;
+
+    const pnpClassification =
+      bmi < 18.5
+        ? 'Underweight'
+        : bmi < 23
+        ? 'Normal'
+        : bmi < 25
+        ? 'Overweight'
+        : bmi < 30
+        ? 'Obese Class I'
+        : 'Obese Class II';
+
+    const whoClassification =
+      bmi < 18.5
+        ? 'Underweight'
+        : bmi < 25
+        ? 'Normal'
+        : bmi < 30
+        ? 'Overweight'
+        : 'Obese';
+
+    return {
+      bmi: Number(bmi.toFixed(2)),
+      ibw: Number(ibw.toFixed(2)),
+      weight_to_lose: Number(weightToLose.toFixed(2)),
+      pnp_classification: pnpClassification,
+      who_classification: whoClassification,
+    };
+  }
+
+  /*
+   * =========================================================
    * ESP32 MEASUREMENT
    * =========================================================
    */
@@ -71,58 +115,10 @@ export class BmiAssessmentsService {
       );
     }
 
-    /*
-     * Convert height to meters
-     */
-    const heightMeters =
-      Number(data.height) / 100;
-
-    /*
-     * Calculate BMI
-     */
-    const bmi =
-      Number(data.weight) /
-      (heightMeters * heightMeters);
-
-    /*
-     * Calculate IBW
-     */
-    const ibw =
-      22 * heightMeters * heightMeters;
-
-    /*
-     * Calculate weight to lose
-     */
-    const weightToLose =
-      Number(data.weight) > ibw
-        ? Number(data.weight) - ibw
-        : 0;
-
-    /*
-     * PNP Classification
-     */
-    const pnpClassification =
-      bmi < 18.5
-        ? 'Underweight'
-        : bmi < 23
-        ? 'Normal'
-        : bmi < 25
-        ? 'Overweight'
-        : bmi < 30
-        ? 'Obese Class I'
-        : 'Obese Class II';
-
-    /*
-     * WHO Classification
-     */
-    const whoClassification =
-      bmi < 18.5
-        ? 'Underweight'
-        : bmi < 25
-        ? 'Normal'
-        : bmi < 30
-        ? 'Overweight'
-        : 'Obese';
+    const calc = this.calculateBmiFields(
+      Number(data.height),
+      Number(data.weight),
+    );
 
     /*
      * Create assessment
@@ -153,20 +149,7 @@ export class BmiAssessmentsService {
             ? Number(data.wrist)
             : null,
 
-        bmi:
-          Number(bmi.toFixed(2)),
-
-        ibw:
-          Number(ibw.toFixed(2)),
-
-        weight_to_lose:
-          Number(weightToLose.toFixed(2)),
-
-        pnp_classification:
-          pnpClassification,
-
-        who_classification:
-          whoClassification,
+        ...calc,
 
         assessment_date:
           new Date()
@@ -190,6 +173,45 @@ export class BmiAssessmentsService {
       );
 
     return savedAssessment;
+  }
+
+  /*
+   * =========================================================
+   * PERSONNEL SELF-ENCODED MEASUREMENT
+   * =========================================================
+   */
+
+  async createSelfAssessment(personnelId: number, data: any) {
+    const calc = this.calculateBmiFields(
+      Number(data.height),
+      Number(data.weight),
+    );
+
+    const assessment = this.bmiAssessmentRepository.create({
+      personnel_id: personnelId,
+
+      height: Number(data.height),
+
+      weight: Number(data.weight),
+
+      waist: data.waist != null ? Number(data.waist) : null,
+
+      hip: data.hip != null ? Number(data.hip) : null,
+
+      wrist: data.wrist != null ? Number(data.wrist) : null,
+
+      ...calc,
+
+      assessment_date: new Date().toISOString().split('T')[0],
+
+      unit_representative: null,
+
+      health_service_representative: null,
+
+      encoder: 'Self-Encoded',
+    });
+
+    return await this.bmiAssessmentRepository.save(assessment);
   }
 
   /*

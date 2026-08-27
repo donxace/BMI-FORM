@@ -4,13 +4,17 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
+import { Personnel } from '../personnel/personnel.entity';
 import { LoginDto } from './dto/login.dto';
+import { PersonnelLoginDto } from './dto/personnel-login.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Personnel)
+    private readonly personnelRepository: Repository<Personnel>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -64,6 +68,66 @@ export class AuthService {
         id: user.id,
         username: user.username,
         role: user.role,
+      },
+    };
+  }
+
+  /*
+   * =========================================================
+   * PERSONNEL SELF-SERVICE LOGIN (RFID + PIN)
+   *
+   * The first PIN a personnel enters for their RFID card
+   * becomes their PIN going forward — there's no separate
+   * enrollment step.
+   * =========================================================
+   */
+
+  async personnelLogin(dto: PersonnelLoginDto) {
+    const rfid_uid = dto.rfid_uid?.trim();
+    const pin = dto.pin?.trim();
+
+    if (!rfid_uid || !pin) {
+      throw new UnauthorizedException('RFID and PIN are required.');
+    }
+
+    const personnel = await this.personnelRepository
+      .createQueryBuilder('personnel')
+      .addSelect('personnel.pin_hash')
+      .where('personnel.rfid_uid = :rfid_uid', { rfid_uid })
+      .getOne();
+
+    if (!personnel) {
+      throw new UnauthorizedException('RFID card is not registered.');
+    }
+
+    if (!personnel.pin_hash) {
+      // First-time use: the PIN entered now becomes the account's PIN.
+      personnel.pin_hash = await bcrypt.hash(pin, 10);
+      await this.personnelRepository.save(personnel);
+    } else {
+      const isPinValid = await bcrypt.compare(pin, personnel.pin_hash);
+
+      if (!isPinValid) {
+        throw new UnauthorizedException('Invalid PIN.');
+      }
+    }
+
+    const token = await this.jwtService.signAsync({
+      sub: personnel.personnel_id,
+      rfid_uid: personnel.rfid_uid,
+      role: 'personnel',
+    });
+
+    return {
+      message: 'Login successful',
+      token,
+      user: {
+        personnel_id: personnel.personnel_id,
+        rfid_uid: personnel.rfid_uid,
+        rank: personnel.rank,
+        surname: personnel.surname,
+        first_name: personnel.first_name,
+        role: 'personnel',
       },
     };
   }

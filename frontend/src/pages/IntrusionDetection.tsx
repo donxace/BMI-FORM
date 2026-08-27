@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./IntrusionDetection.css";
 
 /*
@@ -37,6 +37,14 @@ type IntrusionResponse = {
   triggered_at?: string | null;
 };
 
+type IntrusionLogEntry = {
+  log_id: number;
+  sensor_id: string | null;
+  status: "clear" | "triggered";
+  event_time: string;
+  created_at: string;
+};
+
 /*
  * ============================================================
  * INTRUSION DETECTION PAGE
@@ -58,6 +66,31 @@ export default function IntrusionDetection() {
 
   const [acknowledged, setAcknowledged] =
     useState(false);
+
+  const [logs, setLogs] =
+    useState<IntrusionLogEntry[]>([]);
+
+  /*
+   * ============================================================
+   * BROWSER NOTIFICATION PERMISSION
+   *
+   * Ask once on load so Chrome can show a desktop notification
+   * the moment an intrusion is detected. Requires the page to
+   * be served over HTTPS or from localhost — Chrome silently
+   * blocks the permission prompt on a plain-HTTP LAN address.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (
+      "Notification" in window &&
+      Notification.permission === "default"
+    ) {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const previousStatusRef = useRef<SensorStatus>("connecting");
 
   /*
    * ============================================================
@@ -109,7 +142,30 @@ export default function IntrusionDetection() {
             data.triggered_at ?? new Date().toISOString()
           );
           setAcknowledged(false);
+
+          if (
+            previousStatusRef.current !== "triggered" &&
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            const notification = new Notification(
+              "Intrusion Detected",
+              {
+                body: `Laser sensor ${
+                  data.sensor_id || "unknown"
+                } was triggered at ${new Date().toLocaleTimeString()}.`,
+                icon: "/PNP-ITMS-BMI-LOGO.png",
+                tag: "intrusion-detection",
+              }
+            );
+
+            notification.onclick = () => {
+              window.focus();
+            };
+          }
         }
+
+        previousStatusRef.current = data.status;
       } catch (error) {
         if (cancelled) {
           return;
@@ -128,6 +184,59 @@ export default function IntrusionDetection() {
     checkSensor();
 
     const interval = window.setInterval(checkSensor, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * TRIGGER LOG HISTORY
+   *
+   * Every triggered/clear transition is logged on the backend
+   * (intrusion_logs table). Poll it at a slower interval than
+   * the live status, since it's just a history list.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchLogs = async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/intrusion-detection/logs?limit=20`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok || cancelled) {
+          return;
+        }
+
+        const data: IntrusionLogEntry[] =
+          await response.json();
+
+        if (!cancelled) {
+          setLogs(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("INTRUSION LOG FETCH ERROR:", error);
+        }
+      }
+    };
+
+    fetchLogs();
+
+    const interval = window.setInterval(fetchLogs, 5000);
 
     return () => {
       cancelled = true;
@@ -235,6 +344,70 @@ export default function IntrusionDetection() {
           sensor has not been implemented yet.
         </p>
       )}
+
+      {/* ======================================================
+          RECENT ACTIVITY LOG
+      ====================================================== */}
+
+      <section className="intrusion-log-card">
+
+        <h2>
+          Recent Activity
+        </h2>
+
+        {logs.length === 0 ? (
+
+          <p className="intrusion-log-empty">
+            No trigger/clear events logged yet.
+          </p>
+
+        ) : (
+
+          <table className="intrusion-log-table">
+
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Sensor</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {logs.map((entry) => (
+
+                <tr key={entry.log_id}>
+
+                  <td>
+                    {new Date(
+                      entry.event_time
+                    ).toLocaleString()}
+                  </td>
+
+                  <td>
+                    <span
+                      className={`intrusion-log-badge ${entry.status}`}
+                    >
+                      {entry.status === "triggered"
+                        ? "Triggered"
+                        : "Clear"}
+                    </span>
+                  </td>
+
+                  <td>
+                    {entry.sensor_id || "—"}
+                  </td>
+
+                </tr>
+
+              ))}
+            </tbody>
+
+          </table>
+
+        )}
+
+      </section>
 
     </div>
   );

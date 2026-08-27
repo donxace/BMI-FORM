@@ -4,9 +4,15 @@ import {
   Get,
   Param,
   Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { BmiAssessmentsService } from './bmi-assessments.service';
+import { PersonnelAuthGuard } from '../auth/guards/personnel-auth.guard';
+
+type AuthedRequest = Request & { user: { sub: number } };
 
 @Controller('bmi-assessments')
 export class BmiAssessmentsController {
@@ -57,6 +63,27 @@ export class BmiAssessmentsController {
   @Get('session/status')
   getSessionStatus() {
     return this.bmiAssessmentsService.getSessionStatus();
+  }
+
+  // PERSONNEL SELF-SERVICE (own records only, identity comes from the JWT)
+  @UseGuards(PersonnelAuthGuard)
+  @Get('me')
+  async findMine(@Req() req: AuthedRequest) {
+    return await this.bmiAssessmentsService.findByPersonnel(
+      req.user.sub,
+    );
+  }
+
+  @UseGuards(PersonnelAuthGuard)
+  @Post('me')
+  async createMine(
+    @Req() req: AuthedRequest,
+    @Body() data: any,
+  ) {
+    return await this.bmiAssessmentsService.createSelfAssessment(
+      req.user.sub,
+      data,
+    );
   }
 
   @Get()

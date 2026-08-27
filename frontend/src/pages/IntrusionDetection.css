@@ -197,6 +197,87 @@
 }
 
 /* =========================================================
+   RECENT ACTIVITY LOG
+========================================================= */
+
+.intrusion-log-card {
+    margin-top: 24px;
+
+    padding: 24px 26px;
+
+    background: #ffffff;
+    border: 1px solid #e4e8f0;
+    border-radius: 14px;
+}
+
+.intrusion-log-card h2 {
+    margin: 0 0 16px;
+
+    color: #172033;
+
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.intrusion-log-empty {
+    margin: 0;
+
+    color: #8a95a5;
+
+    font-size: 13px;
+}
+
+.intrusion-log-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    font-size: 13px;
+}
+
+.intrusion-log-table th {
+    padding: 8px 10px;
+
+    color: #8a95a5;
+    text-align: left;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+
+    border-bottom: 1px solid #e4e8f0;
+}
+
+.intrusion-log-table td {
+    padding: 10px;
+
+    color: #172033;
+
+    border-bottom: 1px solid #f0f2f6;
+}
+
+.intrusion-log-badge {
+    display: inline-block;
+
+    padding: 3px 10px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.intrusion-log-badge.clear {
+    background: #e2f7ec;
+    color: #16a34a;
+}
+
+.intrusion-log-badge.triggered {
+    background: #fde2e2;
+    color: #dc2626;
+}
+
+/* =========================================================
    MESSAGES
 ========================================================= */
 

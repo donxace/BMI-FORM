@@ -14,6 +14,7 @@ import Assessment from "./pages/Assessment";
 import Report from "./pages/Report";
 import Analytics from "./pages/Analytics";
 import IntrusionDetection from "./pages/IntrusionDetection";
+import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
 
@@ -67,6 +68,11 @@ function App() {
             <Route
               path="/intrusion-detection"
               element={<IntrusionDetection />}
+            />
+
+            <Route
+              path="/environment-monitoring"
+              element={<EnvironmentMonitoring />}
             />
 
             <Route

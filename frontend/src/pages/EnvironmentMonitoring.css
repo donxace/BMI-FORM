@@ -1,0 +1,259 @@
+/* =========================================================
+   PAGE
+========================================================= */
+
+.environment-page {
+    min-height: calc(100vh - 82px);
+
+    margin-left: 250px;
+    width: calc(100% - 250px);
+
+    padding: 32px 38px 50px;
+
+    background: #f5f7fb;
+
+    box-sizing: border-box;
+
+    overflow-x: hidden;
+}
+
+.environment-page *,
+.environment-page *::before,
+.environment-page *::after {
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.environment-header {
+    margin-bottom: 25px;
+
+    text-align: left;
+}
+
+.environment-header .breadcrumb {
+    margin-bottom: 8px;
+
+    color: #8a95a5;
+
+    font-size: 12px;
+}
+
+.environment-header h1 {
+    margin: 0 0 6px;
+
+    color: #172033;
+
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.environment-header p {
+    margin: 0;
+
+    color: #667085;
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   LIVE STATUS CARD
+========================================================= */
+
+.environment-status-card {
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+
+    padding: 26px 30px;
+
+    background: #ffffff;
+    border: 1px solid #e4e8f0;
+    border-radius: 14px;
+
+    margin-bottom: 18px;
+
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.environment-status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 52px;
+    height: 52px;
+
+    border-radius: 50%;
+
+    font-size: 24px;
+
+    background: #eef1f6;
+}
+
+.environment-status-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    flex: 1;
+}
+
+.environment-status-label {
+    color: #8a95a5;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.environment-status-body strong {
+    color: #172033;
+
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.environment-status-body small {
+    color: #667085;
+
+    font-size: 13px;
+}
+
+/* --- status: connecting / offline --- */
+
+.status-connecting .environment-status-icon,
+.status-offline .environment-status-icon {
+    background: #eef1f6;
+    color: #b1b8c4;
+}
+
+/* --- status: normal --- */
+
+.status-normal {
+    border-color: #d4f0e0;
+    background: #f4fcf8;
+}
+
+.status-normal .environment-status-icon {
+    background: #e2f7ec;
+    color: #16a34a;
+}
+
+/* --- status: smoke_detected --- */
+
+.status-smoke_detected {
+    border-color: #f8d3d3;
+    background: #fef4f4;
+
+    animation: environment-pulse 1.2s ease-in-out infinite;
+}
+
+.status-smoke_detected .environment-status-icon {
+    background: #fde2e2;
+    color: #dc2626;
+}
+
+/* --- status: high_temperature --- */
+
+.status-high_temperature {
+    border-color: #fbe3c6;
+    background: #fff8ef;
+
+    animation: environment-pulse-orange 1.2s ease-in-out infinite;
+}
+
+.status-high_temperature .environment-status-icon {
+    background: #fdecd2;
+    color: #b45309;
+}
+
+@keyframes environment-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+    }
+}
+
+@keyframes environment-pulse-orange {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(180, 83, 9, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(180, 83, 9, 0);
+    }
+}
+
+/* =========================================================
+   READINGS
+========================================================= */
+
+.environment-readings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 16px;
+}
+
+.environment-reading-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    padding: 20px 22px;
+
+    background: #ffffff;
+    border: 1px solid #e4e8f0;
+    border-radius: 14px;
+}
+
+.environment-reading-label {
+    color: #8a95a5;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.environment-reading-card strong {
+    color: #172033;
+
+    font-size: 22px;
+    font-weight: 700;
+}
+
+/* =========================================================
+   MESSAGES
+========================================================= */
+
+.environment-updated-at {
+    margin: 14px 2px 0;
+
+    color: #667085;
+
+    font-size: 13px;
+}
+
+.environment-error-message {
+    margin: 14px 2px 0;
+
+    color: #b45309;
+
+    font-size: 13px;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 720px) {
+    .environment-readings {
+        grid-template-columns: 1fr;
+    }
+}

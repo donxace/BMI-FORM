@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { RanksModule } from './ranks/ranks.module';
 import { Rank } from './ranks/rank.entity';
 import { IntrusionDetectionModule } from './intrusion-detection/intrusion-detection.module';
+import { EnvironmentMonitoringModule } from './environment-monitoring/environment-monitoring.module';
 
 @Module({
   imports: [
@@ -35,6 +36,8 @@ import { IntrusionDetectionModule } from './intrusion-detection/intrusion-detect
     RanksModule,
 
     IntrusionDetectionModule,
+
+    EnvironmentMonitoringModule,
   ],
 })
 export class AppModule {}

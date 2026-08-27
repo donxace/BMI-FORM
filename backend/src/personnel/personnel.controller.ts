@@ -25,6 +25,19 @@ export class PersonnelController {
     return this.personnelService.findAll();
   }
 
+  // ESP32 RFID READER SAVE
+  @Post('rfid/scan')
+  async reportRfidScan(@Body() data: { rfid_uid: string }) {
+    console.log('ESP32 RFID SCAN:', data);
+
+    return this.personnelService.reportRfidScan(data.rfid_uid);
+  }
+
+  @Get('rfid/latest')
+  async getLatestRfidScan() {
+    return this.personnelService.getLatestRfidScan();
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.personnelService.findOne(id);

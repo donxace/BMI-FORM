@@ -13,6 +13,11 @@ import { UpdatePersonnelDto } from './dto/update-personnel.dto';
 
 @Injectable()
 export class PersonnelService {
+  private latestRfidScan: {
+    rfid_uid: string | null;
+    personnel: Personnel | null;
+  } = { rfid_uid: null, personnel: null };
+
   constructor(
     @InjectRepository(Personnel)
     private readonly personnelRepository: Repository<Personnel>,
@@ -78,5 +83,23 @@ export class PersonnelService {
 
     Object.assign(personnel, dto);
     return await this.personnelRepository.save(personnel);
+  }
+
+  // ESP32/RFID reader reports a scanned card UID
+  async reportRfidScan(rfid_uid: string) {
+    const personnel = await this.personnelRepository.findOne({
+      where: { rfid_uid },
+    });
+
+    this.latestRfidScan = {
+      rfid_uid,
+      personnel: personnel ?? null,
+    };
+
+    return this.latestRfidScan;
+  }
+
+  getLatestRfidScan() {
+    return this.latestRfidScan;
   }
 }

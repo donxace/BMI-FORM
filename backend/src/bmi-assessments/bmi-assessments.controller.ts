@@ -30,6 +30,35 @@ export class BmiAssessmentsController {
     return await this.bmiAssessmentsService.createFromEsp32(data);
   }
 
+  // ESP32 LIVE WEIGHT / HEIGHT READING
+  @Post('reading')
+  reportReading(@Body() data: any) {
+    console.log('ESP32 READING:', data);
+
+    return this.bmiAssessmentsService.reportReading(data);
+  }
+
+  @Get('reading/latest')
+  getLatestReading() {
+    return this.bmiAssessmentsService.getLatestReading();
+  }
+
+  // ADMIN STARTS/ENDS A MEASUREMENT SESSION FROM THE WEBSITE
+  @Post('session/start')
+  startSession() {
+    return this.bmiAssessmentsService.startSession();
+  }
+
+  @Post('session/end')
+  endSession() {
+    return this.bmiAssessmentsService.endSession();
+  }
+
+  @Get('session/status')
+  getSessionStatus() {
+    return this.bmiAssessmentsService.getSessionStatus();
+  }
+
   @Get()
   async findAll() {
     return await this.bmiAssessmentsService.findAll();

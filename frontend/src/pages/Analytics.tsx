@@ -190,7 +190,8 @@ export default function Analytics() {
         const data: Assessment[] =
           rawData.map((item: any) => {
             const personnelId = Number(
-              item.personnel_id ??
+              item.assessment_personnel_id ??
+                item.personnel_id ??
                 item.personnelId ??
                 0,
             );

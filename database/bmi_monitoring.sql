@@ -336,12 +336,28 @@ INSERT INTO `bmi_assessments` (`assessment_id`, `personnel_id`, `height`, `weigh
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `intrusion_logs`
+--
+
+CREATE TABLE `intrusion_logs` (
+  `log_id` bigint(20) UNSIGNED NOT NULL,
+  `sensor_id` varchar(50) DEFAULT NULL,
+  `status` varchar(20) NOT NULL,
+  `event_time` datetime NOT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `personnel`
 --
 
 CREATE TABLE `personnel` (
   `personnel_id` bigint(20) UNSIGNED NOT NULL,
   `rfid_uid` varchar(50) NOT NULL,
+  `pin_hash` varchar(255) DEFAULT NULL,
+  `is_claimed` tinyint(1) NOT NULL DEFAULT 1,
   `rank` varchar(50) NOT NULL,
   `surname` varchar(100) NOT NULL,
   `first_name` varchar(100) NOT NULL,
@@ -464,6 +480,12 @@ ALTER TABLE `bmi_assessments`
   ADD KEY `fk_bmi_personnel` (`personnel_id`);
 
 --
+-- Indexes for table `intrusion_logs`
+--
+ALTER TABLE `intrusion_logs`
+  ADD PRIMARY KEY (`log_id`);
+
+--
 -- Indexes for table `personnel`
 --
 ALTER TABLE `personnel`
@@ -494,6 +516,12 @@ ALTER TABLE `users`
 --
 ALTER TABLE `bmi_assessments`
   MODIFY `assessment_id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=383;
+
+--
+-- AUTO_INCREMENT for table `intrusion_logs`
+--
+ALTER TABLE `intrusion_logs`
+  MODIFY `log_id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `personnel`

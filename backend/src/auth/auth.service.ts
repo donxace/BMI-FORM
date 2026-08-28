@@ -49,14 +49,6 @@ export class AuthService {
       isPasswordValid = false;
     }
 
-    // Auto-fix hash fallback for default setup
-    if (!isPasswordValid && username === 'admin' && password === 'password123') {
-      const newHash = await bcrypt.hash(password, 10);
-      user.password_hash = newHash;
-      await this.userRepository.save(user);
-      isPasswordValid = true;
-    }
-
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials.');
     }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -113,6 +113,11 @@ const OFFICE_COLORS = [
   "#0891b2", // Cyan
   "#d97706", // Amber
 ];
+
+// Shared chart palette — matches the Smoke & Temperature trend cards
+const CHART_GRID = "#e1e0d9";
+const CHART_MUTED = "#898781";
+const CHART_SURFACE = "#fcfcfb";
 
 /*
  * ============================================================
@@ -1241,52 +1246,105 @@ export default function Analytics() {
         ) : (
           <div style={{ width: "100%", height: 350, marginTop: "1rem" }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
+              <AreaChart
                 data={officeTrendData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+                margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <defs>
+                  {officeOptions.map((officeName, index) => (
+                    <linearGradient
+                      key={officeName}
+                      id={`fill-office-${index}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={OFFICE_COLORS[index % OFFICE_COLORS.length]}
+                        stopOpacity={0.18}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={OFFICE_COLORS[index % OFFICE_COLORS.length]}
+                        stopOpacity={0.02}
+                      />
+                    </linearGradient>
+                  ))}
+                </defs>
+
+                <CartesianGrid
+                  stroke={CHART_GRID}
+                  strokeDasharray="0"
+                  vertical={false}
+                />
+
                 <XAxis
                   dataKey="month"
-                  stroke="#64748b"
-                  style={{ fontSize: "0.85rem" }}
+                  stroke={CHART_MUTED}
+                  tickLine={false}
+                  axisLine={{ stroke: CHART_GRID }}
+                  style={{ fontSize: "10px" }}
+                  minTickGap={24}
                 />
+
                 <YAxis
                   domain={["dataMin - 1", "dataMax + 1"]}
-                  stroke="#64748b"
-                  style={{ fontSize: "0.85rem" }}
+                  stroke={CHART_MUTED}
+                  tickLine={false}
+                  axisLine={false}
+                  tickCount={4}
+                  style={{ fontSize: "10px" }}
+                  width={40}
                   unit=" BMI"
                 />
+
                 <Tooltip
+                  cursor={{ stroke: CHART_GRID, strokeWidth: 1 }}
                   contentStyle={{
-                    backgroundColor: "#1e293b",
-                    borderColor: "#334155",
+                    background: "#172033",
+                    border: "none",
                     borderRadius: "8px",
-                    color: "#fff",
-                    fontSize: "0.85rem",
+                    fontSize: "11px",
+                    padding: "8px 10px",
                   }}
-                  itemStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  itemStyle={{ color: "#ffffff" }}
                 />
+
                 <Legend
                   wrapperStyle={{
                     paddingTop: "15px",
-                    fontSize: "0.85rem",
+                    fontSize: "11px",
                   }}
                 />
+
                 {officeOptions.map((officeName, index) => (
-                  <Line
+                  <Area
                     key={officeName}
                     type="monotone"
                     dataKey={officeName}
                     name={officeName}
                     stroke={OFFICE_COLORS[index % OFFICE_COLORS.length]}
-                    strokeWidth={3}
-                    dot={{ r: 5 }}
-                    activeDot={{ r: 8 }}
+                    strokeWidth={2}
+                    fill={`url(#fill-office-${index})`}
+                    dot={{
+                      r: 4,
+                      fill: OFFICE_COLORS[index % OFFICE_COLORS.length],
+                      stroke: CHART_SURFACE,
+                      strokeWidth: 2,
+                    }}
+                    activeDot={{
+                      r: 5,
+                      fill: OFFICE_COLORS[index % OFFICE_COLORS.length],
+                      stroke: CHART_SURFACE,
+                      strokeWidth: 2,
+                    }}
                     connectNulls
                   />
                 ))}
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}

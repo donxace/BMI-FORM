@@ -292,6 +292,17 @@ export default function Measurement() {
   const [wrist, setWrist] =
     useState("");
 
+  const [flashHeight, setFlashHeight] =
+    useState(false);
+
+  const [flashWeight, setFlashWeight] =
+    useState(false);
+
+  const flashTimeouts = useRef<{
+    height?: number;
+    weight?: number;
+  }>({});
+
   /*
    * ============================================================
    * SAVED ASSESSMENT
@@ -669,10 +680,24 @@ export default function Measurement() {
 
         if (data.height != null) {
           setHeight(String(data.height));
+
+          setFlashHeight(true);
+          window.clearTimeout(flashTimeouts.current.height);
+          flashTimeouts.current.height = window.setTimeout(
+            () => setFlashHeight(false),
+            900
+          );
         }
 
         if (data.weight != null) {
           setWeight(String(data.weight));
+
+          setFlashWeight(true);
+          window.clearTimeout(flashTimeouts.current.weight);
+          flashTimeouts.current.weight = window.setTimeout(
+            () => setFlashWeight(false),
+            900
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -691,6 +716,9 @@ export default function Measurement() {
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+
+      window.clearTimeout(flashTimeouts.current.height);
+      window.clearTimeout(flashTimeouts.current.weight);
 
       fetch(`${API_BASE_URL}/bmi-assessments/session/end`, {
         method: "POST",
@@ -1217,6 +1245,35 @@ export default function Measurement() {
     Boolean(waist) &&
     Boolean(hip) &&
     Boolean(wrist);
+
+  /*
+   * ============================================================
+   * MEASUREMENT FIELD ANIMATION STATE
+   *
+   * "pending"  — session is active but the field is still empty
+   * "filled"   — the field has a value (checkmark pop-in)
+   * "flash"    — value just arrived live from the microcontroller
+   * ============================================================
+   */
+
+  const getFieldClass = (
+    value: string,
+    isFlashing = false
+  ) => {
+    const classes = ["measurement-input"];
+
+    if (sessionStarted) {
+      classes.push(
+        value.trim() ? "filled" : "pending"
+      );
+    }
+
+    if (isFlashing) {
+      classes.push("flash");
+    }
+
+    return classes.join(" ");
+  };
 
   /*
    * ============================================================
@@ -1950,11 +2007,14 @@ export default function Measurement() {
 
             )}
 
-            <div className="measurement-grid">
+            <div
+              className="measurement-grid"
+              key={sessionStarted ? "active" : "idle"}
+            >
 
               {/* HEIGHT */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(height, flashHeight)}>
 
                 <div className="input-label">
 
@@ -2004,7 +2064,7 @@ export default function Measurement() {
 
               {/* WEIGHT */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(weight, flashWeight)}>
 
                 <div className="input-label">
 
@@ -2054,7 +2114,7 @@ export default function Measurement() {
 
               {/* WAIST */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(waist)}>
 
                 <div className="input-label">
 
@@ -2104,7 +2164,7 @@ export default function Measurement() {
 
               {/* HIP */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(hip)}>
 
                 <div className="input-label">
 
@@ -2154,7 +2214,7 @@ export default function Measurement() {
 
               {/* WRIST */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(wrist)}>
 
                 <div className="input-label">
 

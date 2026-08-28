@@ -255,7 +255,11 @@ export default function Personnel() {
       setLoadingPersonnel(true);
       setPersonnelError("");
 
-      const response = await fetch(`${API_BASE_URL}/personnel`);
+      const response = await fetch(`${API_BASE_URL}/personnel`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -537,6 +541,7 @@ export default function Personnel() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
           body: JSON.stringify(personnelData),
         }
@@ -594,6 +599,7 @@ export default function Personnel() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
           body: JSON.stringify({
             rfid_uid: provisionRfidUid.trim(),
@@ -724,6 +730,7 @@ export default function Personnel() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
             },
             body: JSON.stringify(updatedData),
           }
@@ -765,6 +772,9 @@ export default function Personnel() {
         `${API_BASE_URL}/personnel/${personnel.personnel_id}`,
         {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
         }
       );
 

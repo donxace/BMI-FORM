@@ -339,6 +339,11 @@ export default function Assessment() {
 
         const response = await fetch(
          `${API_BASE_URL}/bmi-assessments`,
+         {
+           headers: {
+             Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+           },
+         },
         );
 
         console.log(

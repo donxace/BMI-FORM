@@ -322,7 +322,12 @@ export default function Measurement() {
 
           const response =
             await fetch(
-              `${API_BASE_URL}/personnel`
+              `${API_BASE_URL}/personnel`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+                },
+              },
             );
 
           console.log(

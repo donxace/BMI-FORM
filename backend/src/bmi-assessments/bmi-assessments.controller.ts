@@ -11,6 +11,7 @@ import type { Request } from 'express';
 
 import { BmiAssessmentsService } from './bmi-assessments.service';
 import { PersonnelAuthGuard } from '../auth/guards/personnel-auth.guard';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 
 type AuthedRequest = Request & { user: { sub: number } };
 
@@ -86,11 +87,13 @@ export class BmiAssessmentsController {
     );
   }
 
+  @UseGuards(AdminAuthGuard)
   @Get()
   async findAll() {
     return await this.bmiAssessmentsService.findAll();
   }
 
+  @UseGuards(AdminAuthGuard)
   @Get('personnel/:personnelId')
   async findByPersonnel(
     @Param('personnelId') personnelId: string,

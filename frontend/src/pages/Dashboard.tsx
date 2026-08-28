@@ -162,7 +162,11 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchPersonnel = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/personnel`);
+        const response = await fetch(`${API_BASE_URL}/personnel`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -184,7 +188,11 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`${API_BASE_URL}/bmi-assessments`);
+        const response = await fetch(`${API_BASE_URL}/bmi-assessments`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);

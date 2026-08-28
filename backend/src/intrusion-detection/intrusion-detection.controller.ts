@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 
 import { IntrusionDetectionService } from './intrusion-detection.service';
+import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 
 @Controller('intrusion-detection')
 export class IntrusionDetectionController {
@@ -21,6 +22,7 @@ export class IntrusionDetectionController {
     return this.intrusionDetectionService.getLatest();
   }
 
+  @UseGuards(AdminAuthGuard)
   @Get('logs')
   async getLogs(@Query('limit') limit?: string) {
     const parsedLimit = limit ? Number(limit) : undefined;

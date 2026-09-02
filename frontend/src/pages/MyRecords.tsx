@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { X } from "lucide-react";
 import "./MyRecords.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -171,7 +172,7 @@ export default function MyRecords() {
                 className="my-records-preview-close"
                 onClick={() => setPreviewId(null)}
               >
-                ✕
+                <X size={16} strokeWidth={2} />
               </button>
             </div>
 

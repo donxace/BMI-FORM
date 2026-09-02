@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { User, Nfc, Search, Play, Ruler, Scale, CircleDot, Info } from "lucide-react";
 import "./Measurement.css";
 
 /*
@@ -1504,7 +1505,7 @@ export default function Measurement() {
                 >
 
                   <span>
-                    👤
+                    <User size={14} strokeWidth={2} />
                   </span>
 
                   Manual
@@ -1530,7 +1531,7 @@ export default function Measurement() {
                 >
 
                   <span>
-                    📡
+                    <Nfc size={14} strokeWidth={2} />
                   </span>
 
                   RFID Automatic
@@ -1558,6 +1559,10 @@ export default function Measurement() {
                   className="personnel-search"
                   ref={personnelSearchRef}
                 >
+
+                  <span className="personnel-search-icon">
+                    <Search size={14} strokeWidth={2} />
+                  </span>
 
                   <input
                     type="text"
@@ -1722,7 +1727,7 @@ export default function Measurement() {
               <div className="rfid-scanner">
 
                 <div className="rfid-scanner-icon">
-                  RFID
+                  <Nfc size={26} strokeWidth={1.75} />
                 </div>
 
                 <h3>
@@ -1875,7 +1880,7 @@ export default function Measurement() {
               >
 
                 <span>
-                  ▶
+                  <Play size={14} strokeWidth={2} fill="currentColor" />
                 </span>
 
                 Start Measurement Session
@@ -1959,7 +1964,7 @@ export default function Measurement() {
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ↕
+                    <Ruler size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2009,7 +2014,7 @@ export default function Measurement() {
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ⚖
+                    <Scale size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2059,7 +2064,7 @@ export default function Measurement() {
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ◉
+                    <CircleDot size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2109,7 +2114,7 @@ export default function Measurement() {
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ◉
+                    <CircleDot size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2159,7 +2164,7 @@ export default function Measurement() {
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ◉
+                    <CircleDot size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2207,7 +2212,7 @@ export default function Measurement() {
             <div className="measurement-note">
 
               <span>
-                ⓘ
+                <Info size={14} strokeWidth={2} />
               </span>
 
               <p>

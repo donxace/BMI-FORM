@@ -440,12 +440,22 @@
   min-width: 0;
 }
 
+.personnel-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: #a1aab7;
+  pointer-events: none;
+}
+
 .personnel-search-input {
   display: block;
   width: 100%;
   max-width: 100%;
   height: 43px;
-  padding: 0 12px;
+  padding: 0 12px 0 34px;
   border: 1px solid #dce2ea;
   border-radius: 7px;
   background: white;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ShieldAlert, ShieldCheck } from "lucide-react";
 import "./IntrusionDetection.css";
 
 /*
@@ -299,7 +300,11 @@ export default function IntrusionDetection() {
       >
 
         <div className="intrusion-status-icon">
-          {sensorStatus === "triggered" ? "⚠" : "⚡"}
+          {sensorStatus === "triggered" ? (
+            <ShieldAlert size={24} strokeWidth={2} />
+          ) : (
+            <ShieldCheck size={24} strokeWidth={2} />
+          )}
         </div>
 
         <div className="intrusion-status-body">

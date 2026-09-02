@@ -977,8 +977,9 @@
 }
 
 .report-actions b {
+    display: flex;
+    align-items: center;
     color: #8994a5;
-    font-size: 13px;
 }
 
 /* =========================================================

@@ -2,10 +2,13 @@ import {
   BrowserRouter,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
 
 import MainLayout from "./components/MainLayout";
+import SecurityLayout from "./components/SecurityLayout";
 import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import ProtectedRoute
+import SecurityProtectedRoute from "./components/SecurityProtectedRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
@@ -19,8 +22,10 @@ import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
+import SecurityLogin from "./pages/SecurityLogin";
 import MyRecords from "./pages/MyRecords";
 import MyMeasurement from "./pages/MyMeasurement";
+import Kiosk from "./pages/Kiosk";
 
 function App() {
   return (
@@ -31,6 +36,12 @@ function App() {
         <Route
           path="/login"
           element={<Login />}
+        />
+
+        {/* Public, unattended touch kiosk — tap RFID to measure */}
+        <Route
+          path="/kiosk"
+          element={<Kiosk />}
         />
 
         {/* =====================================================
@@ -70,18 +81,40 @@ function App() {
             />
 
             <Route
-              path="/intrusion-detection"
+              path="/settings"
+              element={<SettingsPage />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            SECURITY & ENVIRONMENT DOMAIN
+            Fully separate authentication from the BMI system above —
+            its own login page and its own session/token, even though
+            it shares the same backend and account table for now.
+        ====================================================== */}
+        <Route
+          path="/security/login"
+          element={<SecurityLogin />}
+        />
+
+        <Route element={<SecurityProtectedRoute />}>
+          <Route element={<SecurityLayout />}>
+
+            <Route
+              path="/security"
+              element={<Navigate to="/security/intrusion-detection" replace />}
+            />
+
+            <Route
+              path="/security/intrusion-detection"
               element={<IntrusionDetection />}
             />
 
             <Route
-              path="/environment-monitoring"
+              path="/security/environment-monitoring"
               element={<EnvironmentMonitoring />}
-            />
-
-            <Route
-              path="/settings"
-              element={<SettingsPage />}
             />
 
           </Route>

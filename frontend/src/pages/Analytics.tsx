@@ -9,6 +9,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { CheckCircle2 } from "lucide-react";
 import "./Analytics.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -1140,7 +1141,7 @@ export default function Analytics() {
         <div className="analytics-summary-card">
 
           <div className="analytics-icon green">
-            ✓
+            <CheckCircle2 size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1809,7 +1810,7 @@ export default function Analytics() {
             <div className="insight-item">
 
               <span className="insight-icon green">
-                ✓
+                <CheckCircle2 size={16} strokeWidth={2} />
               </span>
 
               <div>

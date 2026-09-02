@@ -1,4 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  Hash,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  FilterX,
+  ChevronRight,
+} from "lucide-react";
 import "./Assessment.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -757,7 +767,7 @@ export default function Assessment() {
             </span>
 
             <div className="stat-icon blue">
-              #
+              <Hash size={18} strokeWidth={2} />
             </div>
 
           </div>
@@ -781,7 +791,7 @@ export default function Assessment() {
             </span>
 
             <div className="stat-icon green">
-              ✓
+              <CheckCircle2 size={18} strokeWidth={2} />
             </div>
 
           </div>
@@ -817,7 +827,7 @@ export default function Assessment() {
             </span>
 
             <div className="stat-icon orange">
-              !
+              <TrendingUp size={18} strokeWidth={2} />
             </div>
 
           </div>
@@ -853,7 +863,7 @@ export default function Assessment() {
             </span>
 
             <div className="stat-icon red">
-              !
+              <AlertTriangle size={18} strokeWidth={2} />
             </div>
 
           </div>
@@ -889,7 +899,7 @@ export default function Assessment() {
             </span>
 
             <div className="stat-icon purple">
-              ↓
+              <TrendingDown size={18} strokeWidth={2} />
             </div>
 
           </div>
@@ -963,7 +973,7 @@ export default function Assessment() {
           <div className="search-wrapper">
 
             <span>
-              🔍
+              <Search size={15} strokeWidth={2} />
             </span>
 
             <input
@@ -1426,7 +1436,7 @@ export default function Assessment() {
             >
 
               <span className="quick-icon blue">
-                ⌕
+                <FilterX size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1444,7 +1454,7 @@ export default function Assessment() {
               </div>
 
               <span>
-                ›
+                <ChevronRight size={16} strokeWidth={2} />
               </span>
 
             </button>
@@ -1458,7 +1468,7 @@ export default function Assessment() {
             >
 
               <span className="quick-icon green">
-                ✓
+                <CheckCircle2 size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1475,7 +1485,7 @@ export default function Assessment() {
               </div>
 
               <span>
-                ›
+                <ChevronRight size={16} strokeWidth={2} />
               </span>
 
             </button>
@@ -1489,7 +1499,7 @@ export default function Assessment() {
             >
 
               <span className="quick-icon orange">
-                !
+                <TrendingUp size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1506,7 +1516,7 @@ export default function Assessment() {
               </div>
 
               <span>
-                ›
+                <ChevronRight size={16} strokeWidth={2} />
               </span>
 
             </button>

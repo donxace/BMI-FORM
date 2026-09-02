@@ -747,9 +747,11 @@
 }
 
 .quick-actions button > span:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-left: auto;
   color: #98a2b3;
-  font-size: 17px;
 }
 
 .quick-icon {

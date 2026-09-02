@@ -1,5 +1,16 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  User,
+  KeyRound,
+  ArrowRight,
+  CheckCircle2,
+  UserPlus,
+  XCircle,
+  CreditCard,
+  ShieldCheck,
+  AlertTriangle,
+} from "lucide-react";
 import "./Login.css";
 
 // Dynamically resolves to 'localhost' or your LAN IP (e.g. 192.168.x.x)
@@ -141,6 +152,29 @@ export default function Login() {
   const [regAge, setRegAge] = useState("");
   const [regOffice, setRegOffice] = useState("");
   const [regPin, setRegPin] = useState("");
+
+  /*
+   * ============================================================
+   * SIMULATE RFID TAP (TEST — no reader hardware required)
+   *
+   * Posts to the same public endpoint the real ESP32 RFID
+   * reader uses, so the "Scan RFID Card" tab's own poll picks it
+   * up within ~1s exactly as if a real card had been tapped.
+   * ============================================================
+   */
+
+  const [simulateUid, setSimulateUid] = useState("");
+
+  const simulateRfidTap = () => {
+    const uid = simulateUid.trim();
+    if (!uid) return;
+
+    fetch(`${API_BASE_URL}/personnel/rfid/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rfid_uid: uid }),
+    }).catch(() => {});
+  };
 
   const isRegistrationMode =
     (personnelMethod === "scan" && rfidStatus === "Unclaimed") ||
@@ -448,7 +482,7 @@ export default function Login() {
             <>
               {error && (
                 <div className="login-error">
-                  <span className="login-error-icon">!</span>
+                  <span className="login-error-icon"><AlertTriangle size={14} strokeWidth={2} /></span>
                   {error}
                 </div>
               )}
@@ -457,7 +491,7 @@ export default function Login() {
                 <div className="form-group">
                   <label htmlFor="username">Username</label>
                   <div className="input-with-icon">
-                    <span className="input-icon">◈</span>
+                    <span className="input-icon"><User size={15} strokeWidth={2} /></span>
                     <input
                       id="username"
                       type="text"
@@ -473,7 +507,7 @@ export default function Login() {
                 <div className="form-group">
                   <label htmlFor="password">Password</label>
                   <div className="input-with-icon">
-                    <span className="input-icon">⚿</span>
+                    <span className="input-icon"><KeyRound size={15} strokeWidth={2} /></span>
                     <input
                       id="password"
                       type="password"
@@ -494,7 +528,7 @@ export default function Login() {
                   {loading ? (
                     <div className="spinner" />
                   ) : (
-                    <>Sign In <span className="login-button-arrow">→</span></>
+                    <>Sign In <span className="login-button-arrow"><ArrowRight size={16} strokeWidth={2} /></span></>
                   )}
                 </button>
               </form>
@@ -544,7 +578,7 @@ export default function Login() {
 
               {personnelError && (
                 <div className="login-error">
-                  <span className="login-error-icon">!</span>
+                  <span className="login-error-icon"><AlertTriangle size={14} strokeWidth={2} /></span>
                   {personnelError}
                 </div>
               )}
@@ -559,13 +593,21 @@ export default function Login() {
 
                     <div className="rfid-scan-core">
                       {rfidStatus === "Found" ? (
-                        <span className="rfid-scan-check">✓</span>
+                        <span className="rfid-scan-check">
+                          <CheckCircle2 size={22} strokeWidth={2} />
+                        </span>
                       ) : rfidStatus === "Unclaimed" ? (
-                        <span className="rfid-scan-card-icon">＋</span>
+                        <span className="rfid-scan-card-icon">
+                          <UserPlus size={22} strokeWidth={2} />
+                        </span>
                       ) : rfidStatus === "Error" ? (
-                        <span className="rfid-scan-cross">✕</span>
+                        <span className="rfid-scan-cross">
+                          <XCircle size={22} strokeWidth={2} />
+                        </span>
                       ) : (
-                        <span className="rfid-scan-card-icon">▭</span>
+                        <span className="rfid-scan-card-icon">
+                          <CreditCard size={22} strokeWidth={2} />
+                        </span>
                       )}
                     </div>
                   </div>
@@ -592,15 +634,49 @@ export default function Login() {
                 </div>
               )}
 
+              {personnelMethod === "scan" && !isRegistrationMode && (
+                <div className="rfid-simulate-panel">
+                  <input
+                    type="text"
+                    className="rfid-simulate-input"
+                    placeholder="No reader handy? Type a Badge ID to simulate a tap"
+                    value={simulateUid}
+                    onChange={(e) => setSimulateUid(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="rfid-simulate-button"
+                    onClick={simulateRfidTap}
+                    disabled={!simulateUid.trim()}
+                  >
+                    Simulate Card Tap (Test)
+                  </button>
+                </div>
+              )}
+
               {isRegistrationMode ? (
                 <form
                   onSubmit={handlePersonnelRegisterSubmit}
                   className="login-form"
                 >
                   {personnelMethod === "badge" && (
-                    <div className="registration-notice">
-                      Badge ID <strong>{registerRfidUid}</strong> isn't
-                      registered yet. Complete your profile to claim it.
+                    <div className="form-group">
+                      <label htmlFor="registerRfidUid">Badge ID</label>
+                      <div className="input-with-icon">
+                        <span className="input-icon"><CreditCard size={15} strokeWidth={2} /></span>
+                        <input
+                          id="registerRfidUid"
+                          type="text"
+                          placeholder="Enter the Badge ID printed on your card"
+                          value={registerRfidUid}
+                          onChange={(e) => setRegisterRfidUid(e.target.value)}
+                          disabled={personnelLoading}
+                        />
+                      </div>
+                      <small className="login-hint">
+                        This must match a Badge ID your administrator has
+                        already provisioned.
+                      </small>
                     </div>
                   )}
 
@@ -710,7 +786,7 @@ export default function Login() {
                   <div className="form-group">
                     <label htmlFor="regPin">Set PIN</label>
                     <div className="input-with-icon">
-                      <span className="input-icon">⚿</span>
+                      <span className="input-icon"><KeyRound size={15} strokeWidth={2} /></span>
                       <input
                         id="regPin"
                         type="password"
@@ -732,7 +808,7 @@ export default function Login() {
                     {personnelLoading ? (
                       <div className="spinner" />
                     ) : (
-                      <>Register & Sign In <span className="login-button-arrow">→</span></>
+                      <>Register & Sign In <span className="login-button-arrow"><ArrowRight size={16} strokeWidth={2} /></span></>
                     )}
                   </button>
 
@@ -759,7 +835,7 @@ export default function Login() {
                     <div className="form-group">
                       <label htmlFor="badgeId">Badge ID</label>
                       <div className="input-with-icon">
-                        <span className="input-icon">▭</span>
+                        <span className="input-icon"><CreditCard size={15} strokeWidth={2} /></span>
                         <input
                           id="badgeId"
                           type="text"
@@ -778,7 +854,7 @@ export default function Login() {
                       {personnelMethod === "scan" ? "PIN" : "Password"}
                     </label>
                     <div className="input-with-icon">
-                      <span className="input-icon">⚿</span>
+                      <span className="input-icon"><KeyRound size={15} strokeWidth={2} /></span>
                       {personnelMethod === "scan" ? (
                         <input
                           id="personnel-credential"
@@ -825,16 +901,30 @@ export default function Login() {
                     {personnelLoading ? (
                       <div className="spinner" />
                     ) : (
-                      <>Sign In <span className="login-button-arrow">→</span></>
+                      <>Sign In <span className="login-button-arrow"><ArrowRight size={16} strokeWidth={2} /></span></>
                     )}
                   </button>
+
+                  {personnelMethod === "badge" && (
+                    <button
+                      type="button"
+                      className="registration-cancel-link"
+                      onClick={() => {
+                        setRegisterRfidUid(badgeId.trim());
+                        setRegistering(true);
+                        setPersonnelError("");
+                      }}
+                    >
+                      New here? Register with a Badge ID →
+                    </button>
+                  )}
                 </form>
               )}
             </>
           )}
 
           <div className="login-security-note">
-            <span className="login-security-icon">⛨</span>
+            <span className="login-security-icon"><ShieldCheck size={14} strokeWidth={2} /></span>
             Your credentials are encrypted and never stored in
             plain text.
           </div>

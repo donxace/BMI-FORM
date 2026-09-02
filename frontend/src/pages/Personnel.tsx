@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  Search,
+  Users,
+  Mars,
+  Venus,
+  UserPlus,
+  Download,
+  FileText,
+  ChevronRight,
+} from "lucide-react";
 import "./Personnel.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -884,7 +894,7 @@ export default function Personnel() {
             <span>Total Personnel</span>
 
             <div className="stat-icon blue">
-              ♙
+              <Users size={18} strokeWidth={2} />
             </div>
           </div>
 
@@ -902,7 +912,7 @@ export default function Personnel() {
             <span>Male Personnel</span>
 
             <div className="stat-icon purple">
-              ♂
+              <Mars size={18} strokeWidth={2} />
             </div>
           </div>
 
@@ -929,7 +939,7 @@ export default function Personnel() {
             <span>Female Personnel</span>
 
             <div className="stat-icon green">
-              ♀
+              <Venus size={18} strokeWidth={2} />
             </div>
           </div>
 
@@ -956,7 +966,7 @@ export default function Personnel() {
             <span>Search Results</span>
 
             <div className="stat-icon orange">
-              ⌕
+              <Search size={18} strokeWidth={2} />
             </div>
           </div>
 
@@ -1389,7 +1399,7 @@ export default function Personnel() {
         <div className="personnel-filters">
 
           <div className="search-wrapper">
-            <span>🔍</span>
+            <span><Search size={14} strokeWidth={2} /></span>
 
             <input
               type="text"
@@ -1753,7 +1763,7 @@ export default function Personnel() {
               }
             >
               <span className="quick-icon blue">
-                +
+                <UserPlus size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1767,14 +1777,14 @@ export default function Personnel() {
                 </small>
               </div>
 
-              <span>›</span>
+              <span><ChevronRight size={16} strokeWidth={2} /></span>
             </button>
 
             <button
               onClick={handleExport}
             >
               <span className="quick-icon green">
-                ↓
+                <Download size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1788,12 +1798,12 @@ export default function Personnel() {
                 </small>
               </div>
 
-              <span>›</span>
+              <span><ChevronRight size={16} strokeWidth={2} /></span>
             </button>
 
             <button>
               <span className="quick-icon purple">
-                ▤
+                <FileText size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1807,7 +1817,7 @@ export default function Personnel() {
                 </small>
               </div>
 
-              <span>›</span>
+              <span><ChevronRight size={16} strokeWidth={2} /></span>
             </button>
 
           </div>

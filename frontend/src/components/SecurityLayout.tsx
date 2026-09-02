@@ -6,47 +6,37 @@ import {
   useNavigate,
 } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Scale,
-  Users,
-  ClipboardCheck,
-  FileText,
-  BarChart3,
-  Settings as SettingsIcon,
+  ShieldAlert,
+  Thermometer,
   ChevronDown,
   LogOut,
 } from "lucide-react";
 
-// A single shared stroke width keeps every sidebar icon reading as
-// one deliberate set instead of whatever each icon's default happens
-// to be.
+// Same shared stroke width as the BMI sidebar, so switching between
+// the two domains doesn't feel like a different icon set.
 const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
+import "./SecurityLayout.css";
 
-export default function MainLayout() {
+/*
+ * Layout for the Security & Environment domain (Intrusion Detection,
+ * Smoke & Temperature) — kept visually and structurally separate from
+ * MainLayout (the BMI domain). Same shared backend/auth, same base
+ * sidebar/topbar chrome (reuses MainLayout.css), but its own nav, its
+ * own branding, and a distinct accent color (SecurityLayout.css) so
+ * it reads as its own section rather than another BMI page.
+ */
+export default function SecurityLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
   const handleLogout = () => {
-    // Clear stored auth session
-    localStorage.removeItem("authToken");
-
-    // Redirect to login page
-    navigate("/login");
+    localStorage.removeItem("securityAuthToken");
+    localStorage.removeItem("securityUserRole");
+    navigate("/security/login");
   };
-
-  /*
-   * ============================================================
-   * SLIDING NAV HIGHLIGHT
-   *
-   * Measures the active .nav-item's actual position instead of
-   * relying on a hardcoded pixel offset per route — so the
-   * highlight stays aligned no matter how many menu items exist
-   * or get added later.
-   * ============================================================
-   */
 
   useLayoutEffect(() => {
     const sidebar = sidebarRef.current;
@@ -78,83 +68,30 @@ export default function MainLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout security-domain">
       {/* Sidebar */}
-      <aside className="sidebar" ref={sidebarRef}>
+      <aside className="sidebar security-sidebar" ref={sidebarRef}>
         <nav className="navigation">
-          <p className="nav-title">MAIN MENU</p>
+          <p className="nav-title">SECURITY &amp; ENVIRONMENT</p>
 
           <NavLink
-            to="/"
-            end
+            to="/security/intrusion-detection"
             className={({ isActive }) =>
               `nav-item ${isActive ? "active" : ""}`
             }
           >
-            <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Dashboard</span>
+            <span><ShieldAlert {...NAV_ICON_PROPS} /></span>
+            <span className="nav-label">Intrusion Detection</span>
           </NavLink>
 
           <NavLink
-            to="/measurement"
+            to="/security/environment-monitoring"
             className={({ isActive }) =>
               `nav-item ${isActive ? "active" : ""}`
             }
           >
-            <span><Scale {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Measurement</span>
-          </NavLink>
-
-          <NavLink
-            to="/personnel"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span><Users {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Personnel</span>
-          </NavLink>
-
-          <NavLink
-            to="/assessments"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span><ClipboardCheck {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Assessments</span>
-          </NavLink>
-
-          <NavLink
-            to="/report"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span><FileText {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Reports</span>
-          </NavLink>
-
-          <NavLink
-            to="/analytics"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span><BarChart3 {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Analytics</span>
-          </NavLink>
-
-          <p className="nav-title second">SYSTEM</p>
-
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span><SettingsIcon {...NAV_ICON_PROPS} /></span>
-            <span className="nav-label">Settings</span>
+            <span><Thermometer {...NAV_ICON_PROPS} /></span>
+            <span className="nav-label">Smoke &amp; Temperature</span>
           </NavLink>
         </nav>
 
@@ -163,7 +100,7 @@ export default function MainLayout() {
             <span className="status-dot" />
 
             <div>
-              <strong>System Online</strong>
+              <strong>Sensors Online</strong>
               <small>All services operational</small>
             </div>
           </div>
@@ -179,12 +116,12 @@ export default function MainLayout() {
             <div className="topbar-branding">
               <img
                 src="/PNP-ITMS-BMI-LOGO.png"
-                alt="PNP ITMS BMI Logo"
+                alt="PNP ITMS Logo"
                 className="topbar-logo"
               />
 
               <div className="branding-text">
-                <strong>PNP AUTOMATED BMI SYSTEM</strong>
+                <strong>FACILITY SECURITY &amp; ENVIRONMENT</strong>
                 <small>PNP - ITMS Department</small>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Flame, Thermometer, CheckCircle2 } from "lucide-react";
 import "./EnvironmentMonitoring.css";
 
 /*
@@ -228,11 +229,13 @@ export default function EnvironmentMonitoring() {
       >
 
         <div className="environment-status-icon">
-          {status === "smoke_detected"
-            ? "🔥"
-            : status === "high_temperature"
-            ? "🌡"
-            : "✓"}
+          {status === "smoke_detected" ? (
+            <Flame size={24} strokeWidth={2} />
+          ) : status === "high_temperature" ? (
+            <Thermometer size={24} strokeWidth={2} />
+          ) : (
+            <CheckCircle2 size={24} strokeWidth={2} />
+          )}
         </div>
 
         <div className="environment-status-body">

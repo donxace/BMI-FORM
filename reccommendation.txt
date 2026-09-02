@@ -1,0 +1,6 @@
+Reccommendation: 
+1. QR Scanner on personal information BMI
+2. Separate projects dashboard
+3. Authentication of all Projects
+4. Main dashboard
+5. Audit log (IP Address, Username, Date/Time, MAC Address)

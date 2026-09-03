@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Search,
@@ -65,6 +66,7 @@ function formatDateForExcel(date: string | null) {
 }
 
 export default function InventoryReport() {
+  const navigate = useNavigate();
   const [devices, setDevices] = useState<UnifiedDevice[]>([]);
   const [personnel, setPersonnel] = useState<InventoryPersonnelRecord[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -137,7 +139,7 @@ export default function InventoryReport() {
   const divisionsCovered = new Set(filteredDevices.map((d) => d.divisionId)).size;
   const personnelCovered = new Set(filteredDevices.map((d) => d.personnelId).filter((id) => id !== null)).size;
 
-  const mostCommonType = useMemo(() => {
+  const topType = useMemo(() => {
     const counts = new Map<string, number>();
     for (const d of filteredDevices) counts.set(d.deviceType, (counts.get(d.deviceType) ?? 0) + 1);
     let best: string | null = null;
@@ -145,14 +147,20 @@ export default function InventoryReport() {
     for (const [type, count] of counts) {
       if (count > bestCount) { best = type; bestCount = count; }
     }
-    return best ? DEVICE_TYPE_LABELS[best] ?? best : "—";
+    return best;
   }, [filteredDevices]);
+
+  const mostCommonType = topType ? DEVICE_TYPE_LABELS[topType] ?? topType : "—";
 
   function clearFilters() {
     setSearch("");
     setDivisionFilter("");
     setTypeFilter("");
     setStatusFilter("");
+  }
+
+  function scrollToFilters() {
+    document.getElementById("report-filters")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   const exportToExcel = () => {
@@ -241,33 +249,69 @@ export default function InventoryReport() {
       </section>
 
       <section className="report-summary">
-        <div className="report-summary-card">
+        <div
+          className="report-summary-card clickable"
+          role="button" tabIndex={0}
+          title="Clear filters and view all records"
+          onClick={clearFilters}
+          onKeyDown={(e) => { if (e.key === "Enter") clearFilters(); }}
+        >
           <div className="summary-icon blue"><Hash size={18} strokeWidth={2} /></div>
           <div><span>FILTERED RECORDS</span><strong>{totalReports}</strong></div>
         </div>
-        <div className="report-summary-card">
+        <div
+          className={`report-summary-card clickable ${statusFilter === "active" ? "active" : ""}`}
+          role="button" tabIndex={0}
+          title="Filter to active devices"
+          onClick={() => setStatusFilter((prev) => (prev === "active" ? "" : "active"))}
+          onKeyDown={(e) => { if (e.key === "Enter") setStatusFilter((prev) => (prev === "active" ? "" : "active")); }}
+        >
           <div className="summary-icon green"><CheckCircle2 size={18} strokeWidth={2} /></div>
           <div><span>ACTIVE</span><strong>{activeCount}</strong></div>
         </div>
-        <div className="report-summary-card">
+        <div
+          className={`report-summary-card clickable ${statusFilter === "inactive" ? "active" : ""}`}
+          role="button" tabIndex={0}
+          title="Filter to inactive devices"
+          onClick={() => setStatusFilter((prev) => (prev === "inactive" ? "" : "inactive"))}
+          onKeyDown={(e) => { if (e.key === "Enter") setStatusFilter((prev) => (prev === "inactive" ? "" : "inactive")); }}
+        >
           <div className="summary-icon red"><AlertTriangle size={18} strokeWidth={2} /></div>
           <div><span>INACTIVE</span><strong>{inactiveCount}</strong></div>
         </div>
-        <div className="report-summary-card">
+        <div
+          className="report-summary-card clickable"
+          role="button" tabIndex={0}
+          title="Jump to the division filter"
+          onClick={scrollToFilters}
+          onKeyDown={(e) => { if (e.key === "Enter") scrollToFilters(); }}
+        >
           <div className="summary-icon orange"><Building2 size={18} strokeWidth={2} /></div>
           <div><span>DIVISIONS COVERED</span><strong>{divisionsCovered}</strong></div>
         </div>
-        <div className="report-summary-card">
+        <div
+          className="report-summary-card clickable"
+          role="button" tabIndex={0}
+          title="Go to Personnel"
+          onClick={() => navigate("/inventory/personnel")}
+          onKeyDown={(e) => { if (e.key === "Enter") navigate("/inventory/personnel"); }}
+        >
           <div className="summary-icon purple"><Users size={18} strokeWidth={2} /></div>
           <div><span>PERSONNEL COVERED</span><strong>{personnelCovered}</strong></div>
         </div>
-        <div className="report-summary-card">
+        <div
+          className={`report-summary-card clickable ${topType && typeFilter === topType ? "active" : ""}`}
+          role="button" tabIndex={0}
+          title={`Filter to ${mostCommonType}`}
+          onClick={() => topType && setTypeFilter((prev) => (prev === topType ? "" : topType))}
+          onKeyDown={(e) => { if (e.key === "Enter" && topType) setTypeFilter((prev) => (prev === topType ? "" : topType)); }}
+        >
           <div className="summary-icon teal">TYPE</div>
           <div><span>MOST COMMON TYPE</span><strong>{mostCommonType}</strong></div>
         </div>
       </section>
 
-      <section className="report-card">
+      <section className="report-card" id="report-filters">
         <div className="section-header">
           <div className="section-title">
             <span className="section-number">01</span>

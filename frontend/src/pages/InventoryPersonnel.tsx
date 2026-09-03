@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./Personnel.css";
 import { Users, Search, HardDrive, Download, FileText, ChevronRight } from "lucide-react";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
+const ITEMS_PER_PAGE = 10;
 
 type InventoryPersonnelRecord = {
   id: number;
@@ -193,6 +195,9 @@ export default function InventoryPersonnel() {
   const [search, setSearch] = useState("");
   const [divisionFilter, setDivisionFilter] = useState("");
   const [rankFilter, setRankFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -258,13 +263,40 @@ export default function InventoryPersonnel() {
         divisionName(p.division_id).toLowerCase().includes(term);
       const matchesDivision = !divisionFilter || String(p.division_id) === divisionFilter;
       const matchesRank = !rankFilter || String(p.rank_id) === rankFilter;
-      return matchesSearch && matchesDivision && matchesRank;
+      const matchesStatus = !statusFilter || (statusFilter === "active" ? p.is_active : !p.is_active);
+      return matchesSearch && matchesDivision && matchesRank && matchesStatus;
     });
-  }, [personnelList, search, divisionFilter, rankFilter, divisions, ranks]);
+  }, [personnelList, search, divisionFilter, rankFilter, statusFilter, divisions, ranks]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, divisionFilter, rankFilter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPersonnel.length / ITEMS_PER_PAGE));
+  const paginatedPersonnel = filteredPersonnel.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  function handlePageChange(page: number) {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  }
 
   const totalPersonnel = personnelList.length;
   const activePersonnel = personnelList.filter((p) => p.is_active).length;
   const inactivePersonnel = totalPersonnel - activePersonnel;
+
+  function clearFilters() {
+    setSearch("");
+    setDivisionFilter("");
+    setRankFilter("");
+    setStatusFilter("");
+  }
+
+  function focusSearch() {
+    searchInputRef.current?.focus();
+  }
 
   // ---- Personnel CRUD ----
 
@@ -499,7 +531,13 @@ export default function InventoryPersonnel() {
 
       {/* STAT CARDS */}
       <section className="personnel-stat-grid">
-        <div className="personnel-stat-card">
+        <div
+          className="personnel-stat-card clickable"
+          role="button" tabIndex={0}
+          title="Clear filters and view all personnel"
+          onClick={clearFilters}
+          onKeyDown={(e) => { if (e.key === "Enter") clearFilters(); }}
+        >
           <div className="stat-top">
             <span>Total Personnel</span>
             <div className="stat-icon blue"><Users size={18} strokeWidth={2} /></div>
@@ -508,7 +546,13 @@ export default function InventoryPersonnel() {
           <div className="stat-change positive">All Records</div>
         </div>
 
-        <div className="personnel-stat-card">
+        <div
+          className={`personnel-stat-card clickable ${statusFilter === "active" ? "active" : ""}`}
+          role="button" tabIndex={0}
+          title="Filter to active personnel"
+          onClick={() => setStatusFilter((prev) => (prev === "active" ? "" : "active"))}
+          onKeyDown={(e) => { if (e.key === "Enter") setStatusFilter((prev) => (prev === "active" ? "" : "active")); }}
+        >
           <div className="stat-top">
             <span>Active</span>
             <div className="stat-icon green"><Users size={18} strokeWidth={2} /></div>
@@ -517,7 +561,13 @@ export default function InventoryPersonnel() {
           <div className="stat-change neutral">Currently active</div>
         </div>
 
-        <div className="personnel-stat-card">
+        <div
+          className={`personnel-stat-card clickable ${statusFilter === "inactive" ? "active" : ""}`}
+          role="button" tabIndex={0}
+          title="Filter to inactive personnel"
+          onClick={() => setStatusFilter((prev) => (prev === "inactive" ? "" : "inactive"))}
+          onKeyDown={(e) => { if (e.key === "Enter") setStatusFilter((prev) => (prev === "inactive" ? "" : "inactive")); }}
+        >
           <div className="stat-top">
             <span>Inactive</span>
             <div className="stat-icon orange"><Users size={18} strokeWidth={2} /></div>
@@ -526,7 +576,13 @@ export default function InventoryPersonnel() {
           <div className="stat-change neutral">No longer active</div>
         </div>
 
-        <div className="personnel-stat-card">
+        <div
+          className="personnel-stat-card clickable"
+          role="button" tabIndex={0}
+          title="Jump to search"
+          onClick={focusSearch}
+          onKeyDown={(e) => { if (e.key === "Enter") focusSearch(); }}
+        >
           <div className="stat-top">
             <span>Search Results</span>
             <div className="stat-icon purple"><Search size={18} strokeWidth={2} /></div>
@@ -555,7 +611,7 @@ export default function InventoryPersonnel() {
         <div className="personnel-filters">
           <div className="search-wrapper">
             <span><Search size={14} strokeWidth={2} /></span>
-            <input type="text" placeholder="Search name or division..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input ref={searchInputRef} type="text" placeholder="Search name or division..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
 
           <select value={divisionFilter} onChange={(e) => setDivisionFilter(e.target.value)}>
@@ -570,6 +626,12 @@ export default function InventoryPersonnel() {
             {ranks.map((r) => (
               <option key={r.id} value={r.id}>{r.rank}</option>
             ))}
+          </select>
+
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
 
@@ -608,7 +670,7 @@ export default function InventoryPersonnel() {
                     </td>
                   </tr>
                 ) : (
-                  filteredPersonnel.map((p) => (
+                  paginatedPersonnel.map((p) => (
                     <tr key={p.id}>
                       <td>
                         <div className="person-cell">
@@ -639,6 +701,55 @@ export default function InventoryPersonnel() {
                 )}
               </tbody>
             </table>
+
+            {filteredPersonnel.length > ITEMS_PER_PAGE && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing <strong>{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> to{" "}
+                  <strong>{Math.min(currentPage * ITEMS_PER_PAGE, filteredPersonnel.length)}</strong> of{" "}
+                  <strong>{filteredPersonnel.length}</strong> entries
+                </div>
+
+                <div className="pagination-controls">
+                  <button
+                    className="btn-modern-nav"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <span>Previous</span>
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .reduce<(number | string)[]>((acc, page, idx, src) => {
+                      if (idx > 0 && page - (src[idx - 1] as number) > 1) acc.push("...");
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, index) =>
+                      typeof item === "number" ? (
+                        <button
+                          key={item}
+                          className={`pagination-btn ${currentPage === item ? "active" : ""}`}
+                          onClick={() => handlePageChange(item)}
+                        >
+                          {item}
+                        </button>
+                      ) : (
+                        <span key={`ellipsis-${index}`} className="pagination-ellipsis">•••</span>
+                      )
+                    )}
+
+                  <button
+                    className="btn-modern-nav btn-next"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <span>Next</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -700,7 +811,7 @@ export default function InventoryPersonnel() {
 
           <button
             className="full-report-button"
-            onClick={() => { setSearch(""); setDivisionFilter(""); setRankFilter(""); }}
+            onClick={clearFilters}
           >
             Clear All Filters →
           </button>

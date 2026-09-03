@@ -17,6 +17,10 @@ import InventoryDashboard from "./pages/InventoryDashboard";
 import InventoryPersonnel from "./pages/InventoryPersonnel";
 import InventoryReport from "./pages/InventoryReport";
 import InventoryAnalytics from "./pages/InventoryAnalytics";
+import PcInfoDashboard from "./pages/PcInfoDashboard";
+import PcInfoCategory from "./pages/PcInfoCategory";
+import PcInfoConnections from "./pages/PcInfoConnections";
+import PcInfoComponentStatus from "./pages/PcInfoComponentStatus";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
@@ -120,6 +124,31 @@ function App() {
             <Route
               path="/inventory/analytics"
               element={<InventoryAnalytics />}
+            />
+
+            <Route
+              path="/pc-info"
+              element={<Navigate to="/pc-info/dashboard" replace />}
+            />
+
+            <Route
+              path="/pc-info/dashboard"
+              element={<PcInfoDashboard />}
+            />
+
+            <Route
+              path="/pc-info/category/:category"
+              element={<PcInfoCategory />}
+            />
+
+            <Route
+              path="/pc-info/connections"
+              element={<PcInfoConnections />}
+            />
+
+            <Route
+              path="/pc-info/component-status"
+              element={<PcInfoComponentStatus />}
             />
 
           </Route>

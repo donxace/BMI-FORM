@@ -1032,6 +1032,12 @@ textarea {
   color: #15803d;
 }
 
+.alert-tag.info {
+  border-color: #e5e9ef;
+  background: #f8fafc;
+  color: #657184;
+}
+
 .alert-clear-state {
   display: flex;
   align-items: center;

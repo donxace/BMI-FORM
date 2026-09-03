@@ -4,6 +4,7 @@ import {
   ShieldAlert,
   Thermometer,
   HardDrive,
+  Cpu,
   ArrowRight,
 } from "lucide-react";
 import "./Home.css";
@@ -13,7 +14,7 @@ type SystemOption = {
   title: string;
   description: string;
   icon: typeof Scale;
-  accent: "blue" | "red" | "green" | "purple";
+  accent: "blue" | "red" | "green" | "purple" | "teal";
   path: string;
 };
 
@@ -49,6 +50,14 @@ const OPTIONS: SystemOption[] = [
     icon: HardDrive,
     accent: "purple",
     path: "/inventory",
+  },
+  {
+    key: "pc-info",
+    title: "PC Information System",
+    description: "Per-machine hardware and security assessment reports.",
+    icon: Cpu,
+    accent: "teal",
+    path: "/pc-info",
   },
 ];
 

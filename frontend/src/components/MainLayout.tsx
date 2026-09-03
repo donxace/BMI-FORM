@@ -15,6 +15,8 @@ import {
   Settings as SettingsIcon,
   ChevronDown,
   LogOut,
+  Radar,
+  Gauge,
 } from "lucide-react";
 
 // A single shared stroke width keeps every sidebar icon reading as
@@ -22,12 +24,14 @@ import {
 // to be.
 const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
+import { PC_INFO_CATEGORIES } from "../pcInfoCategories";
 
 // Topbar subtitle swaps to name whichever system the current page
 // belongs to, rather than always reading "BMI SYSTEM" once other
 // domains (like Hardware Inventory) share this same layout.
 const SYSTEM_LABELS: { path: string; label: string }[] = [
   { path: "/inventory", label: "COMPUTER HARDWARE INVENTORY SYSTEM" },
+  { path: "/pc-info", label: "PC INFORMATION SYSTEM" },
 ];
 
 const DEFAULT_SYSTEM_LABEL = "PNP AUTOMATED BMI SYSTEM";
@@ -44,6 +48,7 @@ export default function MainLayout() {
   const sidebarRef = useRef<HTMLElement>(null);
   const systemLabel = getSystemLabel(location.pathname);
   const isInventoryDomain = location.pathname.startsWith("/inventory");
+  const isPcInfoDomain = location.pathname.startsWith("/pc-info");
 
   const handleLogout = () => {
     // Clear stored auth session
@@ -98,7 +103,7 @@ export default function MainLayout() {
       {/* Sidebar */}
       <aside className="sidebar" ref={sidebarRef}>
         <nav className="navigation">
-          {!isInventoryDomain && (
+          {!isInventoryDomain && !isPcInfoDomain && (
             <>
               <p className="nav-title">MAIN MENU</p>
 
@@ -210,7 +215,60 @@ export default function MainLayout() {
             </>
           )}
 
-          {!isInventoryDomain && (
+          {isPcInfoDomain && (
+            <>
+              <p className="nav-title">OVERVIEW</p>
+
+              <NavLink
+                to="/pc-info/dashboard"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Dashboard</span>
+              </NavLink>
+
+              <p className="nav-title second">PC INFORMATION DETAILS</p>
+
+              {PC_INFO_CATEGORIES.map(({ slug, label, icon: Icon }) => (
+                <NavLink
+                  key={slug}
+                  to={`/pc-info/category/${slug}`}
+                  className={({ isActive }) =>
+                    `nav-item ${isActive ? "active" : ""}`
+                  }
+                >
+                  <span><Icon {...NAV_ICON_PROPS} /></span>
+                  <span className="nav-label">{label}</span>
+                </NavLink>
+              ))}
+
+              <p className="nav-title second">REPORTS</p>
+
+              <NavLink
+                to="/pc-info/connections"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Radar {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">PC Connection Status</span>
+              </NavLink>
+
+              <NavLink
+                to="/pc-info/component-status"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Gauge {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Component Status</span>
+              </NavLink>
+            </>
+          )}
+
+          {!isInventoryDomain && !isPcInfoDomain && (
             <>
               <p className="nav-title second">SYSTEM</p>
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import QRCode from "qrcode";
 import {
   Search,
   Users,
@@ -9,6 +10,8 @@ import {
   Download,
   FileText,
   ChevronRight,
+  QrCode,
+  Printer,
 } from "lucide-react";
 import "./Personnel.css";
 
@@ -135,6 +138,21 @@ export default function Personnel() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [savingPersonnel, setSavingPersonnel] = useState(false);
+
+  /*
+   * ============================================================
+   * QR BADGE MODAL STATE
+   *
+   * Renders a personnel's rfid_uid as a scannable QR code — the
+   * counterpart to the camera-based QR scanner in Measurement.tsx,
+   * which decodes the same rfid_uid and posts it to the identical
+   * POST /personnel/rfid/scan endpoint a physical RFID tap uses.
+   * ============================================================
+   */
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrPersonnel, setQrPersonnel] = useState<Personnel | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrError, setQrError] = useState("");
 
   /*
    * ============================================================
@@ -667,6 +685,73 @@ export default function Personnel() {
       "Selected personnel:",
       personnel
     );
+  };
+
+  /*
+   * ============================================================
+   * VIEW / DOWNLOAD / PRINT QR BADGE
+   * ============================================================
+   */
+
+  const handleViewQr = async (personnel: Personnel) => {
+    setQrPersonnel(personnel);
+    setQrDataUrl("");
+    setQrError("");
+    setShowQrModal(true);
+
+    try {
+      const dataUrl = await QRCode.toDataURL(personnel.rfid_uid, {
+        width: 320,
+        margin: 2,
+      });
+      setQrDataUrl(dataUrl);
+    } catch (err) {
+      setQrError(err instanceof Error ? err.message : "Failed to generate QR code.");
+    }
+  };
+
+  const handleCloseQrModal = () => {
+    setShowQrModal(false);
+    setQrPersonnel(null);
+    setQrDataUrl("");
+    setQrError("");
+  };
+
+  const handlePrintQr = () => {
+    if (!qrPersonnel || !qrDataUrl) return;
+
+    const printWindow = window.open("", "_blank", "width=420,height=560");
+    if (!printWindow) return;
+
+    const doc = printWindow.document;
+    doc.title = `Personnel Badge — ${getFullName(qrPersonnel)}`;
+
+    const style = doc.createElement("style");
+    style.textContent = `
+      body { font-family: Arial, sans-serif; text-align: center; padding: 32px 16px; }
+      img { width: 260px; height: 260px; }
+      h2 { margin: 18px 0 4px; font-size: 18px; }
+      p { margin: 0; color: #555; font-size: 13px; }
+    `;
+    doc.head.appendChild(style);
+
+    const img = doc.createElement("img");
+    img.src = qrDataUrl;
+    img.alt = "QR badge";
+
+    const heading = doc.createElement("h2");
+    heading.textContent = getFullName(qrPersonnel);
+
+    const idLine = doc.createElement("p");
+    idLine.textContent = `Personnel ID #${String(qrPersonnel.personnel_id).padStart(4, "0")}`;
+
+    const uidLine = doc.createElement("p");
+    uidLine.textContent = qrPersonnel.rfid_uid;
+
+    doc.body.append(img, heading, idLine, uidLine);
+
+    printWindow.focus();
+    img.onload = () => printWindow.print();
   };
 
   /*
@@ -1676,6 +1761,17 @@ export default function Personnel() {
                               }
                             >
                               View
+                            </button>
+
+                            <button
+                              title="QR Badge"
+                              onClick={() =>
+                                handleViewQr(
+                                  personnel
+                                )
+                              }
+                            >
+                              QR
                             </button>
 
                             <button
@@ -2830,6 +2926,178 @@ export default function Personnel() {
 
           </div>
 
+        </div>
+      )}
+
+      {/* ======================================================
+          QR BADGE MODAL
+          ====================================================== */}
+
+      {showQrModal && qrPersonnel && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "20px",
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseQrModal();
+            }
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#ffffff",
+              borderRadius: "16px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div
+              style={{
+                padding: "24px 28px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <QrCode size={20} strokeWidth={2} />
+                  QR Badge
+                </h2>
+                <p
+                  style={{
+                    margin: "6px 0 0",
+                    color: "#6b7280",
+                    fontSize: "13px",
+                  }}
+                >
+                  {getFullName(qrPersonnel)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseQrModal}
+                style={{
+                  border: "none",
+                  background: "#f3f4f6",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: "28px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "14px",
+              }}
+            >
+              {qrError ? (
+                <p style={{ color: "#dc2626", fontSize: "13px", textAlign: "center" }}>{qrError}</p>
+              ) : qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt={`QR badge for ${getFullName(qrPersonnel)}`}
+                  style={{ width: "220px", height: "220px", borderRadius: "10px", border: "1px solid #e5e7eb" }}
+                />
+              ) : (
+                <div style={{ width: "220px", height: "220px", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: "13px" }}>
+                  Generating...
+                </div>
+              )}
+
+              <div style={{ textAlign: "center" }}>
+                <strong style={{ display: "block", fontSize: "14px", color: "#172033" }}>
+                  Personnel ID #{String(qrPersonnel.personnel_id).padStart(4, "0")}
+                </strong>
+                <span style={{ display: "block", marginTop: "4px", fontSize: "12px", color: "#6b7280", fontFamily: "monospace" }}>
+                  {qrPersonnel.rfid_uid}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+                <a
+                  href={qrDataUrl || undefined}
+                  download={qrDataUrl ? `badge-${qrPersonnel.rfid_uid}.png` : undefined}
+                  aria-disabled={!qrDataUrl}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                    padding: "10px 14px",
+                    border: "1px solid #dce2ea",
+                    borderRadius: "8px",
+                    background: "#ffffff",
+                    color: qrDataUrl ? "#273247" : "#b7bec9",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    cursor: qrDataUrl ? "pointer" : "not-allowed",
+                    pointerEvents: qrDataUrl ? "auto" : "none",
+                  }}
+                >
+                  <Download size={14} strokeWidth={2} />
+                  Download
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handlePrintQr}
+                  disabled={!qrDataUrl}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                    padding: "10px 14px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: qrDataUrl ? "pointer" : "not-allowed",
+                    opacity: qrDataUrl ? 1 : 0.6,
+                  }}
+                >
+                  <Printer size={14} strokeWidth={2} />
+                  Print
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

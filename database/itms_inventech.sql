@@ -941,6 +941,79 @@ CREATE TABLE `routers` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `security_assessment_findings`
+--
+-- Detail rows for a security_assessments run — one per finding line from
+-- a FOREN-style hardware/network security assessment export (per-host
+-- key/value facts, per-connection network findings, or a pass/fail
+-- component checklist; `table_no` records which of those it came from).
+--
+
+CREATE TABLE `security_assessment_findings` (
+  `id` int(11) NOT NULL,
+  `assessment_id` int(11) NOT NULL,
+  `table_no` tinyint(4) DEFAULT NULL,
+  `section` varchar(50) DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `component` varchar(100) DEFAULT NULL,
+  `property` varchar(150) DEFAULT NULL,
+  `value` text DEFAULT NULL,
+  `status` varchar(20) DEFAULT NULL,
+  `finding` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `security_assessments`
+--
+-- One row per FOREN-style security assessment run against a machine.
+-- `serial_no` is matched against desktops/laptops.par_serial_no the same
+-- way POST /inventory/devices/agent-report does — soft reference only
+-- (this schema has no FK constraints), so device_type/device_id are
+-- filled in only when a match was found at import time.
+--
+
+CREATE TABLE `security_assessments` (
+  `id` int(11) NOT NULL,
+  `serial_no` varchar(255) DEFAULT NULL,
+  `device_type` enum('desktops','laptops') DEFAULT NULL,
+  `device_id` int(11) DEFAULT NULL,
+  `foren_version` varchar(20) DEFAULT NULL,
+  `ran_as_admin` tinyint(1) DEFAULT NULL,
+  `assessed_at` datetime DEFAULT NULL,
+  `duration_seconds` decimal(6,2) DEFAULT NULL,
+  `motherboard_manufacturer` varchar(150) DEFAULT NULL,
+  `motherboard_product` varchar(150) DEFAULT NULL,
+  `motherboard_serial` varchar(255) DEFAULT NULL,
+  `cpu_summary` varchar(255) DEFAULT NULL,
+  `ram_manufacturer` varchar(100) DEFAULT NULL,
+  `ram_capacity` varchar(50) DEFAULT NULL,
+  `ram_speed` varchar(50) DEFAULT NULL,
+  `gpu_name` varchar(150) DEFAULT NULL,
+  `gpu_vram` varchar(50) DEFAULT NULL,
+  `os_edition` varchar(150) DEFAULT NULL,
+  `os_build` varchar(50) DEFAULT NULL,
+  `secure_boot_status` varchar(20) DEFAULT NULL,
+  `tpm_present` tinyint(1) DEFAULT NULL,
+  `tpm_ready` tinyint(1) DEFAULT NULL,
+  `tpm_enabled` tinyint(1) DEFAULT NULL,
+  `defender_enabled` tinyint(1) DEFAULT NULL,
+  `defender_realtime` tinyint(1) DEFAULT NULL,
+  `firewall_domain` tinyint(1) DEFAULT NULL,
+  `firewall_private` tinyint(1) DEFAULT NULL,
+  `firewall_public` tinyint(1) DEFAULT NULL,
+  `established_tcp_connections` int(11) DEFAULT NULL,
+  `public_remote_connections` int(11) DEFAULT NULL,
+  `foreign_destinations` int(11) DEFAULT NULL,
+  `risk_score` int(11) DEFAULT NULL,
+  `risk_level` varchar(20) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `splitters`
 --
 
@@ -1188,6 +1261,20 @@ ALTER TABLE `routers`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `security_assessment_findings`
+--
+ALTER TABLE `security_assessment_findings`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `assessment_id` (`assessment_id`);
+
+--
+-- Indexes for table `security_assessments`
+--
+ALTER TABLE `security_assessments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `serial_no` (`serial_no`);
+
+--
 -- Indexes for table `splitters`
 --
 ALTER TABLE `splitters`
@@ -1299,6 +1386,18 @@ ALTER TABLE `ranks`
 -- AUTO_INCREMENT for table `routers`
 --
 ALTER TABLE `routers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `security_assessment_findings`
+--
+ALTER TABLE `security_assessment_findings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `security_assessments`
+--
+ALTER TABLE `security_assessments`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --

@@ -16,6 +16,7 @@ import { Headset } from './entities/headset.entity';
 import { Other } from './entities/other.entity';
 
 import { DEVICE_TYPE_SLUGS, DeviceTypeSlug, UnifiedDevice, normalizeDevice } from './device-types';
+import { AgentReportDto } from './dto/agent-report.dto';
 
 @Injectable()
 export class InventoryDevicesService {
@@ -110,5 +111,33 @@ export class InventoryDevicesService {
     if (result.affected === 0) {
       throw new NotFoundException(`${deviceType} device with ID ${id} not found.`);
     }
+  }
+
+  // Called by the local collector script (scripts/collect-agent.js), which
+  // has no admin session — it only ever patches a device that's already
+  // been registered through the UI, matched by its serial number, so it
+  // can't create or misidentify records the way a spoofed ID could.
+  async reportFromAgent(dto: AgentReportDto): Promise<UnifiedDevice> {
+    const tablesToSearch: DeviceTypeSlug[] = dto.device_type
+      ? [dto.device_type]
+      : ['desktops', 'laptops'];
+
+    for (const deviceType of tablesToSearch) {
+      const repo = this.repositories[deviceType];
+      const existing = await repo.findOne({ where: { par_serial_no: dto.serial_no } });
+
+      if (!existing) {
+        continue;
+      }
+
+      const { serial_no: _serialNo, device_type: _deviceType, ...updates } = dto;
+      Object.assign(existing, updates, { last_updated_at: new Date().toISOString().slice(0, 10) });
+      const saved = await repo.save(existing);
+      return normalizeDevice(deviceType, saved as Record<string, any>);
+    }
+
+    throw new NotFoundException(
+      `No desktop or laptop is registered with serial number "${dto.serial_no}". Add the device in Inventory Personnel first, then re-run the agent.`,
+    );
   }
 }

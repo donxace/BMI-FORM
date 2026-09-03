@@ -11,9 +11,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
+  Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
   XAxis,
@@ -45,6 +49,7 @@ type InventoryPersonnel = {
 };
 
 type Division = { id: number; division: string };
+type Rank = { id: number; rank: string };
 
 const TYPE_COLORS = [
   "#1d4ed8", "#7c3aed", "#0d9488", "#f59e0b",
@@ -88,14 +93,26 @@ function personnelName(personnel: InventoryPersonnel[], id: number | null) {
 
 const ITEMS_PER_PAGE = 10;
 
+type DetailModal = "devices" | "personnel" | "divisions" | "active" | null;
+
+type SuspiciousReason = "duplicate-serial" | "missing-serial" | "unassigned";
+
+const SUSPICIOUS_REASON_LABELS: Record<SuspiciousReason, string> = {
+  "duplicate-serial": "Duplicate Serial",
+  "missing-serial": "Missing Serial",
+  unassigned: "No Owner/Division",
+};
+
 export default function InventoryDashboard() {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<UnifiedDevice[]>([]);
   const [personnel, setPersonnel] = useState<InventoryPersonnel[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
+  const [ranks, setRanks] = useState<Rank[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [detailModal, setDetailModal] = useState<DetailModal>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -103,19 +120,21 @@ export default function InventoryDashboard() {
     async function loadData() {
       try {
         setLoading(true);
-        const [devicesRes, personnelRes, divisionsRes] = await Promise.all([
+        const [devicesRes, personnelRes, divisionsRes, ranksRes] = await Promise.all([
           fetch(`${API_BASE_URL}/inventory/devices`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE_URL}/inventory-personnel`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE_URL}/inventory-divisions`),
+          fetch(`${API_BASE_URL}/inventory-ranks`),
         ]);
 
-        if (!devicesRes.ok || !personnelRes.ok || !divisionsRes.ok) {
+        if (!devicesRes.ok || !personnelRes.ok || !divisionsRes.ok || !ranksRes.ok) {
           throw new Error("One or more inventory endpoints returned an error.");
         }
 
         setDevices(await devicesRes.json());
         setPersonnel(await personnelRes.json());
         setDivisions(await divisionsRes.json());
+        setRanks(await ranksRes.json());
         setError("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load inventory data.");
@@ -161,6 +180,25 @@ export default function InventoryDashboard() {
     return Array.from(buckets.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [devices]);
 
+  const suspiciousDevices = useMemo(() => {
+    const serialCounts = new Map<string, number>();
+    for (const d of devices) {
+      if (d.serialNo) serialCounts.set(d.serialNo, (serialCounts.get(d.serialNo) ?? 0) + 1);
+    }
+
+    return devices
+      .filter((d) => d.isActive)
+      .map((device) => {
+        const reasons: SuspiciousReason[] = [];
+        if (device.serialNo && (serialCounts.get(device.serialNo) ?? 0) > 1) reasons.push("duplicate-serial");
+        if (!device.serialNo) reasons.push("missing-serial");
+        if (device.personnelId === null && device.divisionId === null) reasons.push("unassigned");
+        return { device, reasons };
+      })
+      .filter((entry) => entry.reasons.length > 0)
+      .sort((a, b) => b.reasons.length - a.reasons.length);
+  }, [devices]);
+
   const recentDevices = useMemo(() => {
     return [...devices].sort((a, b) => {
       const aTime = a.createdDate ? new Date(a.createdDate).getTime() : 0;
@@ -179,6 +217,27 @@ export default function InventoryDashboard() {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
   }
+
+  const rankName = (id: number) => ranks.find((r) => r.id === id)?.rank ?? `#${id}`;
+
+  const activeDeviceList = useMemo(() => devices.filter((d) => d.isActive), [devices]);
+
+  const divisionBreakdown = useMemo(() => {
+    return divisions
+      .map((division) => ({
+        ...division,
+        deviceCount: devices.filter((d) => d.divisionId === division.id).length,
+        personnelCount: personnel.filter((p) => p.division_id === division.id).length,
+      }))
+      .sort((a, b) => b.deviceCount - a.deviceCount);
+  }, [divisions, devices, personnel]);
+
+  const MODAL_CONFIG: Record<Exclude<DetailModal, null>, { title: string; subtitle: string }> = {
+    devices: { title: "All Devices", subtitle: `${devices.length} devices across every category` },
+    personnel: { title: "All Personnel", subtitle: `${personnel.length} personnel on record` },
+    divisions: { title: "Divisions", subtitle: `${divisions.length} tracked divisions` },
+    active: { title: "Active Devices", subtitle: `${activeDeviceList.length} devices currently active` },
+  };
 
   return (
     <div className="dashboard">
@@ -213,7 +272,14 @@ export default function InventoryDashboard() {
 
           {/* STAT CARDS */}
           <section className="stat-grid">
-            <div className="stat-card">
+            <div
+              className="stat-card"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer" }}
+              onClick={() => setDetailModal("devices")}
+              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("devices"); }}
+            >
               <div className="stat-top">
                 <span>Total Devices</span>
                 <div className="stat-icon blue"><HardDrive size={18} strokeWidth={2} /></div>
@@ -222,7 +288,14 @@ export default function InventoryDashboard() {
               <div className="stat-change positive"><span>Across 12 categories</span></div>
             </div>
 
-            <div className="stat-card">
+            <div
+              className="stat-card"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer" }}
+              onClick={() => setDetailModal("personnel")}
+              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("personnel"); }}
+            >
               <div className="stat-top">
                 <span>Total Personnel</span>
                 <div className="stat-icon purple"><Users size={18} strokeWidth={2} /></div>
@@ -231,7 +304,14 @@ export default function InventoryDashboard() {
               <div className="stat-change positive"><span>Registered in system</span></div>
             </div>
 
-            <div className="stat-card">
+            <div
+              className="stat-card"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer" }}
+              onClick={() => setDetailModal("divisions")}
+              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("divisions"); }}
+            >
               <div className="stat-top">
                 <span>Divisions</span>
                 <div className="stat-icon orange"><Building2 size={18} strokeWidth={2} /></div>
@@ -240,7 +320,14 @@ export default function InventoryDashboard() {
               <div className="stat-change neutral"><span>Tracked divisions</span></div>
             </div>
 
-            <div className="stat-card">
+            <div
+              className="stat-card"
+              role="button"
+              tabIndex={0}
+              style={{ cursor: "pointer" }}
+              onClick={() => setDetailModal("active")}
+              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("active"); }}
+            >
               <div className="stat-top">
                 <span>Active Devices</span>
                 <div className="stat-icon green"><CheckCircle2 size={18} strokeWidth={2} /></div>
@@ -248,6 +335,65 @@ export default function InventoryDashboard() {
               <h2>{loading ? "..." : activeDevices}</h2>
               <div className="stat-change neutral">{activeRate}%<span> active rate</span></div>
             </div>
+          </section>
+
+          {/* SUSPICIOUS DEVICE ALERTS */}
+          <section className="card suspicious-card">
+            <div className="card-header">
+              <div>
+                <h3>Suspicious Device Alerts</h3>
+                <p>Active devices flagged for a duplicate or missing serial number, or no assigned owner and division.</p>
+              </div>
+              <span className={`alert-tag ${suspiciousDevices.length > 0 ? "danger" : "clear"}`}>
+                {suspiciousDevices.length > 0 ? `${suspiciousDevices.length} FLAGGED` : "ALL CLEAR"}
+              </span>
+            </div>
+
+            {suspiciousDevices.length === 0 ? (
+              <div className="alert-clear-state">
+                <CheckCircle2 size={16} strokeWidth={2} />
+                No suspicious devices detected.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>TYPE</th>
+                      <th>DEVICE</th>
+                      <th>SERIAL NO.</th>
+                      <th>OWNER</th>
+                      <th>DIVISION</th>
+                      <th>ISSUE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {suspiciousDevices.slice(0, 8).map(({ device, reasons }) => (
+                      <tr key={`suspicious-${device.deviceType}-${device.id}`}>
+                        <td>{DEVICE_TYPE_LABELS[device.deviceType] ?? device.deviceType}</td>
+                        <td><strong>{device.label}</strong></td>
+                        <td>{device.serialNo ?? "—"}</td>
+                        <td>{personnelName(personnel, device.personnelId)}</td>
+                        <td>{divisionName(divisions, device.divisionId)}</td>
+                        <td>
+                          <div className="suspicious-reasons">
+                            {reasons.map((reason) => (
+                              <span key={reason} className={`badge ${reason === "duplicate-serial" ? "obese" : "overweight"}`}>
+                                <span className="badge-dot" />
+                                {SUSPICIOUS_REASON_LABELS[reason]}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {suspiciousDevices.length > 8 && (
+                  <div className="alert-more-note">+{suspiciousDevices.length - 8} more flagged device(s).</div>
+                )}
+              </div>
+            )}
           </section>
 
           {/* MAIN GRID */}
@@ -260,64 +406,89 @@ export default function InventoryDashboard() {
                 </div>
               </div>
 
-              <div className="distribution">
-                {typeDistribution.length === 0 ? (
-                  <div className="chart-empty">No devices recorded yet.</div>
-                ) : (
-                  typeDistribution.map((item, idx) => (
-                    <div className="distribution-row" key={item.type}>
-                      <div className="distribution-info">
-                        <span>{item.label}</span>
-                        <strong>{item.count}</strong>
-                      </div>
-                      <div className="progress">
-                        <div
-                          className="progress-bar"
-                          style={{ width: `${item.percentage}%`, background: TYPE_COLORS[idx % TYPE_COLORS.length] }}
+              {typeDistribution.length === 0 ? (
+                <div className="chart-empty">No devices recorded yet.</div>
+              ) : (
+                <div style={{ width: "100%", height: Math.max(300, typeDistribution.length * 32) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={typeDistribution}
+                      layout="vertical"
+                      margin={{ top: 4, right: 56, left: 4, bottom: 4 }}
+                      barCategoryGap={12}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                      <XAxis type="number" allowDecimals={false} stroke="#94a3b8" tickLine={false} axisLine={false} style={{ fontSize: "0.7rem" }} />
+                      <YAxis
+                        type="category"
+                        dataKey="label"
+                        width={128}
+                        stroke="#334155"
+                        tickLine={false}
+                        axisLine={false}
+                        style={{ fontSize: "0.75rem", fontWeight: 600 }}
+                      />
+                      <RechartsTooltip
+                        cursor={{ fill: "rgba(37, 99, 235, 0.06)" }}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
+                        formatter={(value: number, _name, props: any) => [`${value} devices (${props.payload.percentage}%)`, props.payload.label]}
+                      />
+                      <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={18}>
+                        {typeDistribution.map((entry, idx) => (
+                          <Cell key={entry.type} fill={TYPE_COLORS[idx % TYPE_COLORS.length]} />
+                        ))}
+                        <LabelList
+                          dataKey="count"
+                          position="right"
+                          style={{ fontSize: "0.72rem", fontWeight: 600, fill: "#475569" }}
                         />
-                      </div>
-                      <span className="percentage">{item.percentage}%</span>
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {typeDistribution.length > 0 && (
+                <div className="chart-legend">
+                  {typeDistribution.map((item, idx) => (
+                    <div className="chart-legend-item" key={item.type}>
+                      <span className="chart-legend-dot" style={{ background: TYPE_COLORS[idx % TYPE_COLORS.length] }} />
+                      {item.label}
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="card quick-card">
+            <div className="card system-card">
               <div className="card-header">
                 <div>
-                  <h3>Quick Actions</h3>
-                  <p>Frequently used functions</p>
+                  <h3>System Summary</h3>
+                  <p>Hardware inventory status</p>
                 </div>
               </div>
 
-              <div className="quick-actions">
-                <button onClick={() => navigate("/inventory/personnel")}>
-                  <span className="quick-icon green"><UserPlus size={16} strokeWidth={2} /></span>
-                  <div>
-                    <strong>Manage Personnel</strong>
-                    <small>Add, edit, or assign devices</small>
-                  </div>
-                  <span><ChevronRight size={14} strokeWidth={2} /></span>
-                </button>
-
-                <button onClick={() => navigate("/inventory/report")}>
-                  <span className="quick-icon purple"><FileText size={16} strokeWidth={2} /></span>
-                  <div>
-                    <strong>Generate Report</strong>
-                    <small>Export inventory to Excel</small>
-                  </div>
-                  <span><ChevronRight size={14} strokeWidth={2} /></span>
-                </button>
-
-                <button onClick={() => navigate("/inventory/analytics")}>
-                  <span className="quick-icon blue"><HardDrive size={16} strokeWidth={2.25} /></span>
-                  <div>
-                    <strong>View Analytics</strong>
-                    <small>Division and type breakdowns</small>
-                  </div>
-                  <span><ChevronRight size={14} strokeWidth={2} /></span>
-                </button>
+              <div className="summary-list">
+                <div>
+                  <span>Total Records</span>
+                  <strong>{devices.length}</strong>
+                </div>
+                <div>
+                  <span>Active Devices</span>
+                  <strong>{activeDevices}</strong>
+                </div>
+                <div>
+                  <span>Inactive Devices</span>
+                  <strong>{devices.length - activeDevices}</strong>
+                </div>
+                <div>
+                  <span>Divisions Tracked</span>
+                  <strong>{divisions.length}</strong>
+                </div>
+                <div>
+                  <span>Most Common Type</span>
+                  <strong>{typeDistribution[0]?.label ?? "—"}</strong>
+                </div>
               </div>
             </div>
           </section>
@@ -335,21 +506,39 @@ export default function InventoryDashboard() {
               <div className="chart-empty">No dated records yet.</div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={monthlyTrend} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                <AreaChart data={monthlyTrend} margin={{ top: 26, right: 16, left: -12, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="deviceTrendFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1d4ed8" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid vertical={false} stroke="#eef1f5" />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} width={28} />
-                  <RechartsTooltip cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }} />
-                  <Line
+                  <RechartsTooltip
+                    cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
+                    contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
+                    formatter={(value: number) => [`${value} device${value === 1 ? "" : "s"}`, "Added"]}
+                  />
+                  <Area
                     type="monotone"
                     dataKey="count"
                     name="Devices Added"
                     stroke="#1d4ed8"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "#1d4ed8", strokeWidth: 0 }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
+                    strokeWidth={2.5}
+                    fill="url(#deviceTrendFill)"
+                    dot={{ r: 3.5, fill: "#1d4ed8", strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
+                  >
+                    <LabelList
+                      dataKey="count"
+                      position="top"
+                      offset={10}
+                      style={{ fontSize: "0.7rem", fontWeight: 600, fill: "#1d4ed8" }}
+                    />
+                  </Area>
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </section>
@@ -462,35 +651,182 @@ export default function InventoryDashboard() {
             </div>
           </section>
 
-          {/* SYSTEM SUMMARY */}
+          {/* QUICK ACTIONS */}
           <section className="bottom-grid">
-            <div className="card system-card">
+            <div className="card quick-card">
               <div className="card-header">
                 <div>
-                  <h3>System Summary</h3>
-                  <p>Hardware inventory status</p>
+                  <h3>Quick Actions</h3>
+                  <p>Frequently used functions</p>
                 </div>
               </div>
 
-              <div className="summary-list">
-                <div>
-                  <span>Total Records</span>
-                  <strong>{devices.length}</strong>
-                </div>
-                <div>
-                  <span>Active Devices</span>
-                  <strong>{activeDevices}</strong>
-                </div>
-                <div>
-                  <span>Inactive Devices</span>
-                  <strong>{devices.length - activeDevices}</strong>
-                </div>
+              <div className="quick-actions">
+                <button onClick={() => navigate("/inventory/personnel")}>
+                  <span className="quick-icon green"><UserPlus size={16} strokeWidth={2} /></span>
+                  <div>
+                    <strong>Manage Personnel</strong>
+                    <small>Add, edit, or assign devices</small>
+                  </div>
+                  <span><ChevronRight size={14} strokeWidth={2} /></span>
+                </button>
+
+                <button onClick={() => navigate("/inventory/report")}>
+                  <span className="quick-icon purple"><FileText size={16} strokeWidth={2} /></span>
+                  <div>
+                    <strong>Generate Report</strong>
+                    <small>Export inventory to Excel</small>
+                  </div>
+                  <span><ChevronRight size={14} strokeWidth={2} /></span>
+                </button>
+
+                <button onClick={() => navigate("/inventory/analytics")}>
+                  <span className="quick-icon blue"><HardDrive size={16} strokeWidth={2.25} /></span>
+                  <div>
+                    <strong>View Analytics</strong>
+                    <small>Division and type breakdowns</small>
+                  </div>
+                  <span><ChevronRight size={14} strokeWidth={2} /></span>
+                </button>
               </div>
             </div>
           </section>
 
         </div>
       </main>
+
+      {/* STAT CARD DETAIL MODAL */}
+      {detailModal && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "20px" }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setDetailModal(null); }}
+        >
+          <div style={{ width: "100%", maxWidth: "900px", maxHeight: "85vh", overflowY: "auto", background: "#fff", borderRadius: "16px", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <div style={{ padding: "24px 28px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>{MODAL_CONFIG[detailModal].title}</h2>
+                <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "14px" }}>{MODAL_CONFIG[detailModal].subtitle}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailModal(null)}
+                style={{ border: "none", background: "#f3f4f6", width: "38px", height: "38px", borderRadius: "50%", fontSize: "22px", cursor: "pointer" }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: "8px 28px 28px" }}>
+              {(detailModal === "devices" || detailModal === "active") && (
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>TYPE</th>
+                        <th>DEVICE</th>
+                        <th>SERIAL NO.</th>
+                        <th>OWNER</th>
+                        <th>DIVISION</th>
+                        <th>STATUS</th>
+                        <th>ADDED</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(detailModal === "active" ? activeDeviceList : devices).length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: "center", padding: "2rem" }}>No devices found.</td>
+                        </tr>
+                      ) : (
+                        (detailModal === "active" ? activeDeviceList : devices).map((device) => (
+                          <tr key={`${device.deviceType}-${device.id}`}>
+                            <td>{DEVICE_TYPE_LABELS[device.deviceType] ?? device.deviceType}</td>
+                            <td><strong>{device.label}</strong></td>
+                            <td>{device.serialNo ?? "—"}</td>
+                            <td>{personnelName(personnel, device.personnelId)}</td>
+                            <td>{divisionName(divisions, device.divisionId)}</td>
+                            <td>
+                              <span className={`badge ${device.isActive ? "normal" : "obese"}`}>
+                                <span className="badge-dot" />
+                                {device.isActive ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                            <td>{formatDate(device.createdDate)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {detailModal === "personnel" && (
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>PERSONNEL</th>
+                        <th>DIVISION</th>
+                        <th>RANK</th>
+                        <th>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {personnel.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: "center", padding: "2rem" }}>No personnel found.</td>
+                        </tr>
+                      ) : (
+                        personnel.map((p) => (
+                          <tr key={p.id}>
+                            <td><strong>{[p.first_name, p.middle_name, p.last_name].filter(Boolean).join(" ")}</strong></td>
+                            <td>{divisionName(divisions, p.division_id)}</td>
+                            <td>{rankName(p.rank_id)}</td>
+                            <td>
+                              <span className={`badge ${p.is_active ? "normal" : "obese"}`}>
+                                <span className="badge-dot" />
+                                {p.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {detailModal === "divisions" && (
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>DIVISION</th>
+                        <th>DEVICES</th>
+                        <th>PERSONNEL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {divisionBreakdown.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} style={{ textAlign: "center", padding: "2rem" }}>No divisions found.</td>
+                        </tr>
+                      ) : (
+                        divisionBreakdown.map((d) => (
+                          <tr key={d.id}>
+                            <td><strong>{d.division}</strong></td>
+                            <td>{d.deviceCount}</td>
+                            <td>{d.personnelCount}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

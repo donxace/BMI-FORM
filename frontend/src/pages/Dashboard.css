@@ -960,6 +960,111 @@ textarea {
   background: rgba(34, 197, 94, 0.35);
 }
 
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px 16px;
+
+  margin-top: 16px;
+  padding-top: 16px;
+
+  border-top: 1px solid #f0f2f5;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  color: #536071;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chart-legend-dot {
+  width: 9px;
+  height: 9px;
+
+  flex-shrink: 0;
+
+  border-radius: 3px;
+}
+
+
+/* =========================================================
+   SUSPICIOUS DEVICE ALERTS
+========================================================= */
+
+.suspicious-card {
+  margin-bottom: 20px;
+}
+
+.alert-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 25px;
+  padding: 0 12px;
+
+  border: 1px solid transparent;
+  border-radius: 20px;
+
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.alert-tag.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.alert-tag.clear {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.alert-clear-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 16px 18px;
+
+  border: 1px dashed #bbf7d0;
+  border-radius: 9px;
+
+  background: #f7fefb;
+
+  color: #15803d;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.suspicious-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alert-more-note {
+  padding: 12px 4px 2px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+  text-align: center;
+}
+
 .chart-tooltip {
   min-width: 130px;
 

@@ -139,7 +139,7 @@
 
 .home-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 26px;
 }
 
@@ -265,4 +265,13 @@
 
 .home-card-purple:hover {
     border-color: #e3c9fb;
+}
+
+.home-card-teal .home-card-icon {
+    background: #ecfeff;
+    color: #0e7490;
+}
+
+.home-card-teal:hover {
+    border-color: #a5f3fc;
 }

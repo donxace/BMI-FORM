@@ -10,6 +10,7 @@ import { Rank } from './ranks/rank.entity';
 import { IntrusionDetectionModule } from './intrusion-detection/intrusion-detection.module';
 import { EnvironmentMonitoringModule } from './environment-monitoring/environment-monitoring.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { PcInfoModule } from './pc-info/pc-info.module';
 
 @Module({
   imports: [
@@ -56,6 +57,8 @@ import { InventoryModule } from './inventory/inventory.module';
     EnvironmentMonitoringModule,
 
     InventoryModule,
+
+    PcInfoModule,
   ],
 })
 export class AppModule {}

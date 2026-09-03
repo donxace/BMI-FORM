@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   User,
   KeyRound,
+  ArrowLeft,
   ArrowRight,
   AlertTriangle,
 } from "lucide-react";
@@ -75,9 +76,18 @@ export default function SecurityLogin() {
     <div className="login-container">
       <div className="login-card">
 
+        <button
+          type="button"
+          className="login-back-button"
+          onClick={() => navigate("/")}
+        >
+          <ArrowLeft size={15} strokeWidth={1.75} />
+          Back to landing page
+        </button>
+
         <div className="login-brand-header">
           <img
-            src="/PNP-ITMS-BMI-LOGO.png"
+            src="/PNP-ITMS-LOGO.png"
             alt="PNP ITMS Security System"
             className="login-logo"
           />

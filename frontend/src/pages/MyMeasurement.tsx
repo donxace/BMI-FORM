@@ -155,7 +155,7 @@ export default function MyMeasurement() {
       return;
     }
 
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("personnelAuthToken");
 
     try {
       setSubmitting(true);
@@ -176,8 +176,8 @@ export default function MyMeasurement() {
       });
 
       if (response.status === 401) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userRole");
+        localStorage.removeItem("personnelAuthToken");
+        localStorage.removeItem("personnelUserRole");
         localStorage.removeItem("personnelName");
         navigate("/login");
         return;

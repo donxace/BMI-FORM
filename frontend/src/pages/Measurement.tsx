@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { User, Nfc, Search, Play, Ruler, Scale, CircleDot, Info } from "lucide-react";
+import jsQR from "jsqr";
+import { User, Nfc, QrCode, Search, Play, Ruler, Scale, CircleDot, Info } from "lucide-react";
 import "./Measurement.css";
 
 /*
@@ -39,7 +40,7 @@ type Classification =
   | "Overweight"
   | "Obese";
 
-type PersonnelMode = "manual" | "automatic";
+type PersonnelMode = "manual" | "automatic" | "qr";
 
 type RFIDStatus =
   | "Waiting"
@@ -67,6 +68,7 @@ type Personnel = {
 type RFIDResponse = {
   rfid_uid?: string | null;
   personnel?: Personnel | null;
+  scan_id?: number;
 };
 
 type LiveReadingResponse = {
@@ -455,7 +457,7 @@ export default function Measurement() {
    */
 
   useEffect(() => {
-    if (personnelMode !== "automatic") {
+    if (personnelMode !== "automatic" && personnelMode !== "qr") {
       setRfidStatus("Waiting");
       setRfidError("");
       return;
@@ -467,6 +469,12 @@ export default function Measurement() {
     setRfidUid("");
 
     let cancelled = false;
+
+    // Whatever scan_id is already "latest" the moment this mode is
+    // entered is a stale leftover from some earlier tap, not a fresh
+    // scan. Baseline it on the first poll (without acting on it) so
+    // only a scan_id that shows up AFTER that auto-selects someone.
+    let baselineScanId: number | null | undefined = undefined;
 
     const checkRFID =
       async () => {
@@ -497,12 +505,21 @@ export default function Measurement() {
             return;
           }
 
+          if (baselineScanId === undefined) {
+            baselineScanId = data.scan_id ?? null;
+            setRfidStatus("Scanning");
+            setRfidUid("");
+            setSelectedPersonnel(null);
+            return;
+          }
+
           /*
            * No RFID scan has been received
-           * from the ESP32 yet.
+           * from the ESP32 yet, or it's the
+           * same stale scan already baselined.
            */
 
-          if (!data.rfid_uid) {
+          if (!data.rfid_uid || data.scan_id === baselineScanId) {
             setRfidStatus("Scanning");
             setRfidUid("");
             setSelectedPersonnel(null);
@@ -593,6 +610,167 @@ export default function Measurement() {
       );
     };
   }, [personnelMode]);
+
+  /*
+   * ============================================================
+   * QR CODE PERSONNEL DETECTION
+   *
+   * Scans the device camera for a QR code encoding a personnel's
+   * RFID UID, then posts it to the SAME public endpoint the ESP32
+   * RFID reader uses (POST /personnel/rfid/scan) — the automatic-
+   * detection poll above (which also runs for "qr") picks it up
+   * within ~1s, exactly as if a physical card had been tapped.
+   * ============================================================
+   */
+
+  const qrVideoRef = useRef<HTMLVideoElement | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const qrStreamRef = useRef<MediaStream | null>(null);
+  const qrFrameRef = useRef<number | null>(null);
+  const qrLastSentRef = useRef<{ code: string; at: number } | null>(null);
+
+  const [qrCameraError, setQrCameraError] = useState("");
+  const [qrManualCode, setQrManualCode] = useState("");
+
+  const reportScannedCode = (code: string) => {
+    fetch(`${API_BASE_URL}/personnel/rfid/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rfid_uid: code }),
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (personnelMode !== "qr") {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setQrCameraError(
+        "Camera access isn't available here — it requires HTTPS or localhost. Use the manual code entry below instead."
+      );
+      return;
+    }
+
+    let cancelled = false;
+    setQrCameraError("");
+
+    const scanFrame = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const video = qrVideoRef.current;
+      const canvas = qrCanvasRef.current;
+
+      if (
+        video &&
+        canvas &&
+        video.readyState === video.HAVE_ENOUGH_DATA
+      ) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const context = canvas.getContext("2d");
+
+        if (context) {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const imageData = context.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+          const result = jsQR(
+            imageData.data,
+            imageData.width,
+            imageData.height
+          );
+
+          if (result?.data) {
+            const now = Date.now();
+            const last = qrLastSentRef.current;
+
+            // Debounce so a QR code held up to the camera doesn't
+            // flood the endpoint with a POST on every frame.
+            if (
+              !last ||
+              last.code !== result.data ||
+              now - last.at > 3000
+            ) {
+              qrLastSentRef.current = { code: result.data, at: now };
+              reportScannedCode(result.data);
+            }
+          }
+        }
+      }
+
+      qrFrameRef.current = requestAnimationFrame(scanFrame);
+    };
+
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        qrStreamRef.current = stream;
+
+        if (qrVideoRef.current) {
+          qrVideoRef.current.srcObject = stream;
+          await qrVideoRef.current.play();
+        }
+
+        scanFrame();
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("QR CAMERA ERROR:", error);
+
+        setQrCameraError(
+          error instanceof Error
+            ? error.message
+            : "Unable to access the camera."
+        );
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      cancelled = true;
+
+      if (qrFrameRef.current) {
+        cancelAnimationFrame(qrFrameRef.current);
+        qrFrameRef.current = null;
+      }
+
+      if (qrStreamRef.current) {
+        qrStreamRef.current.getTracks().forEach((track) => track.stop());
+        qrStreamRef.current = null;
+      }
+    };
+  }, [personnelMode]);
+
+  const submitManualQrCode = () => {
+    const code = qrManualCode.trim();
+
+    if (!code) {
+      return;
+    }
+
+    reportScannedCode(code);
+    setQrManualCode("");
+  };
 
   /*
    * ============================================================
@@ -948,8 +1126,11 @@ export default function Measurement() {
 
       setRfidError("");
 
+      setQrCameraError("");
+      setQrManualCode("");
+
       setRfidStatus(
-        mode === "automatic"
+        mode === "automatic" || mode === "qr"
           ? "Scanning"
           : "Waiting"
       );
@@ -1263,9 +1444,13 @@ export default function Measurement() {
    */
 
   const getRFIDStatusText = () => {
+    const isQr = personnelMode === "qr";
+
     switch (rfidStatus) {
       case "Scanning":
-        return "Waiting for RFID card...";
+        return isQr
+          ? "Point the camera at a personnel QR code..."
+          : "Waiting for RFID card...";
 
       case "Found":
         return "Personnel identified successfully.";
@@ -1273,11 +1458,13 @@ export default function Measurement() {
       case "Error":
         return (
           rfidError ||
-          "Unable to identify RFID card."
+          (isQr
+            ? "Unable to identify QR code."
+            : "Unable to identify RFID card.")
         );
 
       default:
-        return "RFID scanner ready.";
+        return isQr ? "QR scanner ready." : "RFID scanner ready.";
     }
   };
 
@@ -1464,8 +1651,9 @@ export default function Measurement() {
                   </h2>
 
                   <p>
-                    Select personnel manually
-                    or identify them using RFID.
+                    Select personnel manually, or
+                    identify them using RFID or a
+                    QR code.
                   </p>
 
                 </div>
@@ -1535,6 +1723,32 @@ export default function Measurement() {
                   </span>
 
                   RFID Automatic
+
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    personnelMode ===
+                    "qr"
+                      ? "mode-button active"
+                      : "mode-button"
+                  }
+                  disabled={
+                    sessionStarted
+                  }
+                  onClick={() =>
+                    handlePersonnelModeChange(
+                      "qr"
+                    )
+                  }
+                >
+
+                  <span>
+                    <QrCode size={14} strokeWidth={2} />
+                  </span>
+
+                  QR Code
 
                 </button>
 
@@ -1778,6 +1992,116 @@ export default function Measurement() {
                   </div>
 
                 )}
+
+              </div>
+
+            )}
+
+            {/* ==================================================
+                QR CODE MODE
+            =================================================== */}
+
+            {personnelMode === "qr" && (
+
+              <div className="rfid-scanner qr-scanner">
+
+                <div className="qr-video-frame">
+
+                  <video
+                    ref={qrVideoRef}
+                    className="qr-video"
+                    muted
+                    playsInline
+                  />
+
+                  <span className="qr-video-corner tl" />
+                  <span className="qr-video-corner tr" />
+                  <span className="qr-video-corner bl" />
+                  <span className="qr-video-corner br" />
+
+                </div>
+
+                <canvas
+                  ref={qrCanvasRef}
+                  style={{ display: "none" }}
+                />
+
+                <h3>
+                  {rfidStatus === "Found"
+                    ? "Personnel Identified"
+                    : "Scan QR Code"}
+                </h3>
+
+                <p>
+                  {getRFIDStatusText()}
+                </p>
+
+                {qrCameraError && (
+                  <div className="rfid-error">
+                    {qrCameraError}
+                  </div>
+                )}
+
+                {rfidUid && (
+
+                  <div className="rfid-uid">
+
+                    <span>
+                      Scanned Code
+                    </span>
+
+                    <strong>
+                      {rfidUid}
+                    </strong>
+
+                  </div>
+
+                )}
+
+                <div
+                  className={`rfid-status ${rfidStatus.toLowerCase()}`}
+                >
+
+                  <span className="rfid-status-dot" />
+
+                  {rfidStatus}
+
+                </div>
+
+                {rfidStatus === "Error" && rfidError && (
+
+                  <div className="rfid-error">
+                    {rfidError}
+                  </div>
+
+                )}
+
+                <div className="qr-manual-entry">
+
+                  <input
+                    type="text"
+                    placeholder="Or type the code manually"
+                    value={qrManualCode}
+                    onChange={(event) =>
+                      setQrManualCode(event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        submitManualQrCode();
+                      }
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={submitManualQrCode}
+                    disabled={!qrManualCode.trim()}
+                  >
+                    Submit
+                  </button>
+
+                </div>
 
               </div>
 
@@ -2574,9 +2898,10 @@ export default function Measurement() {
               </span>
 
               <strong>
-                {personnelMode ===
-                "automatic"
+                {personnelMode === "automatic"
                   ? "RFID Automatic"
+                  : personnelMode === "qr"
+                  ? "QR Code"
                   : "Manual"}
               </strong>
 

@@ -52,6 +52,7 @@ type Personnel = {
 type RFIDResponse = {
   rfid_uid?: string | null;
   personnel?: Personnel | null;
+  scan_id?: number;
 };
 
 type LiveReadingResponse = {
@@ -370,7 +371,15 @@ export default function Kiosk() {
 
   const [personnel, setPersonnel] = useState<Personnel | null>(null);
   const [rfidError, setRfidError] = useState("");
-  const ignoredRfidUid = useRef<string | null>(null);
+  // Tracks the last scan_id already handled, not the rfid_uid — the
+  // same card can be legitimately re-tapped with an identical uid,
+  // and comparing uids alone would make that repeat tap invisible.
+  // Starts at undefined (not null) so the very first poll can tell
+  // "nothing scanned yet" apart from "whatever the backend already
+  // remembers from before this kiosk was even loaded" — otherwise a
+  // stale scan from an earlier session would auto-identify someone
+  // the instant the welcome screen appears.
+  const ignoredScanId = useRef<number | null | undefined>(undefined);
 
   /* ---------------- HEIGHT / WEIGHT ---------------- */
 
@@ -426,9 +435,18 @@ export default function Kiosk() {
 
         const data: RFIDResponse = await response.json();
 
-        if (!data.rfid_uid || data.rfid_uid === ignoredRfidUid.current) {
+        if (ignoredScanId.current === undefined) {
+          // First poll ever — whatever's already "latest" is stale
+          // leftover from before this kiosk loaded, not a fresh tap.
+          ignoredScanId.current = data.scan_id ?? null;
           return;
         }
+
+        if (!data.rfid_uid || data.scan_id === ignoredScanId.current) {
+          return;
+        }
+
+        ignoredScanId.current = data.scan_id ?? null;
 
         if (!data.personnel) {
           setRfidError("not_registered");
@@ -647,7 +665,9 @@ export default function Kiosk() {
    */
 
   const resetKiosk = () => {
-    ignoredRfidUid.current = personnel?.rfid_uid ?? null;
+    // Leave ignoredScanId as-is: it already points at the scan_id
+    // that got us here, so the kiosk won't loop back into the same
+    // person until a genuinely new tap bumps scan_id again.
     setPersonnel(null);
     setRfidError("");
     setHeight("");

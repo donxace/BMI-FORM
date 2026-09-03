@@ -1,0 +1,26 @@
+.inventory-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 60vh;
+    text-align: center;
+}
+
+.inventory-page h1 {
+    margin: 0 0 6px;
+
+    color: #172033;
+
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.inventory-page p {
+    margin: 0;
+
+    color: #7d8999;
+
+    font-size: 14px;
+}

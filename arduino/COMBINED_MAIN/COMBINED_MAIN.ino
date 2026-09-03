@@ -2,7 +2,7 @@
 #include <HTTPClient.h>
 
 // ============================================================
-// COMBINED TEST RIG
+// COMBINED TEST RIG — PRACTICE BOARD, DUAL-SERVER
 // ============================================================
 // Merges BMI_MAIN.ino, INTRUSION_DETECTION.ino, and
 // ENVIRONMENT_MONITORING.ino into a single sketch, so one bare
@@ -13,78 +13,102 @@
 // this sketch's loop(). Swap FAKE_RFID_UID's send call for real
 // reader output when that hardware arrives.
 //
-// ----------------------------------------------------------
-// ONE BUTTON, THREE JOBS
-// ----------------------------------------------------------
-// All three source sketches used the onboard BOOT button
-// (GPIO0) as their fake trigger, so this rig gives it two
-// gestures instead of one:
+// This is a practice/testing rig, so — purely for convenience —
+// it talks to BOTH the BMI-FORM backend (port 3000) and the
+// VITALYZE backend (port 3001) from the one board, instead of
+// needing two separate rigs:
 //
-//   - Quick tap   (released before LONG_PRESS_MS)
-//       -> fake RFID card tap (personnel/rfid/scan)
-//   - Press and hold (past LONG_PRESS_MS)
-//       -> intrusion "triggered" AND a simulated smoke/fire
-//          spike, both clearing the moment you let go
+//   - /personnel/rfid/scan and /environment-monitoring/reading
+//     exist under the same path on both backends, so those go
+//     out to both servers every time.
+//   - Height/weight readings and session polling use each
+//     backend's own base path — "bmi-assessments" on BMI-FORM,
+//     "vital-sign-assessments" on VITALYZE — since that's what
+//     each one actually calls it.
+//   - Intrusion detection only exists on BMI-FORM's backend
+//     (VITALYZE has no such module), so it stays BMI-only.
 //
 // ----------------------------------------------------------
-// SEQUENCE FOR THE BMI FLOW
+// SERIAL MENU (type a number into the Serial Monitor, Enter)
 // ----------------------------------------------------------
-// 1. Quick-tap BOOT to fake an RFID scan -> Measurement page's
-//    Automatic mode (or the Login page) identifies the card.
-// 2. Admin presses "Start Measurement" on the website -> this
-//    board polls /bmi-assessments/session/status and only then
-//    prompts for input.
+// Temperature and smoke-level readings are automatic — they
+// post to the Environment Monitoring page every few seconds on
+// their own and aren't part of the menu. Everything else that
+// needs a fake trigger is picked by number instead:
+//
+//   1  -> fake RFID card tap (personnel/rfid/scan) using
+//         FAKE_RFID_UID, a card already assigned to someone —
+//         for testing identification/login. Sent to both
+//         servers.
+//   2  -> trigger intrusion alert (also spikes the next few
+//         environment readings, to simulate an intrusion
+//         coinciding with a break-in/fire). BMI-FORM only.
+//   3  -> clear intrusion alert. BMI-FORM only.
+//   4  -> fake RFID card tap using BLANK_RFID_UID, a UID no one
+//         is assigned to yet — for testing the admin Personnel
+//         page's "Provision Card" flow (option 1's UID is
+//         already claimed, so it can't be used for this). Sent
+//         to both servers.
+//
+// ----------------------------------------------------------
+// SEQUENCE FOR THE BMI/VITALS FLOW
+// ----------------------------------------------------------
+// 1. Type "1" + Enter to fake an RFID scan -> Measurement
+//    page's Automatic mode (or the Login page) identifies the
+//    card, on either site.
+// 2. Admin presses "Start Measurement" on either website -> this
+//    board polls both session/status endpoints and prompts for
+//    input as soon as either one reports active.
 // 3. Type a height value into the Serial Monitor and press
 //    Enter, then a weight value and press Enter -> both post to
-//    /bmi-assessments/reading and auto-fill the Measurement page.
+//    BOTH backends' reading endpoints and auto-fill whichever
+//    Measurement page is running a session.
+//    (While a measurement session is active, typed lines go to
+//    height/weight instead of the menu above.)
 // ============================================================
 
 // ---- WIFI ----
 
-const char* ssid = "HUAWEI-3j74";
-const char* password = "dxp2jzb9";
+const char* ssid = "HMS PON";
+const char* password = "itsdhms@2026";
 
 // ---- SERVER ENDPOINTS ----
+// Same machine, two backends: BMI-FORM on 3000, VITALYZE on 3001.
 
-const char* rfidScanUrl =
-  "http://192.168.1.8:3000/personnel/rfid/scan";
+const char* bmiServerIP = "192.168.1.32";
+const int bmiServerPort = 3000;
 
-const char* bmiReadingUrl =
-  "http://192.168.1.8:3000/bmi-assessments/reading";
+const char* vitalsServerIP = "192.168.1.32";
+const int vitalsServerPort = 3001;
 
-const char* sessionStatusUrl =
-  "http://192.168.1.8:3000/bmi-assessments/session/status";
+String rfidScanUrlBmi =
+  "http://" + String(bmiServerIP) + ":" + String(bmiServerPort) + "/personnel/rfid/scan";
+String rfidScanUrlVitals =
+  "http://" + String(vitalsServerIP) + ":" + String(vitalsServerPort) + "/personnel/rfid/scan";
 
-const char* intrusionEventUrl =
-  "http://192.168.1.8:3000/intrusion-detection/event";
+String readingUrlBmi =
+  "http://" + String(bmiServerIP) + ":" + String(bmiServerPort) + "/bmi-assessments/reading";
+String readingUrlVitals =
+  "http://" + String(vitalsServerIP) + ":" + String(vitalsServerPort) + "/vital-sign-assessments/reading";
 
-const char* environmentReadingUrl =
-  "http://192.168.1.8:3000/environment-monitoring/reading";
+String sessionStatusUrlBmi =
+  "http://" + String(bmiServerIP) + ":" + String(bmiServerPort) + "/bmi-assessments/session/status";
+String sessionStatusUrlVitals =
+  "http://" + String(vitalsServerIP) + ":" + String(vitalsServerPort) + "/vital-sign-assessments/session/status";
 
-// ---- SHARED BUTTON ----
+String intrusionEventUrl =
+  "http://" + String(bmiServerIP) + ":" + String(bmiServerPort) + "/intrusion-detection/event";
 
-const int BUTTON_PIN = 0; // BOOT button on most ESP32 dev boards
-const unsigned long DEBOUNCE_MS = 50;
-const unsigned long LONG_PRESS_MS = 600;
+String environmentReadingUrlBmi =
+  "http://" + String(bmiServerIP) + ":" + String(bmiServerPort) + "/environment-monitoring/reading";
+String environmentReadingUrlVitals =
+  "http://" + String(vitalsServerIP) + ":" + String(vitalsServerPort) + "/environment-monitoring/reading";
 
-bool buttonRawPressed = false;
-unsigned long buttonChangeAt = 0;
+// ---- SHARED HTTP POST HELPER ----
+// Every "send to both servers" call funnels through here so the
+// WiFi check + response logging only needs writing once.
 
-bool buttonDebounced = false;
-unsigned long pressStartAt = 0;
-bool longPressFired = false;
-
-bool isAlertHeld() {
-  return buttonDebounced && longPressFired;
-}
-
-// ---- STEP 1: FAKE RFID TAP ----
-// Swap FAKE_RFID_UID for any other rfid_uid already seeded in
-// the personnel table to identify a different person.
-
-const char* FAKE_RFID_UID = "RFID-125421521"; // Reyes, Carlo D. - PAT
-
-void sendFakeRfidScan() {
+void postJsonTo(const String& url, const String& json, const char* serverLabel) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected!");
     return;
@@ -92,29 +116,52 @@ void sendFakeRfidScan() {
 
   HTTPClient http;
 
-  http.begin(rfidScanUrl);
+  http.begin(url);
   http.addHeader("Content-Type", "application/json");
-
-  String json = "{";
-  json += "\"rfid_uid\":\"" + String(FAKE_RFID_UID) + "\"";
-  json += "}";
-
-  Serial.println();
-  Serial.println("================================");
-  Serial.println("FAKE RFID TAP (quick press)");
-  Serial.println(json);
-  Serial.println("================================");
 
   int responseCode = http.POST(json);
 
-  Serial.print("HTTP Response: ");
-  Serial.println(responseCode);
+  Serial.print("  [");
+  Serial.print(serverLabel);
+  Serial.print("] HTTP ");
+  Serial.print(responseCode);
+  Serial.print(" - ");
   Serial.println(http.getString());
 
   http.end();
 }
 
-// ---- STEP 2/3: BMI SESSION + SERIAL HEIGHT/WEIGHT INPUT ----
+// ---- STEP 1: FAKE RFID TAP ----
+// Swap FAKE_RFID_UID for any other rfid_uid already seeded in
+// the personnel table to identify a different person.
+
+const char* FAKE_RFID_UID = "RFID-1001"; // Reyes, Carlo D. - PAT (seeded in bmi_monitoring.personnel)
+
+// A UID that deliberately does NOT exist in either personnel table
+// yet, for testing the admin Personnel page's "Provision Card"
+// flow. FAKE_RFID_UID can't be reused for that — it's already
+// claimed, so the provision auto-fill would just keep reporting it
+// as already assigned. Pick a fresh one here if this one ever gets
+// provisioned on both sides.
+const char* BLANK_RFID_UID = "RFID-BLANK-TEST";
+
+void sendFakeRfidScan(const char* uid, const char* label) {
+  String json = "{\"rfid_uid\":\"" + String(uid) + "\"}";
+
+  Serial.println();
+  Serial.println("================================");
+  Serial.print("FAKE RFID TAP (");
+  Serial.print(label);
+  Serial.println(") -> both servers");
+  Serial.println(json);
+
+  postJsonTo(rfidScanUrlBmi, json, "BMI-FORM :3000");
+  postJsonTo(rfidScanUrlVitals, json, "VITALYZE :3001");
+
+  Serial.println("================================");
+}
+
+// ---- STEP 2/3: SESSION + SERIAL HEIGHT/WEIGHT INPUT ----
 
 enum ReadingInputStage {
   WAITING_FOR_HEIGHT,
@@ -129,14 +176,15 @@ bool sessionActive = false;
 const unsigned long SESSION_POLL_INTERVAL_MS = 1000;
 unsigned long lastSessionCheck = 0;
 
-bool fetchSessionActive() {
+// Polls one session/status endpoint; used for both backends.
+bool fetchSessionActive(const String& url) {
   if (WiFi.status() != WL_CONNECTED) {
     return false;
   }
 
   HTTPClient http;
 
-  http.begin(sessionStatusUrl);
+  http.begin(url);
 
   int responseCode = http.GET();
   bool active = false;
@@ -167,7 +215,11 @@ void handleSessionPolling() {
 
   lastSessionCheck = millis();
 
-  bool active = fetchSessionActive();
+  // A session on EITHER site is enough to start prompting — the
+  // reading gets posted to both regardless (see sendReading below).
+  bool active =
+    fetchSessionActive(sessionStatusUrlBmi) ||
+    fetchSessionActive(sessionStatusUrlVitals);
 
   if (active && !sessionActive) {
 
@@ -191,20 +243,12 @@ void handleSessionPolling() {
     Serial.println("Measurement session ended.");
     Serial.println("Waiting for admin to start a new session...");
     Serial.println("================================");
+
+    printMenu();
   }
 }
 
-void sendBmiReading(float heightCm, float weightKg) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected!");
-    return;
-  }
-
-  HTTPClient http;
-
-  http.begin(bmiReadingUrl);
-  http.addHeader("Content-Type", "application/json");
-
+void sendReading(float heightCm, float weightKg) {
   String json = "{";
   json += "\"height\":" + String(heightCm, 1) + ",";
   json += "\"weight\":" + String(weightKg, 1);
@@ -212,31 +256,16 @@ void sendBmiReading(float heightCm, float weightKg) {
 
   Serial.println();
   Serial.println("================================");
-  Serial.println("Sending live reading...");
+  Serial.println("Sending live reading -> both servers...");
   Serial.println(json);
 
-  int responseCode = http.POST(json);
+  postJsonTo(readingUrlBmi, json, "BMI-FORM :3000");
+  postJsonTo(readingUrlVitals, json, "VITALYZE :3001");
 
-  Serial.print("HTTP Response: ");
-  Serial.println(responseCode);
-  Serial.println(http.getString());
   Serial.println("================================");
-
-  http.end();
 }
 
-void handleSerialInput() {
-  if (!Serial.available()) {
-    return;
-  }
-
-  String line = Serial.readStringUntil('\n');
-  line.trim();
-
-  if (line.length() == 0) {
-    return;
-  }
-
+void handleHeightWeightLine(const String& line) {
   if (readingStage == WAITING_FOR_HEIGHT) {
     pendingHeight = line.toFloat();
 
@@ -252,28 +281,21 @@ void handleSerialInput() {
     Serial.print("Weight set to: ");
     Serial.println(pendingWeight, 1);
 
-    sendBmiReading(pendingHeight, pendingWeight);
+    sendReading(pendingHeight, pendingWeight);
 
     readingStage = WAITING_FOR_HEIGHT;
     promptForHeight();
   }
 }
 
-// ---- INTRUSION DETECTION (long press = triggered) ----
+// ---- INTRUSION DETECTION (menu options 2/3, BMI-FORM only — ----
+// ---- VITALYZE has no intrusion-detection module) --------------
 
 const char* INTRUSION_SENSOR_ID = "TEST-BUTTON";
 
+bool intrusionActive = false;
+
 void sendIntrusionStatus(bool triggered) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected!");
-    return;
-  }
-
-  HTTPClient http;
-
-  http.begin(intrusionEventUrl);
-  http.addHeader("Content-Type", "application/json");
-
   String json = "{";
   json += "\"status\":\"" + String(triggered ? "triggered" : "clear") + "\",";
   json += "\"sensor_id\":\"" + String(INTRUSION_SENSOR_ID) + "\"";
@@ -281,19 +303,15 @@ void sendIntrusionStatus(bool triggered) {
 
   Serial.println();
   Serial.println("================================");
-  Serial.println(triggered ? "TRIGGERED - INTRUSION! (long press)" : "Clear.");
+  Serial.println(triggered ? "TRIGGERED - INTRUSION! (menu option 2)" : "Clear. (menu option 3)");
   Serial.println(json);
 
-  int responseCode = http.POST(json);
+  postJsonTo(intrusionEventUrl, json, "BMI-FORM :3000");
 
-  Serial.print("HTTP Response: ");
-  Serial.println(responseCode);
   Serial.println("================================");
-
-  http.end();
 }
 
-// ---- ENVIRONMENT MONITORING (periodic, boosted while held) ----
+// ---- ENVIRONMENT MONITORING (automatic, boosted while intrusion is active) ----
 
 const char* ENV_SENSOR_ID = "ENV-01";
 
@@ -304,7 +322,7 @@ const unsigned long ENV_SEND_INTERVAL_MS = 3000;
 unsigned long lastEnvSendAt = 0;
 
 float readFakeTemperature() {
-  if (isAlertHeld()) {
+  if (intrusionActive) {
     // Simulated fire/overheat condition.
     return 55.0 + random(0, 150) / 10.0; // ~55.0 - 70.0 C
   }
@@ -314,7 +332,7 @@ float readFakeTemperature() {
 }
 
 int readFakeSmokeLevel() {
-  if (isAlertHeld()) {
+  if (intrusionActive) {
     // Simulated smoke condition.
     return 2000 + random(0, 1000); // 2000 - 3000
   }
@@ -324,18 +342,8 @@ int readFakeSmokeLevel() {
 }
 
 void sendEnvironmentReading() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected!");
-    return;
-  }
-
   float temperatureC = readFakeTemperature();
   int smokeLevel = readFakeSmokeLevel();
-
-  HTTPClient http;
-
-  http.begin(environmentReadingUrl);
-  http.addHeader("Content-Type", "application/json");
 
   String json = "{";
   json += "\"temperature\":" + String(temperatureC, 1) + ",";
@@ -346,19 +354,16 @@ void sendEnvironmentReading() {
   Serial.println();
   Serial.println("================================");
   Serial.println(
-    isAlertHeld()
-      ? "SIMULATED ENVIRONMENT ALERT (long press)"
-      : "Sending normal environment reading..."
+    intrusionActive
+      ? "SIMULATED ENVIRONMENT ALERT (intrusion active) -> both servers"
+      : "Sending normal environment reading -> both servers..."
   );
   Serial.println(json);
 
-  int responseCode = http.POST(json);
+  postJsonTo(environmentReadingUrlBmi, json, "BMI-FORM :3000");
+  postJsonTo(environmentReadingUrlVitals, json, "VITALYZE :3001");
 
-  Serial.print("HTTP Response: ");
-  Serial.println(responseCode);
   Serial.println("================================");
-
-  http.end();
 }
 
 void handleEnvironmentTimer() {
@@ -371,47 +376,68 @@ void handleEnvironmentTimer() {
   sendEnvironmentReading();
 }
 
-// ---- SHARED BUTTON STATE MACHINE ----
+// ---- SERIAL MENU (numbers 1-4, only outside a measurement session) ----
 
-void handleButton() {
-  bool rawPressed = (digitalRead(BUTTON_PIN) == LOW);
+void printMenu() {
+  Serial.println();
+  Serial.println("================================");
+  Serial.println("SERIAL MENU - type a number, then Enter:");
+  Serial.println("  1) Simulate RFID tap (known personnel) -> both servers");
+  Serial.print("  2) Trigger intrusion alert (BMI-FORM only)");
+  Serial.println(intrusionActive ? "  [already triggered]" : "");
+  Serial.print("  3) Clear intrusion alert (BMI-FORM only)");
+  Serial.println(intrusionActive ? "" : "  [already clear]");
+  Serial.println("  4) Simulate BLANK card tap (Provision Card testing) -> both servers");
+  Serial.println("(Temperature/smoke readings post automatically every 3s, to both servers.)");
+  Serial.println("================================");
+}
 
-  if (rawPressed != buttonRawPressed) {
-    buttonRawPressed = rawPressed;
-    buttonChangeAt = millis();
+void handleMenuLine(const String& line) {
+  if (line == "1") {
+    sendFakeRfidScan(FAKE_RFID_UID, "menu option 1, known personnel");
+
+  } else if (line == "2") {
+    if (intrusionActive) {
+      Serial.println("Intrusion is already triggered.");
+    } else {
+      intrusionActive = true;
+      sendIntrusionStatus(true);
+    }
+
+  } else if (line == "3") {
+    if (!intrusionActive) {
+      Serial.println("Intrusion is already clear.");
+    } else {
+      intrusionActive = false;
+      sendIntrusionStatus(false);
+    }
+
+  } else if (line == "4") {
+    sendFakeRfidScan(BLANK_RFID_UID, "menu option 4, blank card");
+
+  } else {
+    Serial.println("Unknown option.");
   }
 
-  bool settled = (millis() - buttonChangeAt) >= DEBOUNCE_MS;
+  printMenu();
+}
 
-  if (!settled) {
+void handleSerialInput() {
+  if (!Serial.available()) {
     return;
   }
 
-  // Just pressed.
-  if (buttonRawPressed && !buttonDebounced) {
-    buttonDebounced = true;
-    pressStartAt = millis();
-    longPressFired = false;
+  String line = Serial.readStringUntil('\n');
+  line.trim();
+
+  if (line.length() == 0) {
+    return;
   }
 
-  // Crossed the long-press threshold while still held.
-  if (buttonDebounced &&
-      !longPressFired &&
-      (millis() - pressStartAt) >= LONG_PRESS_MS) {
-
-    longPressFired = true;
-    sendIntrusionStatus(true);
-  }
-
-  // Just released.
-  if (!buttonRawPressed && buttonDebounced) {
-    buttonDebounced = false;
-
-    if (longPressFired) {
-      sendIntrusionStatus(false);
-    } else {
-      sendFakeRfidScan();
-    }
+  if (sessionActive) {
+    handleHeightWeightLine(line);
+  } else {
+    handleMenuLine(line);
   }
 }
 
@@ -437,33 +463,23 @@ void connectToWiFi() {
 void setup() {
   Serial.begin(115200);
 
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
   randomSeed(analogRead(0));
 
   connectToWiFi();
 
   Serial.println();
   Serial.println("================================");
-  Serial.println("COMBINED TEST RIG READY");
-  Serial.print("Quick-tap BOOT  -> fake RFID tap (");
-  Serial.print(FAKE_RFID_UID);
-  Serial.println(")");
-  Serial.println("Hold BOOT       -> intrusion triggered + environment alert");
-  Serial.println("Release         -> intrusion clear, environment back to normal");
+  Serial.println("COMBINED TEST RIG READY (dual-server: BMI-FORM :3000 + VITALYZE :3001)");
   Serial.println("Sending environment readings every 3s regardless.");
-  Serial.println("Waiting for admin to start a measurement session...");
+  Serial.println("Waiting for admin to start a measurement session on either site...");
   Serial.println("================================");
+
+  printMenu();
 }
 
 void loop() {
-  handleButton();
   handleSessionPolling();
-
-  if (sessionActive) {
-    handleSerialInput();
-  }
-
+  handleSerialInput();
   handleEnvironmentTimer();
 
   delay(20);

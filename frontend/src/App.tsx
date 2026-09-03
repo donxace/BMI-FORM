@@ -12,6 +12,8 @@ import SecurityProtectedRoute from "./components/SecurityProtectedRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
+import Home from "./pages/Home";
+import HardwareInventory from "./pages/HardwareInventory";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
@@ -32,6 +34,12 @@ function App() {
     <BrowserRouter>
       <Routes>
 
+        {/* Public landing page — choose a domain to sign in to */}
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
         {/* Public Route */}
         <Route
           path="/login"
@@ -44,6 +52,7 @@ function App() {
           element={<Kiosk />}
         />
 
+
         {/* =====================================================
             PROTECTED ROUTES (Requires valid login token)
         ====================================================== */}
@@ -51,7 +60,7 @@ function App() {
           <Route element={<MainLayout />}>
 
             <Route
-              path="/"
+              path="/dashboard"
               element={<Dashboard />}
             />
 
@@ -83,6 +92,11 @@ function App() {
             <Route
               path="/settings"
               element={<SettingsPage />}
+            />
+
+            <Route
+              path="/inventory"
+              element={<HardwareInventory />}
             />
 
           </Route>

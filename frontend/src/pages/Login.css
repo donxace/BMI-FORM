@@ -40,6 +40,36 @@
 }
 
 /* =========================================================
+   BACK TO LANDING PAGE
+========================================================= */
+
+.login-back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    margin-bottom: 18px;
+
+    padding: 0;
+
+    border: none;
+    background: none;
+
+    color: #7d8999;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: color 0.15s ease;
+}
+
+.login-back-button:hover {
+    color: #2453d8;
+}
+
+/* =========================================================
    LOGO + BADGE
 ========================================================= */
 

@@ -21,17 +21,21 @@ export class PersonnelAuthGuard implements CanActivate {
 
     const token = authHeader.slice('Bearer '.length);
 
+    let payload: any;
+
     try {
-      const payload = await this.jwtService.verifyAsync(token);
-
-      if (payload.role !== 'personnel') {
-        throw new UnauthorizedException();
-      }
-
-      request.user = payload;
-      return true;
+      payload = await this.jwtService.verifyAsync(token);
     } catch {
       throw new UnauthorizedException('Invalid or expired token.');
     }
+
+    if (payload.role !== 'personnel') {
+      throw new UnauthorizedException(
+        'This account does not have personnel access.',
+      );
+    }
+
+    request.user = payload;
+    return true;
   }
 }

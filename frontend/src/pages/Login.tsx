@@ -1,8 +1,9 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   User,
   KeyRound,
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   UserPlus,
@@ -34,6 +35,7 @@ type ScannedPersonnel = {
 type RfidLatestResponse = {
   rfid_uid: string | null;
   personnel: ScannedPersonnel | null;
+  scan_id?: number;
 };
 
 type Rank = {
@@ -43,6 +45,14 @@ type Rank = {
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect back to whichever admin page ProtectedRoute bounced the
+  // user from (e.g. /inventory), falling back to the dashboard when
+  // arriving here directly.
+  const redirectTo =
+    (location.state as { from?: { pathname: string } } | null)?.from
+      ?.pathname ?? "/dashboard";
 
   const [mode, setMode] = useState<LoginMode>("admin");
 
@@ -91,7 +101,7 @@ export default function Login() {
         localStorage.setItem("userRole", data.user?.role ?? "admin");
       }
 
-      navigate("/");
+      navigate(redirectTo);
     } catch (err) {
       console.error("LOGIN ERROR:", err);
       setError(
@@ -203,6 +213,13 @@ export default function Login() {
 
     let cancelled = false;
 
+    // Whatever scan_id is already "latest" the moment this tab opens
+    // is a stale leftover from some earlier tap, not something the
+    // person just scanned. Baseline it on the first poll (without
+    // acting on it) so only a scan_id that shows up AFTER that gets
+    // treated as a real scan.
+    let baselineScanId: number | null | undefined = undefined;
+
     const checkRfid = async () => {
       try {
         const response = await fetch(
@@ -224,7 +241,14 @@ export default function Login() {
           return;
         }
 
-        if (!data.rfid_uid) {
+        if (baselineScanId === undefined) {
+          baselineScanId = data.scan_id ?? null;
+          setRfidStatus("Scanning");
+          setScannedPersonnel(null);
+          return;
+        }
+
+        if (!data.rfid_uid || data.scan_id === baselineScanId) {
           setRfidStatus("Scanning");
           setScannedPersonnel(null);
           return;
@@ -338,8 +362,8 @@ export default function Login() {
 
       const data = await response.json();
 
-      localStorage.setItem("authToken", data.token);
-      localStorage.setItem("userRole", "personnel");
+      localStorage.setItem("personnelAuthToken", data.token);
+      localStorage.setItem("personnelUserRole", "personnel");
       localStorage.setItem(
         "personnelName",
         `${data.user.rank} ${data.user.first_name} ${data.user.surname}`
@@ -415,8 +439,8 @@ export default function Login() {
 
       const data = await response.json();
 
-      localStorage.setItem("authToken", data.token);
-      localStorage.setItem("userRole", "personnel");
+      localStorage.setItem("personnelAuthToken", data.token);
+      localStorage.setItem("personnelUserRole", "personnel");
       localStorage.setItem(
         "personnelName",
         `${data.user.rank} ${data.user.first_name} ${data.user.surname}`
@@ -443,9 +467,18 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
 
+        <button
+          type="button"
+          className="login-back-button"
+          onClick={() => navigate("/")}
+        >
+          <ArrowLeft size={15} strokeWidth={1.75} />
+          Back to landing page
+        </button>
+
         <div className="login-brand-header">
           <img
-            src="/PNP-ITMS-BMI-LOGO.png"
+            src="/PNP-ITMS-LOGO.png"
             alt="PNP ITMS BMI System"
             className="login-logo"
           />

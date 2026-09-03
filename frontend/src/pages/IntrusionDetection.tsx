@@ -155,7 +155,7 @@ export default function IntrusionDetection() {
                 body: `Laser sensor ${
                   data.sensor_id || "unknown"
                 } was triggered at ${new Date().toLocaleTimeString()}.`,
-                icon: "/PNP-ITMS-BMI-LOGO.png",
+                icon: "/PNP-ITMS-LOGO.png",
                 tag: "intrusion-detection",
               }
             );

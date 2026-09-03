@@ -168,9 +168,16 @@ export default function Personnel() {
     }
 
     setProvisionScanStatus("waiting");
+    setProvisionRfidUid("");
 
     let cancelled = false;
-    let lastSeenUid: string | null = null;
+
+    // Whatever scan_id is already "latest" the instant the modal
+    // opens is stale — a leftover from some earlier tap, not
+    // something the admin just scanned. Baseline it on the first
+    // poll (without acting on it) so only a scan_id that shows up
+    // AFTER that auto-fills the field.
+    let baselineScanId: number | null | undefined = undefined;
 
     const checkRfid = async () => {
       try {
@@ -189,11 +196,14 @@ export default function Personnel() {
 
         const data = await response.json();
 
-        if (!data.rfid_uid || data.rfid_uid === lastSeenUid) {
+        if (baselineScanId === undefined) {
+          baselineScanId = data.scan_id ?? null;
           return;
         }
 
-        lastSeenUid = data.rfid_uid;
+        if (!data.rfid_uid || data.scan_id === baselineScanId) {
+          return;
+        }
 
         setProvisionRfidUid(data.rfid_uid);
         setProvisionScanStatus("detected");
@@ -2739,13 +2749,10 @@ export default function Personnel() {
 
               <input
                 type="text"
-                placeholder="Tap a card on the reader, or type the UID"
+                placeholder="Tap a card on the reader to fill this in automatically"
                 value={provisionRfidUid}
-                onChange={(event) =>
-                  setProvisionRfidUid(event.target.value)
-                }
+                readOnly
                 disabled={provisioning}
-                autoFocus
                 style={{
                   width: "100%",
                   height: "42px",
@@ -2756,6 +2763,9 @@ export default function Personnel() {
                   fontFamily: "inherit",
                   boxSizing: "border-box",
                   outline: "none",
+                  background: "#f9fafb",
+                  color: "#374151",
+                  cursor: "not-allowed",
                 }}
               />
 

@@ -115,7 +115,7 @@ export default function SecurityLayout() {
             {/* System Branding Section */}
             <div className="topbar-branding">
               <img
-                src="/PNP-ITMS-BMI-LOGO.png"
+                src="/PNP-ITMS-LOGO.png"
                 alt="PNP ITMS Logo"
                 className="topbar-logo"
               />

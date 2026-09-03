@@ -9,6 +9,7 @@ import { RanksModule } from './ranks/ranks.module';
 import { Rank } from './ranks/rank.entity';
 import { IntrusionDetectionModule } from './intrusion-detection/intrusion-detection.module';
 import { EnvironmentMonitoringModule } from './environment-monitoring/environment-monitoring.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -20,9 +21,24 @@ import { EnvironmentMonitoringModule } from './environment-monitoring/environmen
       password: '',
       database: 'bmi_monitoring',
       entities: [Rank /* , Personnel */], // Add Rank here
-      synchronize: false, 
+      synchronize: false,
       autoLoadEntities: true,
 
+    }),
+
+    // Second, separate connection: the Hardware Inventory domain's own
+    // database (itms_inventech), kept independent from bmi_monitoring
+    // above so neither domain's schema/entities can collide.
+    TypeOrmModule.forRoot({
+      name: 'inventory',
+      type: 'mysql',
+      host: 'localhost',
+      port: 3306,
+      username: 'root',
+      password: '',
+      database: 'itms_inventech',
+      synchronize: false,
+      autoLoadEntities: true,
     }),
 
     HealthReportsModule,
@@ -38,6 +54,8 @@ import { EnvironmentMonitoringModule } from './environment-monitoring/environmen
     IntrusionDetectionModule,
 
     EnvironmentMonitoringModule,
+
+    InventoryModule,
   ],
 })
 export class AppModule {}

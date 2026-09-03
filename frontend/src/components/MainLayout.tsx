@@ -12,7 +12,6 @@ import {
   ClipboardCheck,
   FileText,
   BarChart3,
-  HardDrive,
   Settings as SettingsIcon,
   ChevronDown,
   LogOut,
@@ -170,13 +169,43 @@ export default function MainLayout() {
               <p className="nav-title">INVENTORY</p>
 
               <NavLink
-                to="/inventory"
+                to="/inventory/dashboard"
                 className={({ isActive }) =>
                   `nav-item ${isActive ? "active" : ""}`
                 }
               >
-                <span><HardDrive {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Hardware Inventory</span>
+                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Dashboard</span>
+              </NavLink>
+
+              <NavLink
+                to="/inventory/personnel"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Users {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Personnel</span>
+              </NavLink>
+
+              <NavLink
+                to="/inventory/report"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><FileText {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Reports</span>
+              </NavLink>
+
+              <NavLink
+                to="/inventory/analytics"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><BarChart3 {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Analytics</span>
               </NavLink>
             </>
           )}

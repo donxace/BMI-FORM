@@ -13,7 +13,10 @@ import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
 import Home from "./pages/Home";
-import HardwareInventory from "./pages/HardwareInventory";
+import InventoryDashboard from "./pages/InventoryDashboard";
+import InventoryPersonnel from "./pages/InventoryPersonnel";
+import InventoryReport from "./pages/InventoryReport";
+import InventoryAnalytics from "./pages/InventoryAnalytics";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
@@ -96,7 +99,27 @@ function App() {
 
             <Route
               path="/inventory"
-              element={<HardwareInventory />}
+              element={<Navigate to="/inventory/dashboard" replace />}
+            />
+
+            <Route
+              path="/inventory/dashboard"
+              element={<InventoryDashboard />}
+            />
+
+            <Route
+              path="/inventory/personnel"
+              element={<InventoryPersonnel />}
+            />
+
+            <Route
+              path="/inventory/report"
+              element={<InventoryReport />}
+            />
+
+            <Route
+              path="/inventory/analytics"
+              element={<InventoryAnalytics />}
             />
 
           </Route>

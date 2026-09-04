@@ -35,4 +35,16 @@ export class SecurityAssessmentFinding {
 
   @Column({ type: 'text', nullable: true })
   finding!: string | null;
+
+  // Only populated for "FUNCTIONAL TESTING" section rows (table_no = 3) —
+  // the real export carries 3 extra descriptive columns beyond the
+  // original Category/Component/Status concept. See foren-csv.util.ts.
+  @Column({ type: 'text', nullable: true })
+  specifications!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  functional_test!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  actual_result!: string | null;
 }

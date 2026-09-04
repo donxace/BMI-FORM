@@ -6,8 +6,6 @@ export default defineConfig({
 
   server: {
     port: 5174,
-    allowedHosts: [
-      "tiringly-zealous-brayan.ngrok-free.dev",
-    ],
+    allowedHosts: true,
   },
 });

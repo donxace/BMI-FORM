@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
 import {
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Radar,
   Gauge,
+  Upload,
 } from "lucide-react";
 import {
   Area,
@@ -32,6 +33,8 @@ type Assessment = {
   serial_no: string | null;
   device_type: "desktops" | "laptops" | null;
   device_id: number | null;
+  hostname: string | null;
+  computer_name: string | null;
   assessed_at: string | null;
   motherboard_manufacturer: string | null;
   motherboard_product: string | null;
@@ -83,27 +86,61 @@ export default function PcInfoDashboard() {
   const [componentFindings, setComponentFindings] = useState<ComponentFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function load() {
+    try {
+      setLoading(true);
+      const [assessmentsRes, componentRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/pc-info/assessments`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/pc-info/component-status`, { headers: authHeaders() }),
+      ]);
+      if (!assessmentsRes.ok) throw new Error("Failed to load PC assessments.");
+      setAssessments(await assessmentsRes.json());
+      setComponentFindings(componentRes.ok ? await componentRes.json() : []);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load PC assessments.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const [assessmentsRes, componentRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/pc-info/assessments`, { headers: authHeaders() }),
-          fetch(`${API_BASE_URL}/pc-info/component-status`, { headers: authHeaders() }),
-        ]);
-        if (!assessmentsRes.ok) throw new Error("Failed to load PC assessments.");
-        setAssessments(await assessmentsRes.json());
-        setComponentFindings(componentRes.ok ? await componentRes.json() : []);
-        setError("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load PC assessments.");
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
   }, []);
+
+  async function handleImportFile(file: File) {
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE_URL}/pc-info/import`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: formData,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.message || "Import failed.");
+      setImportMessage({
+        type: "success",
+        text: `Imported assessment #${body.assessmentId}${
+          body.matchedDevice ? ` — matched to ${body.matchedDevice.type} #${body.matchedDevice.id}` : " — no matching device found"
+        }. Risk: ${body.riskLevel ?? "unknown"} (${body.riskScore ?? "?"}/100).`,
+      });
+      await load();
+    } catch (err) {
+      setImportMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Import failed.",
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const totalAssessments = assessments.length;
   const matchedCount = useMemo(() => assessments.filter((a) => a.device_id !== null).length, [assessments]);
@@ -199,7 +236,38 @@ export default function PcInfoDashboard() {
               <span className="date-label">PC INFORMATION SYSTEM</span>
               <strong className="current-month">Overview</strong>
             </div>
+
+            <div className="header-actions">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                className="primary-button"
+                disabled={importing}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={13} strokeWidth={2.25} />
+                {importing ? "Importing..." : "Import CSV"}
+              </button>
+            </div>
           </div>
+
+          {importMessage && (
+            <div
+              className={importMessage.type === "success" ? "assessment-success" : "assessment-error"}
+              style={{ marginBottom: "20px" }}
+            >
+              <span>{importMessage.text}</span>
+            </div>
+          )}
 
           {error && (
             <div className="assessment-error" style={{ marginBottom: "20px" }}>
@@ -411,6 +479,7 @@ export default function PcInfoDashboard() {
                   <thead>
                     <tr>
                       <th>MACHINE</th>
+                      <th>HOSTNAME</th>
                       <th>SERIAL NO.</th>
                       <th>OS</th>
                       <th>ASSESSED</th>
@@ -425,6 +494,23 @@ export default function PcInfoDashboard() {
                           <strong>
                             {[a.motherboard_manufacturer, a.motherboard_product].filter(Boolean).join(" ") || "Unknown machine"}
                           </strong>
+                        </td>
+                        <td>
+                          {a.hostname ? (
+                            <button className="machine-link" onClick={() => navigate(`/pc-info/assessment/${a.id}`)}>
+                              {a.hostname}
+                            </button>
+                          ) : (
+                            <button className="machine-link" onClick={() => navigate(`/pc-info/assessment/${a.id}`)}>
+                              View details
+                            </button>
+                          )}
+                          {a.computer_name && a.computer_name !== a.hostname ? (
+                            <>
+                              <br />
+                              <small style={{ color: "#94a3b8" }}>{a.computer_name}</small>
+                            </>
+                          ) : null}
                         </td>
                         <td>{a.motherboard_serial ?? a.serial_no ?? "—"}</td>
                         <td>{a.os_edition ?? "—"}</td>

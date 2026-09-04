@@ -18,6 +18,7 @@ import InventoryPersonnel from "./pages/InventoryPersonnel";
 import InventoryReport from "./pages/InventoryReport";
 import InventoryAnalytics from "./pages/InventoryAnalytics";
 import PcInfoDashboard from "./pages/PcInfoDashboard";
+import PcInfoAssessmentDetail from "./pages/PcInfoAssessmentDetail";
 import PcInfoCategory from "./pages/PcInfoCategory";
 import PcInfoConnections from "./pages/PcInfoConnections";
 import PcInfoComponentStatus from "./pages/PcInfoComponentStatus";
@@ -134,6 +135,11 @@ function App() {
             <Route
               path="/pc-info/dashboard"
               element={<PcInfoDashboard />}
+            />
+
+            <Route
+              path="/pc-info/assessment/:id"
+              element={<PcInfoAssessmentDetail />}
             />
 
             <Route

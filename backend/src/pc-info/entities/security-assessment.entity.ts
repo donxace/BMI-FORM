@@ -105,6 +105,27 @@ export class SecurityAssessment {
   @Column({ type: 'varchar', length: 20, nullable: true })
   risk_level!: string | null;
 
+  // Host identity, from the export's "COMPUTER / NETWORK INFORMATION"
+  // section — added alongside the real-format CSV parser rewrite, see
+  // foren-csv.util.ts's file header comment for the full section mapping.
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  hostname!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  computer_name!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  ip_address!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  mac_address!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  username!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  domain_workgroup!: string | null;
+
   @Column({ type: 'timestamp' })
   created_at!: Date;
 }

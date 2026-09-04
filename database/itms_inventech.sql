@@ -959,7 +959,10 @@ CREATE TABLE `security_assessment_findings` (
   `property` varchar(150) DEFAULT NULL,
   `value` text DEFAULT NULL,
   `status` varchar(20) DEFAULT NULL,
-  `finding` text DEFAULT NULL
+  `finding` text DEFAULT NULL,
+  `specifications` text DEFAULT NULL,
+  `functional_test` text DEFAULT NULL,
+  `actual_result` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -1008,6 +1011,12 @@ CREATE TABLE `security_assessments` (
   `foreign_destinations` int(11) DEFAULT NULL,
   `risk_score` int(11) DEFAULT NULL,
   `risk_level` varchar(20) DEFAULT NULL,
+  `hostname` varchar(150) DEFAULT NULL,
+  `computer_name` varchar(150) DEFAULT NULL,
+  `ip_address` varchar(255) DEFAULT NULL,
+  `mac_address` varchar(255) DEFAULT NULL,
+  `username` varchar(150) DEFAULT NULL,
+  `domain_workgroup` varchar(150) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

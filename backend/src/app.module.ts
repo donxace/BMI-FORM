@@ -16,10 +16,10 @@ import { PcInfoModule } from './pc-info/pc-info.module';
   imports: [
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username: 'root',
-      password: '',
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 3306,
+      username: process.env.DB_USERNAME || 'root',
+      password: process.env.DB_PASSWORD || '',
       database: 'bmi_monitoring',
       entities: [Rank /* , Personnel */], // Add Rank here
       synchronize: false,
@@ -33,10 +33,10 @@ import { PcInfoModule } from './pc-info/pc-info.module';
     TypeOrmModule.forRoot({
       name: 'inventory',
       type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username: 'root',
-      password: '',
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 3306,
+      username: process.env.DB_USERNAME || 'root',
+      password: process.env.DB_PASSWORD || '',
       database: 'itms_inventech',
       synchronize: false,
       autoLoadEntities: true,

@@ -1,20 +1,28 @@
-// Imports a FOREN-style hardware/network security assessment CSV export
-// into the itms_inventech `security_assessments` (one summary row per
-// run) and `security_assessment_findings` (every raw row from the CSV,
-// so nothing is lost even where the summary can't represent it) tables.
+// Imports a FOREN hardware/network/functional-testing security assessment
+// CSV export into the itms_inventech `security_assessments` (one summary
+// row per run) and `security_assessment_findings` (every raw row from the
+// CSV, so nothing is lost even where the summary can't represent it)
+// tables.
 //
-// The CSV bundles 3 logically different "tables" under one header
-// (Section, Table, Category, Component, Property, Value, Status,
-// Finding):
-//   Table 1 — per-host key/value facts (hardware, OS, security posture,
-//             risk score) — this is what fills security_assessments.
-//   Table 2 — one row per network-connection finding, Category/
-//             Component/Property/Value blank, only Finding filled.
-//   Table 3 — a pass/fail component checklist (Category/Component +
-//             Status/Finding, Property/Value blank).
-// Every row from all three lands in security_assessment_findings.
+// Mirrors backend/src/pc-info/foren-csv.util.ts (used by the in-app
+// "Import CSV" button, POST /pc-info/import) — keep the two in sync. See
+// that file's header comment for the full section-by-section format
+// breakdown; short version:
 //
-// Usage: node backend/scripts/import-security-assessment.js <path-to-csv> [--server http://localhost:3000]
+//   Header: SECTION,CATEGORY,COMPONENT,PROPERTY,VALUE,STATUS,FINDING,
+//           SPECIFICATIONS,FUNCTIONAL_TEST,ACTUAL_RESULT
+//
+//   Rows are grouped by a SECTION label. Sections carry a decorative
+//   in-band "sub-header" row (Category column literally = "Category")
+//   right after the section's title row — skipped, no real data in it.
+//
+//   "SECURITY ASSESSMENT"                                  -> table_no 1
+//   "NETWORK INTEGRITY / MALICIOUS CONNECTION DETECTION"    -> table_no 2
+//   "FUNCTIONAL TESTING"                                    -> table_no 3
+//   everything else (host identity, report info, summaries) -> table_no null,
+//     still recorded as findings for completeness.
+//
+// Usage: node backend/scripts/import-security-assessment.js <path-to-csv>
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 
@@ -28,8 +36,8 @@ function parseArgs() {
 }
 
 // Minimal RFC4180 CSV parser: handles quoted fields, embedded commas, and
-// "" as an escaped quote inside a quoted field. Good enough for a small,
-// well-formed export like this one — not meant as a general CSV library.
+// "" as an escaped quote inside a quoted field. Good enough for this
+// export — not meant as a general CSV library.
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -78,38 +86,84 @@ function parseCsv(text) {
 }
 
 function toBool(value) {
-  if (value === undefined || value === null) return null;
+  if (value === undefined || value === null || value === '') return null;
   const normalized = String(value).trim().toUpperCase();
   if (['YES', 'TRUE', 'ENABLED'].includes(normalized)) return 1;
   if (['NO', 'FALSE', 'DISABLED'].includes(normalized)) return 0;
   return null;
 }
 
-function toMysqlDatetime(value) {
-  // Already "YYYY-MM-DD HH:MM:SS" in the sample export — pass through if
-  // it looks right, otherwise let MySQL reject it rather than guess.
-  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value) ? value : null;
+// "9/2/16 17:14" -> Date, or "9/2/2016 17:14:05"
+function parseForenDate(value) {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return null;
+  const [, m, d, y, h, min, s] = match;
+  const year = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10);
+  const date = new Date(year, parseInt(m, 10) - 1, parseInt(d, 10), parseInt(h, 10), parseInt(min, 10), s ? parseInt(s, 10) : 0);
+  if (isNaN(date.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-function buildSummary(table1Rows) {
+// "54.08 seconds" -> 54.08
+function parseDurationSeconds(value) {
+  if (!value) return null;
+  const match = value.match(/([\d.]+)/);
+  return match ? parseFloat(match[1]) : null;
+}
+
+// "45 / 100" -> 45
+function parseRiskScore(value) {
+  if (!value) return null;
+  const match = value.match(/^\s*(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+const SECTION_TABLE_NO = {
+  'SECURITY ASSESSMENT': 1,
+  'NETWORK INTEGRITY / MALICIOUS CONNECTION DETECTION': 2,
+  'FUNCTIONAL TESTING': 3,
+};
+
+function isSubHeaderRow(row) {
+  return (row.CATEGORY || '').trim() === 'Category';
+}
+
+function buildHostIdentity(hostInfoRows) {
+  const get = (component, property) => {
+    const match = hostInfoRows.find((r) => r.COMPONENT === component && r.PROPERTY === property);
+    return match ? match.VALUE || null : null;
+  };
+  return {
+    hostname: get('System', 'Hostname'),
+    computer_name: get('System', 'Computer Name'),
+    ip_address: get('TCP/IP', 'IP Address'),
+    mac_address: get('Adapter', 'MAC Address'),
+    username: get('Windows', 'User'),
+    domain_workgroup: get('Windows', 'Domain / Workgroup'),
+  };
+}
+
+function buildSummary(assessmentRows) {
   const get = (category, component, property) => {
-    const match = table1Rows.find(
-      (r) => r.Category === category && r.Component === component && r.Property === property,
+    const match = assessmentRows.find(
+      (r) => r.CATEGORY === category && r.COMPONENT === component && r.PROPERTY === property,
     );
-    return match ? match.Value : undefined;
+    return match ? match.VALUE || undefined : undefined;
   };
 
-  const duration = get('ASSESSMENT', 'Foren', 'Assessment Duration');
-  const riskScore = get('ASSESSMENT', 'Security Risk', 'Risk Score');
+  const motherboardSerial = get('MOTHERBOARD', 'Baseboard', 'Serial Number') || null;
 
   return {
+    serial_no: motherboardSerial,
     foren_version: get('ASSESSMENT', 'Foren', 'Version') || null,
     ran_as_admin: get('ASSESSMENT', 'Foren', 'Administrator') ? 1 : 0,
-    assessed_at: toMysqlDatetime(get('ASSESSMENT', 'Foren', 'Assessment Start') || ''),
-    duration_seconds: duration ? parseFloat(duration) : null,
+    assessed_at: parseForenDate(get('ASSESSMENT', 'Foren', 'Assessment Start')),
+    duration_seconds: parseDurationSeconds(get('ASSESSMENT', 'Foren', 'Assessment Duration')),
     motherboard_manufacturer: get('MOTHERBOARD', 'Baseboard', 'Manufacturer') || null,
     motherboard_product: get('MOTHERBOARD', 'Baseboard', 'Product') || null,
-    motherboard_serial: get('MOTHERBOARD', 'Baseboard', 'Serial Number') || null,
+    motherboard_serial: motherboardSerial,
     cpu_summary: get('CPU', 'Processor', 'Detection') || null,
     ram_manufacturer: get('RAM', 'Memory Module', 'Manufacturer') || null,
     ram_capacity: get('RAM', 'Memory Module', 'Capacity') || null,
@@ -139,7 +193,7 @@ function buildSummary(table1Rows) {
       const v = get('NETWORK INTEGRITY', 'Geolocation', 'Foreign Destinations');
       return v ? parseInt(v, 10) : null;
     })(),
-    risk_score: riskScore ? parseInt(riskScore, 10) : null,
+    risk_score: parseRiskScore(get('ASSESSMENT', 'Security Risk', 'Risk Score')),
     risk_level: get('ASSESSMENT', 'Security Risk', 'Risk Level') || null,
   };
 }
@@ -148,25 +202,41 @@ async function main() {
   const { csvPath } = parseArgs();
 
   const raw = fs.readFileSync(csvPath, 'utf8').replace(/^﻿/, '');
-  const rows = parseCsv(raw);
-  const header = rows[0];
-  const records = rows.slice(1).map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
-
-  const table1 = records.filter((r) => r.Table === '1');
-  const otherTables = records.filter((r) => r.Table !== '1');
-
-  if (table1.length === 0) {
-    throw new Error('No "Table 1" rows found — is this a FOREN-format export?');
+  const parsed = parseCsv(raw);
+  if (parsed.length === 0) {
+    throw new Error('CSV file is empty.');
   }
 
-  const summary = buildSummary(table1);
-  summary.serial_no = summary.motherboard_serial;
+  const header = parsed[0].map((h) => h.trim().toUpperCase());
+  const requiredColumns = ['SECTION', 'CATEGORY', 'COMPONENT', 'PROPERTY', 'VALUE', 'STATUS', 'FINDING'];
+  const missing = requiredColumns.filter((c) => !header.includes(c));
+  if (missing.length > 0) {
+    throw new Error(`Not a recognized FOREN export — missing column(s): ${missing.join(', ')}.`);
+  }
+
+  const allRows = parsed
+    .slice(1)
+    .filter((r) => r.some((cell) => cell.trim() !== ''))
+    .map((r) => Object.fromEntries(header.map((h, i) => [h, (r[i] ?? '').trim()])));
+
+  const rows = allRows.filter((r) => !isSubHeaderRow(r));
+  const hostInfo = rows.filter((r) => r.SECTION === 'COMPUTER / NETWORK INFORMATION');
+  const assessmentRows = rows.filter((r) => r.SECTION === 'SECURITY ASSESSMENT');
+
+  if (rows.filter((r) => SECTION_TABLE_NO[r.SECTION] !== undefined).length === 0) {
+    throw new Error(
+      'No recognized sections found (expected "SECURITY ASSESSMENT", "NETWORK INTEGRITY / MALICIOUS CONNECTION DETECTION", or "FUNCTIONAL TESTING") — is this a FOREN-format export?',
+    );
+  }
+
+  const summary = buildSummary(assessmentRows);
+  const identity = buildHostIdentity(hostInfo);
 
   const conn = await mysql.createConnection({
-    host: 'localhost',
-    port: 3306,
-    user: 'root',
-    password: '',
+    host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT) || 3306,
+    user: process.env.DB_USERNAME || 'root',
+    password: process.env.DB_PASSWORD || '',
     database: 'itms_inventech',
   });
 
@@ -191,8 +261,9 @@ async function main() {
       }
     }
 
-    const columns = ['device_type', 'device_id', ...Object.keys(summary)];
-    const values = [deviceType, deviceId, ...Object.values(summary)];
+    const record = { ...summary, ...identity, device_type: deviceType, device_id: deviceId };
+    const columns = Object.keys(record);
+    const values = Object.values(record);
     const placeholders = columns.map(() => '?').join(', ');
 
     const [result] = await conn.execute(
@@ -201,27 +272,30 @@ async function main() {
     );
     const assessmentId = result.insertId;
 
-    const findingRows = [...table1, ...otherTables].map((r) => [
+    const findingRows = rows.map((r) => [
       assessmentId,
-      parseInt(r.Table, 10) || null,
-      r.Section || null,
-      r.Category || null,
-      r.Component || null,
-      r.Property || null,
-      r.Value || null,
-      r.Status || null,
-      r.Finding || null,
+      SECTION_TABLE_NO[r.SECTION] ?? null,
+      r.SECTION || null,
+      r.CATEGORY || null,
+      r.COMPONENT || null,
+      r.PROPERTY || null,
+      r.VALUE || null,
+      r.STATUS || null,
+      r.FINDING || null,
+      r.SPECIFICATIONS || null,
+      r.FUNCTIONAL_TEST || null,
+      r.ACTUAL_RESULT || null,
     ]);
 
     if (findingRows.length > 0) {
       await conn.query(
-        'INSERT INTO security_assessment_findings (assessment_id, table_no, section, category, component, property, value, status, finding) VALUES ?',
+        'INSERT INTO security_assessment_findings (assessment_id, table_no, section, category, component, property, value, status, finding, specifications, functional_test, actual_result) VALUES ?',
         [findingRows],
       );
     }
 
     console.log(
-      `Imported assessment #${assessmentId}${deviceId ? ` — matched to ${deviceType} #${deviceId}` : ' — no matching device (serial not registered)'}, ${findingRows.length} finding rows.`,
+      `Imported assessment #${assessmentId}${identity.hostname ? ` (${identity.hostname})` : ''}${deviceId ? ` — matched to ${deviceType} #${deviceId}` : ' — no matching device (serial not registered)'}, ${findingRows.length} finding rows.`,
     );
     console.log(`Risk: ${summary.risk_level ?? 'unknown'} (${summary.risk_score ?? '?'} / 100)`);
   } finally {

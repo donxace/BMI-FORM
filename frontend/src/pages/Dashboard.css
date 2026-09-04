@@ -2331,3 +2331,84 @@ td > small {
   background-color: #ffffff;
   padding: 0.5rem;
 }
+
+/* Import CSV success feedback (mirrors .assessment-error's layout, green) */
+.assessment-success {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 13px 15px;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.assessment-success span {
+  color: #15803d;
+  font-size: 10px;
+}
+
+/* PC Info assessment detail page — label/value grid, friendlier to read
+   than a raw table when there are only ~2-6 facts per group. */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 18px 24px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item span {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-item strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.category-group {
+  border-top: 1px solid #f1f5f9;
+}
+
+.category-group h4 {
+  margin: 0;
+  padding: 14px 24px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.category-group .detail-grid {
+  padding-top: 8px;
+}
+
+/* Hostname cell in the "Assessed Machines" table, made clickable to open
+   the PC detail page. */
+.machine-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.machine-link:hover {
+  text-decoration: underline;
+}

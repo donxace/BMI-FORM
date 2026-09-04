@@ -1,4 +1,14 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PcInfoService } from './pc-info.service';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 
@@ -7,9 +17,32 @@ import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 export class PcInfoController {
   constructor(private readonly pcInfoService: PcInfoService) {}
 
+  // Backs the "Import CSV" button on the PC Information System dashboard —
+  // accepts a single FOREN-format security assessment export.
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file'))
+  async importAssessment(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No CSV file uploaded.');
+    }
+    return this.pcInfoService.importAssessmentCsv(file.buffer);
+  }
+
   @Get('assessments')
   async findAllAssessments() {
     return this.pcInfoService.findAllAssessments();
+  }
+
+  // Backs the PC detail page — one specific machine's assessment, not the
+  // aggregate views the rest of this controller serves.
+  @Get('assessments/:id')
+  async findAssessmentById(@Param('id') id: string) {
+    return this.pcInfoService.findAssessmentById(Number(id));
+  }
+
+  @Get('assessments/:id/findings')
+  async findFindingsByAssessment(@Param('id') id: string) {
+    return this.pcInfoService.findFindingsByAssessment(Number(id));
   }
 
   @Get('categories')

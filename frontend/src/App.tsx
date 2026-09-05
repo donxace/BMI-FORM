@@ -2,13 +2,26 @@ import {
   BrowserRouter,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
 
 import MainLayout from "./components/MainLayout";
+import SecurityLayout from "./components/SecurityLayout";
 import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import ProtectedRoute
+import SecurityProtectedRoute from "./components/SecurityProtectedRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
+import Home from "./pages/Home";
+import InventoryDashboard from "./pages/InventoryDashboard";
+import InventoryPersonnel from "./pages/InventoryPersonnel";
+import InventoryReport from "./pages/InventoryReport";
+import InventoryAnalytics from "./pages/InventoryAnalytics";
+import PcInfoDashboard from "./pages/PcInfoDashboard";
+import PcInfoAssessmentDetail from "./pages/PcInfoAssessmentDetail";
+import PcInfoCategory from "./pages/PcInfoCategory";
+import PcInfoConnections from "./pages/PcInfoConnections";
+import PcInfoComponentStatus from "./pages/PcInfoComponentStatus";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
@@ -19,19 +32,34 @@ import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
+import SecurityLogin from "./pages/SecurityLogin";
 import MyRecords from "./pages/MyRecords";
 import MyMeasurement from "./pages/MyMeasurement";
+import Kiosk from "./pages/Kiosk";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
+        {/* Public landing page — choose a domain to sign in to */}
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
         {/* Public Route */}
         <Route
           path="/login"
           element={<Login />}
         />
+
+        {/* Public, unattended touch kiosk — tap RFID to measure */}
+        <Route
+          path="/kiosk"
+          element={<Kiosk />}
+        />
+
 
         {/* =====================================================
             PROTECTED ROUTES (Requires valid login token)
@@ -40,7 +68,7 @@ function App() {
           <Route element={<MainLayout />}>
 
             <Route
-              path="/"
+              path="/dashboard"
               element={<Dashboard />}
             />
 
@@ -70,18 +98,95 @@ function App() {
             />
 
             <Route
-              path="/intrusion-detection"
+              path="/settings"
+              element={<SettingsPage />}
+            />
+
+            <Route
+              path="/inventory"
+              element={<Navigate to="/inventory/dashboard" replace />}
+            />
+
+            <Route
+              path="/inventory/dashboard"
+              element={<InventoryDashboard />}
+            />
+
+            <Route
+              path="/inventory/personnel"
+              element={<InventoryPersonnel />}
+            />
+
+            <Route
+              path="/inventory/report"
+              element={<InventoryReport />}
+            />
+
+            <Route
+              path="/inventory/analytics"
+              element={<InventoryAnalytics />}
+            />
+
+            <Route
+              path="/pc-info"
+              element={<Navigate to="/pc-info/dashboard" replace />}
+            />
+
+            <Route
+              path="/pc-info/dashboard"
+              element={<PcInfoDashboard />}
+            />
+
+            <Route
+              path="/pc-info/assessment/:id"
+              element={<PcInfoAssessmentDetail />}
+            />
+
+            <Route
+              path="/pc-info/category/:category"
+              element={<PcInfoCategory />}
+            />
+
+            <Route
+              path="/pc-info/connections"
+              element={<PcInfoConnections />}
+            />
+
+            <Route
+              path="/pc-info/component-status"
+              element={<PcInfoComponentStatus />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            SECURITY & ENVIRONMENT DOMAIN
+            Fully separate authentication from the BMI system above —
+            its own login page and its own session/token, even though
+            it shares the same backend and account table for now.
+        ====================================================== */}
+        <Route
+          path="/security/login"
+          element={<SecurityLogin />}
+        />
+
+        <Route element={<SecurityProtectedRoute />}>
+          <Route element={<SecurityLayout />}>
+
+            <Route
+              path="/security"
+              element={<Navigate to="/security/intrusion-detection" replace />}
+            />
+
+            <Route
+              path="/security/intrusion-detection"
               element={<IntrusionDetection />}
             />
 
             <Route
-              path="/environment-monitoring"
+              path="/security/environment-monitoring"
               element={<EnvironmentMonitoring />}
-            />
-
-            <Route
-              path="/settings"
-              element={<SettingsPage />}
             />
 
           </Route>

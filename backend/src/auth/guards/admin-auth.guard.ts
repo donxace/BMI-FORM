@@ -21,17 +21,21 @@ export class AdminAuthGuard implements CanActivate {
 
     const token = authHeader.slice('Bearer '.length);
 
+    let payload: any;
+
     try {
-      const payload = await this.jwtService.verifyAsync(token);
-
-      if (payload.role !== 'admin') {
-        throw new UnauthorizedException();
-      }
-
-      request.user = payload;
-      return true;
+      payload = await this.jwtService.verifyAsync(token);
     } catch {
       throw new UnauthorizedException('Invalid or expired token.');
     }
+
+    if (payload.role !== 'admin') {
+      throw new UnauthorizedException(
+        'This account does not have admin access.',
+      );
+    }
+
+    request.user = payload;
+    return true;
   }
 }

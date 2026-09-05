@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import {
+  Search,
+  Hash,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  Check,
+  ChevronRight,
+} from "lucide-react";
 import "./Report.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -992,7 +1004,7 @@ export default function Report() {
             }
           >
             <span>
-              ↓
+              <Download size={14} strokeWidth={2.25} />
             </span>
 
             Export Excel
@@ -1011,7 +1023,7 @@ export default function Report() {
         <div className="report-summary-card">
 
           <div className="summary-icon blue">
-            #
+            <Hash size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1029,7 +1041,7 @@ export default function Report() {
         <div className="report-summary-card">
 
           <div className="summary-icon green">
-            ✓
+            <CheckCircle2 size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1047,7 +1059,7 @@ export default function Report() {
         <div className="report-summary-card">
 
           <div className="summary-icon orange">
-            !
+            <TrendingUp size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1065,7 +1077,7 @@ export default function Report() {
         <div className="report-summary-card">
 
           <div className="summary-icon red">
-            !
+            <AlertTriangle size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1083,7 +1095,7 @@ export default function Report() {
         <div className="report-summary-card">
 
           <div className="summary-icon purple">
-            ↓
+            <TrendingDown size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1172,7 +1184,7 @@ export default function Report() {
             <div className="report-search">
 
               <span>
-                🔍
+                <Search size={14} strokeWidth={2} />
               </span>
 
               <input
@@ -1730,27 +1742,27 @@ export default function Report() {
           <div className="report-content-list">
 
             <div>
-              <span>✓</span>
+              <span><Check size={12} strokeWidth={2.5} /></span>
               Personnel Information
             </div>
 
             <div>
-              <span>✓</span>
+              <span><Check size={12} strokeWidth={2.5} /></span>
               Office and Rank
             </div>
 
             <div>
-              <span>✓</span>
+              <span><Check size={12} strokeWidth={2.5} /></span>
               Physical Measurements
             </div>
 
             <div>
-              <span>✓</span>
+              <span><Check size={12} strokeWidth={2.5} /></span>
               BMI Classification
             </div>
 
             <div>
-              <span>✓</span>
+              <span><Check size={12} strokeWidth={2.5} /></span>
               Assessment Information
             </div>
 
@@ -1788,7 +1800,7 @@ export default function Report() {
             >
 
               <span>
-                XLS
+                <FileSpreadsheet size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1805,7 +1817,7 @@ export default function Report() {
               </div>
 
               <b>
-                →
+                <ChevronRight size={16} strokeWidth={2} />
               </b>
 
             </button>
@@ -1821,7 +1833,7 @@ export default function Report() {
             >
 
               <span>
-                #
+                <Hash size={16} strokeWidth={2} />
               </span>
 
               <div>
@@ -1838,7 +1850,7 @@ export default function Report() {
               </div>
 
               <b>
-                →
+                <ChevronRight size={16} strokeWidth={2} />
               </b>
 
             </button>

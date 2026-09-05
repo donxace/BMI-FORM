@@ -1,8 +1,75 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Dashboard.css";
 import { useNavigate } from "react-router-dom";
+import {
+  Users,
+  ClipboardCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Plus,
+  UserPlus,
+  FileText,
+  ChevronRight,
+  Download,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
+
+// Same classification colors used on Analytics and Assessment pages.
+const CLASSIFICATION_COLORS: Record<string, string> = {
+  Underweight: "#60a5fa",
+  Normal: "#22c55e",
+  Overweight: "#f59e0b",
+  Obese: "#ef4444",
+};
+
+type TrendMetricKey =
+  | "classification"
+  | "bmi"
+  | "volume"
+  | "weight"
+  | "circumference";
+
+const TREND_METRIC_OPTIONS: { key: TrendMetricKey; label: string; subtitle: string }[] = [
+  {
+    key: "classification",
+    label: "Classification",
+    subtitle: "Assessment volume by BMI classification, per month",
+  },
+  {
+    key: "bmi",
+    label: "Avg BMI",
+    subtitle: "Mean BMI across all assessed personnel, per month",
+  },
+  {
+    key: "volume",
+    label: "Volume & Reach",
+    subtitle: "Assessments recorded vs. unique personnel reached, per month",
+  },
+  {
+    key: "weight",
+    label: "Weight",
+    subtitle: "Average weight vs. average weight to lose, per month",
+  },
+  {
+    key: "circumference",
+    label: "Circumference",
+    subtitle: "Average waist, hip, and wrist measurements, per month",
+  },
+];
 
 /*
  * ============================================================
@@ -134,6 +201,40 @@ const parseLocalDate = (dateStr: string): Date | null => {
   return new Date(dateStr);
 };
 
+type ChartTooltipPayload = {
+  dataKey: string;
+  name: string;
+  value: number;
+  color: string;
+};
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: ChartTooltipPayload[];
+  label?: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="chart-tooltip">
+      <strong>{label}</strong>
+      {payload.map((entry) => (
+        <div className="chart-tooltip-row" key={entry.dataKey}>
+          <span
+            className="chart-tooltip-dot"
+            style={{ background: entry.color }}
+          />
+          <span>{entry.name}</span>
+          <strong>{entry.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /*
  * ============================================================
  * DASHBOARD COMPONENT
@@ -151,6 +252,9 @@ export default function Dashboard() {
 
   // Month Selection State
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>("ALL");
+
+  // Trends card metric switcher
+  const [trendMetric, setTrendMetric] = useState<TrendMetricKey>("classification");
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -410,6 +514,136 @@ export default function Dashboard() {
   ]);
 
   /*
+   * MONTHLY TREND (built from the full history, not the month filter above --
+   * a trend needs every month on the timeline, not just the selected one)
+   */
+  const monthlyTrend = useMemo(() => {
+    type MonthBucket = {
+      key: string;
+      label: string;
+      year: number;
+      month: number;
+      total: number;
+      personnelIds: Set<number>;
+      bmiSum: number;
+      underweight: number;
+      normal: number;
+      overweight: number;
+      obese: number;
+      weightSum: number;
+      weightCount: number;
+      weightToLoseSum: number;
+      weightToLoseCount: number;
+      waistSum: number;
+      waistCount: number;
+      hipSum: number;
+      hipCount: number;
+      wristSum: number;
+      wristCount: number;
+    };
+
+    const buckets = new Map<string, MonthBucket>();
+
+    allAssessments.forEach((assessment) => {
+      const date = parseLocalDate(assessment.assessment_date);
+      if (!date) return;
+
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          key,
+          label: date.toLocaleDateString("en-US", {
+            month: "short",
+            year: "2-digit",
+          }),
+          year: date.getFullYear(),
+          month: date.getMonth(),
+          total: 0,
+          personnelIds: new Set(),
+          bmiSum: 0,
+          underweight: 0,
+          normal: 0,
+          overweight: 0,
+          obese: 0,
+          weightSum: 0,
+          weightCount: 0,
+          weightToLoseSum: 0,
+          weightToLoseCount: 0,
+          waistSum: 0,
+          waistCount: 0,
+          hipSum: 0,
+          hipCount: 0,
+          wristSum: 0,
+          wristCount: 0,
+        });
+      }
+
+      const bucket = buckets.get(key)!;
+      bucket.total += 1;
+      bucket.personnelIds.add(assessment.personnel_id);
+      bucket.bmiSum += assessment.bmi || 0;
+
+      if (assessment.who_classification === "Underweight") bucket.underweight += 1;
+      else if (assessment.who_classification === "Overweight") bucket.overweight += 1;
+      else if (assessment.who_classification === "Obese") bucket.obese += 1;
+      else bucket.normal += 1;
+
+      if (assessment.weight) {
+        bucket.weightSum += assessment.weight;
+        bucket.weightCount += 1;
+      }
+      if (assessment.weight_to_lose !== null) {
+        bucket.weightToLoseSum += assessment.weight_to_lose;
+        bucket.weightToLoseCount += 1;
+      }
+      if (assessment.waist !== null) {
+        bucket.waistSum += assessment.waist;
+        bucket.waistCount += 1;
+      }
+      if (assessment.hip !== null) {
+        bucket.hipSum += assessment.hip;
+        bucket.hipCount += 1;
+      }
+      if (assessment.wrist !== null) {
+        bucket.wristSum += assessment.wrist;
+        bucket.wristCount += 1;
+      }
+    });
+
+    const average = (sum: number, count: number) =>
+      count > 0 ? Number((sum / count).toFixed(1)) : null;
+
+    return Array.from(buckets.values())
+      .sort((a, b) => a.year - b.year || a.month - b.month)
+      .map((bucket) => ({
+        key: bucket.key,
+        label: bucket.label,
+        year: bucket.year,
+        month: bucket.month,
+        total: bucket.total,
+        personnelReached: bucket.personnelIds.size,
+        underweight: bucket.underweight,
+        normal: bucket.normal,
+        overweight: bucket.overweight,
+        obese: bucket.obese,
+        avgBmi: average(bucket.bmiSum, bucket.total),
+        avgWeight: average(bucket.weightSum, bucket.weightCount),
+        avgWeightToLose: average(bucket.weightToLoseSum, bucket.weightToLoseCount),
+        avgWaist: average(bucket.waistSum, bucket.waistCount),
+        avgHip: average(bucket.hipSum, bucket.hipCount),
+        avgWrist: average(bucket.wristSum, bucket.wristCount),
+      }));
+  }, [allAssessments]);
+
+  const hasTrendData = monthlyTrend.length >= 2;
+
+  const hasWeightToLoseData = monthlyTrend.some((m) => m.avgWeightToLose !== null);
+  const hasWaistData = monthlyTrend.some((m) => m.avgWaist !== null);
+  const hasHipData = monthlyTrend.some((m) => m.avgHip !== null);
+  const hasWristData = monthlyTrend.some((m) => m.avgWrist !== null);
+  const hasCircumferenceData = hasWaistData || hasHipData || hasWristData;
+
+  /*
    * PAGINATION CALCULATIONS
    */
   const sortedAssessments = useMemo(() => {
@@ -472,7 +706,8 @@ export default function Dashboard() {
                 onClick={() => navigate("/Report")}
                 className="secondary-button"
               >
-                ⬇ Export Report
+                <Download size={13} strokeWidth={2.25} />
+                Export Report
               </button>
 
               <button
@@ -500,7 +735,7 @@ export default function Dashboard() {
             <div className="stat-card">
               <div className="stat-top">
                 <span>Total Personnel</span>
-                <div className="stat-icon blue">♙</div>
+                <div className="stat-icon blue"><Users size={18} strokeWidth={2} /></div>
               </div>
               <h2>{loading ? "..." : totalPersonnel}</h2>
               <div className="stat-change positive">
@@ -511,7 +746,7 @@ export default function Dashboard() {
             <div className="stat-card">
               <div className="stat-top">
                 <span>Total Assessments</span>
-                <div className="stat-icon purple">▣</div>
+                <div className="stat-icon purple"><ClipboardCheck size={18} strokeWidth={2} /></div>
               </div>
               <h2>{loading ? "..." : totalAssessments}</h2>
               <div className="stat-change positive">
@@ -522,7 +757,7 @@ export default function Dashboard() {
             <div className="stat-card">
               <div className="stat-top">
                 <span>Normal BMI</span>
-                <div className="stat-icon green">✓</div>
+                <div className="stat-icon green"><CheckCircle2 size={18} strokeWidth={2} /></div>
               </div>
               <h2>{loading ? "..." : normalCount}</h2>
               <div className="stat-change neutral">
@@ -536,7 +771,7 @@ export default function Dashboard() {
             <div className="stat-card">
               <div className="stat-top">
                 <span>Needs Attention</span>
-                <div className="stat-icon orange">!</div>
+                <div className="stat-icon orange"><AlertTriangle size={18} strokeWidth={2} /></div>
               </div>
               <h2>{loading ? "..." : needsAttentionCount}</h2>
               <div className="stat-change warning">
@@ -589,33 +824,362 @@ export default function Dashboard() {
 
               <div className="quick-actions">
                 <button onClick={() => navigate("/Measurement")}>
-                  <span className="quick-icon blue">+</span>
+                  <span className="quick-icon blue"><Plus size={16} strokeWidth={2.25} /></span>
                   <div>
                     <strong>New Assessment</strong>
                     <small>Record BMI measurement</small>
                   </div>
-                  <span>›</span>
+                  <span><ChevronRight size={14} strokeWidth={2} /></span>
                 </button>
 
                 <button onClick={() => navigate("/Personnel?add=true")}>
-                  <span className="quick-icon green">♙</span>
+                  <span className="quick-icon green"><UserPlus size={16} strokeWidth={2} /></span>
                   <div>
                     <strong>Add Personnel</strong>
                     <small>Register new personnel</small>
                   </div>
-                  <span>›</span>
+                  <span><ChevronRight size={14} strokeWidth={2} /></span>
                 </button>
 
                 <button onClick={() => navigate("/Report")}>
-                  <span className="quick-icon purple">▤</span>
+                  <span className="quick-icon purple"><FileText size={16} strokeWidth={2} /></span>
                   <div>
                     <strong>Generate Report</strong>
                     <small>Create BMI report</small>
                   </div>
-                  <span>›</span>
+                  <span><ChevronRight size={14} strokeWidth={2} /></span>
                 </button>
               </div>
             </div>
+          </section>
+
+          {/* TRENDS OVER TIME (single card, metric switcher) */}
+          <section className="card trend-card-single">
+            <div className="card-header">
+              <div>
+                <h3>Trends Over Time</h3>
+                <p>
+                  {
+                    TREND_METRIC_OPTIONS.find((opt) => opt.key === trendMetric)
+                      ?.subtitle
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className="trend-pills">
+              {TREND_METRIC_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  className={`trend-pill ${trendMetric === opt.key ? "active" : ""}`}
+                  onClick={() => setTrendMetric(opt.key)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {!hasTrendData ? (
+              <div className="chart-empty">
+                Needs at least two months of assessments to show a trend.
+              </div>
+            ) : (
+              <div className="chart-container">
+                {trendMetric === "classification" && (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={monthlyTrend} barCategoryGap="28%">
+                      <CartesianGrid vertical={false} stroke="#eef1f5" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={{ stroke: "#e2e8f0" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
+                      />
+                      <RechartsTooltip
+                        content={<ChartTooltip />}
+                        cursor={{ fill: "#f5f7fb" }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 11, color: "#657184" }}
+                      />
+                      <Bar
+                        dataKey="underweight"
+                        name="Underweight"
+                        stackId="bmi"
+                        fill={CLASSIFICATION_COLORS.Underweight}
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      />
+                      <Bar
+                        dataKey="normal"
+                        name="Normal"
+                        stackId="bmi"
+                        fill={CLASSIFICATION_COLORS.Normal}
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      />
+                      <Bar
+                        dataKey="overweight"
+                        name="Overweight"
+                        stackId="bmi"
+                        fill={CLASSIFICATION_COLORS.Overweight}
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                      />
+                      <Bar
+                        dataKey="obese"
+                        name="Obese"
+                        stackId="bmi"
+                        fill={CLASSIFICATION_COLORS.Obese}
+                        stroke="#ffffff"
+                        strokeWidth={2}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+
+                {trendMetric === "bmi" && (
+                  <>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <LineChart
+                        data={monthlyTrend}
+                        margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                      >
+                        <CartesianGrid vertical={false} stroke="#eef1f5" />
+                        <ReferenceArea
+                          y1={18.5}
+                          y2={24.9}
+                          fill="#22c55e"
+                          fillOpacity={0.07}
+                          strokeOpacity={0}
+                        />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 11, fill: "#64748b" }}
+                          axisLine={{ stroke: "#e2e8f0" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          domain={["auto", "auto"]}
+                          tick={{ fontSize: 11, fill: "#64748b" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={28}
+                        />
+                        <RechartsTooltip
+                          content={<ChartTooltip />}
+                          cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="avgBmi"
+                          name="Avg BMI"
+                          stroke="#1d4ed8"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: "#1d4ed8", strokeWidth: 0 }}
+                          activeDot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <div className="chart-footnote">
+                      <span className="chart-footnote-swatch" />
+                      Shaded band = WHO normal range (18.5–24.9 kg/m²)
+                    </div>
+                  </>
+                )}
+
+                {trendMetric === "volume" && (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart
+                      data={monthlyTrend}
+                      margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} stroke="#eef1f5" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={{ stroke: "#e2e8f0" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
+                      />
+                      <RechartsTooltip
+                        content={<ChartTooltip />}
+                        cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 11, color: "#657184" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="total"
+                        name="Assessments"
+                        stroke="#7c3aed"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "#7c3aed", strokeWidth: 0 }}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="personnelReached"
+                        name="Personnel Reached"
+                        stroke="#0d9488"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "#0d9488", strokeWidth: 0 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+
+                {trendMetric === "weight" && (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart
+                      data={monthlyTrend}
+                      margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} stroke="#eef1f5" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={{ stroke: "#e2e8f0" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={["auto", "auto"]}
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
+                      />
+                      <RechartsTooltip
+                        content={<ChartTooltip />}
+                        cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: 11, color: "#657184" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="avgWeight"
+                        name="Avg Weight (kg)"
+                        stroke="#1d4ed8"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "#1d4ed8", strokeWidth: 0 }}
+                        activeDot={{ r: 5 }}
+                        connectNulls
+                      />
+                      {hasWeightToLoseData && (
+                        <Line
+                          type="monotone"
+                          dataKey="avgWeightToLose"
+                          name="Avg Weight to Lose (kg)"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: "#f59e0b", strokeWidth: 0 }}
+                          activeDot={{ r: 5 }}
+                          connectNulls
+                        />
+                      )}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+
+                {trendMetric === "circumference" &&
+                  (hasCircumferenceData ? (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <LineChart
+                        data={monthlyTrend}
+                        margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                      >
+                        <CartesianGrid vertical={false} stroke="#eef1f5" />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 11, fill: "#64748b" }}
+                          axisLine={{ stroke: "#e2e8f0" }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          domain={["auto", "auto"]}
+                          tick={{ fontSize: 11, fill: "#64748b" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={28}
+                        />
+                        <RechartsTooltip
+                          content={<ChartTooltip />}
+                          cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
+                        />
+                        <Legend
+                          iconType="circle"
+                          iconSize={8}
+                          wrapperStyle={{ fontSize: 11, color: "#657184" }}
+                        />
+                        {hasWaistData && (
+                          <Line
+                            type="monotone"
+                            dataKey="avgWaist"
+                            name="Waist (cm)"
+                            stroke="#1d4ed8"
+                            strokeWidth={2}
+                            dot={{ r: 3, fill: "#1d4ed8", strokeWidth: 0 }}
+                            activeDot={{ r: 5 }}
+                            connectNulls
+                          />
+                        )}
+                        {hasHipData && (
+                          <Line
+                            type="monotone"
+                            dataKey="avgHip"
+                            name="Hip (cm)"
+                            stroke="#7c3aed"
+                            strokeWidth={2}
+                            dot={{ r: 3, fill: "#7c3aed", strokeWidth: 0 }}
+                            activeDot={{ r: 5 }}
+                            connectNulls
+                          />
+                        )}
+                        {hasWristData && (
+                          <Line
+                            type="monotone"
+                            dataKey="avgWrist"
+                            name="Wrist (cm)"
+                            stroke="#0d9488"
+                            strokeWidth={2}
+                            dot={{ r: 3, fill: "#0d9488", strokeWidth: 0 }}
+                            activeDot={{ r: 5 }}
+                            connectNulls
+                          />
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="chart-empty">
+                      No waist, hip, or wrist measurements recorded yet.
+                    </div>
+                  ))}
+              </div>
+            )}
           </section>
 
           {/* RECENT ASSESSMENTS TABLE WITH MODERN PAGINATION */}

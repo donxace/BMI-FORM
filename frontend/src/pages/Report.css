@@ -255,6 +255,24 @@
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
 }
 
+.report-summary-card.clickable {
+    cursor: pointer;
+}
+
+.report-summary-card.clickable:hover {
+    border-color: #bfdbfe;
+}
+
+.report-summary-card.clickable:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.report-summary-card.clickable.active {
+    border-color: #93c5fd;
+    background: #f5f9ff;
+}
+
 .report-summary-card > div:last-child {
     min-width: 0;
     text-align: left;
@@ -977,8 +995,9 @@
 }
 
 .report-actions b {
+    display: flex;
+    align-items: center;
     color: #8994a5;
-    font-size: 13px;
 }
 
 /* =========================================================

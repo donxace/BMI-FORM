@@ -9,20 +9,37 @@ import { RanksModule } from './ranks/ranks.module';
 import { Rank } from './ranks/rank.entity';
 import { IntrusionDetectionModule } from './intrusion-detection/intrusion-detection.module';
 import { EnvironmentMonitoringModule } from './environment-monitoring/environment-monitoring.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { PcInfoModule } from './pc-info/pc-info.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username: 'root',
-      password: '',
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 3306,
+      username: process.env.DB_USERNAME || 'root',
+      password: process.env.DB_PASSWORD || '',
       database: 'bmi_monitoring',
       entities: [Rank /* , Personnel */], // Add Rank here
-      synchronize: false, 
+      synchronize: false,
       autoLoadEntities: true,
 
+    }),
+
+    // Second, separate connection: the Hardware Inventory domain's own
+    // database (itms_inventech), kept independent from bmi_monitoring
+    // above so neither domain's schema/entities can collide.
+    TypeOrmModule.forRoot({
+      name: 'inventory',
+      type: 'mysql',
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 3306,
+      username: process.env.DB_USERNAME || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: 'itms_inventech',
+      synchronize: false,
+      autoLoadEntities: true,
     }),
 
     HealthReportsModule,
@@ -38,6 +55,10 @@ import { EnvironmentMonitoringModule } from './environment-monitoring/environmen
     IntrusionDetectionModule,
 
     EnvironmentMonitoringModule,
+
+    InventoryModule,
+
+    PcInfoModule,
   ],
 })
 export class AppModule {}

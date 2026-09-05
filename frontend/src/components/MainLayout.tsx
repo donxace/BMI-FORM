@@ -5,13 +5,50 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Scale,
+  Users,
+  ClipboardCheck,
+  FileText,
+  BarChart3,
+  Settings as SettingsIcon,
+  ChevronDown,
+  LogOut,
+  Radar,
+  Gauge,
+} from "lucide-react";
+
+// A single shared stroke width keeps every sidebar icon reading as
+// one deliberate set instead of whatever each icon's default happens
+// to be.
+const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
+import { PC_INFO_CATEGORIES } from "../pcInfoCategories";
+
+// Topbar subtitle swaps to name whichever system the current page
+// belongs to, rather than always reading "BMI SYSTEM" once other
+// domains (like Hardware Inventory) share this same layout.
+const SYSTEM_LABELS: { path: string; label: string }[] = [
+  { path: "/inventory", label: "COMPUTER HARDWARE INVENTORY SYSTEM" },
+  { path: "/pc-info", label: "PC INFORMATION SYSTEM" },
+];
+
+const DEFAULT_SYSTEM_LABEL = "PNP AUTOMATED BMI SYSTEM";
+
+function getSystemLabel(pathname: string): string {
+  const match = SYSTEM_LABELS.find(({ path }) => pathname.startsWith(path));
+  return match?.label ?? DEFAULT_SYSTEM_LABEL;
+}
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
+  const systemLabel = getSystemLabel(location.pathname);
+  const isInventoryDomain = location.pathname.startsWith("/inventory");
+  const isPcInfoDomain = location.pathname.startsWith("/pc-info");
 
   const handleLogout = () => {
     // Clear stored auth session
@@ -66,100 +103,186 @@ export default function MainLayout() {
       {/* Sidebar */}
       <aside className="sidebar" ref={sidebarRef}>
         <nav className="navigation">
-          <p className="nav-title">MAIN MENU</p>
+          {!isInventoryDomain && !isPcInfoDomain && (
+            <>
+              <p className="nav-title">MAIN MENU</p>
 
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>▦</span>
-            Dashboard
-          </NavLink>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Dashboard</span>
+              </NavLink>
 
-          <NavLink
-            to="/measurement"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>⚖</span>
-            Measurement
-          </NavLink>
+              <NavLink
+                to="/measurement"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Scale {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Measurement</span>
+              </NavLink>
 
-          <NavLink
-            to="/personnel"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>♙</span>
-            Personnel
-          </NavLink>
+              <NavLink
+                to="/personnel"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Users {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Personnel</span>
+              </NavLink>
 
-          <NavLink
-            to="/assessments"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>▣</span>
-            Assessments
-          </NavLink>
+              <NavLink
+                to="/assessments"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><ClipboardCheck {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Assessments</span>
+              </NavLink>
 
-          <NavLink
-            to="/report"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>▤</span>
-            Reports
-          </NavLink>
+              <NavLink
+                to="/report"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><FileText {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Reports</span>
+              </NavLink>
 
-          <NavLink
-            to="/analytics"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>◔</span>
-            Analytics
-          </NavLink>
+              <NavLink
+                to="/analytics"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><BarChart3 {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Analytics</span>
+              </NavLink>
+            </>
+          )}
 
-          <NavLink
-            to="/intrusion-detection"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>⚡︎</span>
-            Intrusion Detection
-          </NavLink>
+          {isInventoryDomain && (
+            <>
+              <p className="nav-title">INVENTORY</p>
 
-          <NavLink
-            to="/environment-monitoring"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>♨</span>
-            Smoke & Temperature
-          </NavLink>
+              <NavLink
+                to="/inventory/dashboard"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Dashboard</span>
+              </NavLink>
 
-          <p className="nav-title second">SYSTEM</p>
+              <NavLink
+                to="/inventory/personnel"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Users {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Personnel</span>
+              </NavLink>
 
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <span>⚙</span>
-            Settings
-          </NavLink>
+              <NavLink
+                to="/inventory/report"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><FileText {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Reports</span>
+              </NavLink>
+
+              <NavLink
+                to="/inventory/analytics"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><BarChart3 {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Analytics</span>
+              </NavLink>
+            </>
+          )}
+
+          {isPcInfoDomain && (
+            <>
+              <p className="nav-title">OVERVIEW</p>
+
+              <NavLink
+                to="/pc-info/dashboard"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Dashboard</span>
+              </NavLink>
+
+              <p className="nav-title second">PC INFORMATION DETAILS</p>
+
+              {PC_INFO_CATEGORIES.map(({ slug, label, icon: Icon }) => (
+                <NavLink
+                  key={slug}
+                  to={`/pc-info/category/${slug}`}
+                  className={({ isActive }) =>
+                    `nav-item ${isActive ? "active" : ""}`
+                  }
+                >
+                  <span><Icon {...NAV_ICON_PROPS} /></span>
+                  <span className="nav-label">{label}</span>
+                </NavLink>
+              ))}
+
+              <p className="nav-title second">REPORTS</p>
+
+              <NavLink
+                to="/pc-info/connections"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Radar {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">PC Connection Status</span>
+              </NavLink>
+
+              <NavLink
+                to="/pc-info/component-status"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><Gauge {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Component Status</span>
+              </NavLink>
+            </>
+          )}
+
+          {!isInventoryDomain && !isPcInfoDomain && (
+            <>
+              <p className="nav-title second">SYSTEM</p>
+
+              <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><SettingsIcon {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Settings</span>
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -182,14 +305,15 @@ export default function MainLayout() {
             {/* System Branding Section */}
             <div className="topbar-branding">
               <img
-                src="/PNP-ITMS-BMI-LOGO.png"
+                src="/PNP-ITMS-LOGO.png"
                 alt="PNP ITMS BMI Logo"
                 className="topbar-logo"
               />
 
+            
               <div className="branding-text">
-                <strong>PNP AUTOMATED BMI SYSTEM</strong>
-                <small>PNP - ITMS Department</small>
+                <strong>PNP - ITMS DEPARTMENT</strong>
+                <small>{systemLabel}</small>
               </div>
             </div>
 
@@ -215,7 +339,7 @@ export default function MainLayout() {
                     dropdownOpen ? "open" : ""
                   }`}
                 >
-                  ▾
+                  <ChevronDown size={16} strokeWidth={1.75} />
                 </span>
               </div>
 
@@ -225,7 +349,7 @@ export default function MainLayout() {
                     className="logout-button"
                     onClick={handleLogout}
                   >
-                    <span>➔</span>
+                    <LogOut size={15} strokeWidth={1.75} />
                     Log Out
                   </button>
                 </div>

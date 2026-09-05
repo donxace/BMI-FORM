@@ -1,0 +1,277 @@
+/* =========================================================
+   PAGE
+========================================================= */
+
+.home-container {
+    min-height: 100vh;
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 30px 20px;
+
+    background: #f5f7fb;
+}
+
+.home-container *,
+.home-container *::before,
+.home-container *::after {
+    box-sizing: border-box;
+}
+
+.home-content {
+    width: 100%;
+    max-width: 1320px;
+}
+
+/* =========================================================
+   BRAND HEADER
+========================================================= */
+
+.home-brand-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 40px;
+
+    margin-bottom: 52px;
+    padding-bottom: 36px;
+
+    border-bottom: 1px solid #e7ebf1;
+}
+
+.home-logo {
+    width: 140px;
+    height: 140px;
+    flex-shrink: 0;
+
+    object-fit: contain;
+
+    filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.18));
+}
+
+.home-brand-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    text-align: center;
+}
+
+.home-brand-eyebrow {
+    margin-bottom: 6px;
+
+    color: #2453d8;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.home-brand-title {
+    margin: 0 0 8px;
+
+    color: #172033;
+
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+}
+
+.home-brand-subtitle {
+    color: #7d8999;
+
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+@media (max-width: 560px) {
+    .home-brand-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .home-brand-text {
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.home-header {
+    margin-bottom: 44px;
+
+    text-align: center;
+}
+
+.home-header h1 {
+    margin: 0 0 8px;
+
+    color: #172033;
+
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.home-header p {
+    margin: 0;
+
+    color: #7d8999;
+
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   CARD GRID
+========================================================= */
+
+.home-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 26px;
+}
+
+@media (max-width: 900px) {
+    .home-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .home-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.home-card {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    padding: 32px 28px;
+
+    border: 1px solid #e7ebf1;
+    border-radius: 16px;
+
+    background: #ffffff;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+
+    cursor: pointer;
+    text-align: left;
+
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.home-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
+}
+
+.home-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 56px;
+    height: 56px;
+
+    margin-bottom: 20px;
+
+    border-radius: 12px;
+}
+
+.home-card-icon svg {
+    width: 30px;
+    height: 30px;
+}
+
+.home-card-title {
+    margin-bottom: 8px;
+
+    color: #172033;
+
+    font-size: 19px;
+    font-weight: 800;
+}
+
+.home-card-desc {
+    color: #7d8999;
+
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.home-card-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    position: absolute;
+    top: 26px;
+    right: 26px;
+
+    color: #b7c0cd;
+}
+
+/* =========================================================
+   ACCENTS
+========================================================= */
+
+.home-card-blue .home-card-icon {
+    background: #eff6ff;
+    color: #2453d8;
+}
+
+.home-card-blue:hover {
+    border-color: #bfd3fb;
+}
+
+.home-card-red .home-card-icon {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.home-card-red:hover {
+    border-color: #f3bcbc;
+}
+
+.home-card-green .home-card-icon {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.home-card-green:hover {
+    border-color: #bbe8cc;
+}
+
+.home-card-purple .home-card-icon {
+    background: #faf5ff;
+    color: #7e22ce;
+}
+
+.home-card-purple:hover {
+    border-color: #e3c9fb;
+}
+
+.home-card-teal .home-card-icon {
+    background: #ecfeff;
+    color: #0e7490;
+}
+
+.home-card-teal:hover {
+    border-color: #a5f3fc;
+}

@@ -18,6 +18,18 @@ import { Other } from './entities/other.entity';
 import { DEVICE_TYPE_SLUGS, DeviceTypeSlug, UnifiedDevice, normalizeDevice } from './device-types';
 import { AgentReportDto } from './dto/agent-report.dto';
 
+// Columns that store agent-reported arrays as JSON text rather than a
+// native column type — shared between the write side (reportFromAgent,
+// which stringifies) and the read side (findOne, which parses back).
+const AGENT_JSON_FIELDS = [
+  'installed_software',
+  'missing_updates',
+  'usb_history',
+  'network_adapters',
+  'printers_detected',
+  'hotfixes',
+] as const;
+
 @Injectable()
 export class InventoryDevicesService {
   private readonly repositories: Record<DeviceTypeSlug, Repository<any>>;
@@ -113,10 +125,42 @@ export class InventoryDevicesService {
     }
   }
 
-  // Called by the local collector script (scripts/collect-agent.js), which
-  // has no admin session — it only ever patches a device that's already
-  // been registered through the UI, matched by its serial number, so it
-  // can't create or misidentify records the way a spoofed ID could.
+  // Single-device detail view (Inventory Dashboard's "View Full Report").
+  // Parses the JSON-encoded agent-report columns back into arrays so the
+  // frontend never has to deal with the stored string form.
+  async findOne(deviceType: string, id: number): Promise<UnifiedDevice> {
+    const repo = this.repoFor(deviceType);
+    const row = await repo.findOne({ where: { id } });
+
+    if (!row) {
+      throw new NotFoundException(`${deviceType} device with ID ${id} not found.`);
+    }
+
+    const parsed: Record<string, any> = { ...row };
+
+    for (const field of AGENT_JSON_FIELDS) {
+      if (typeof parsed[field] === 'string') {
+        try {
+          parsed[field] = JSON.parse(parsed[field]);
+        } catch {
+          // Leave malformed/legacy values as-is rather than fail the request.
+        }
+      }
+    }
+
+    return normalizeDevice(deviceType as DeviceTypeSlug, parsed);
+  }
+
+  // Called by the local collector scripts (collect-agent.js,
+  // Get-InventoryAgent.ps1), which have no admin session. Patches an
+  // already-registered device when its serial matches one; if nothing
+  // matches anywhere, auto-registers a brand-new one instead of
+  // rejecting the report — this is what makes fleet rollout zero-touch
+  // (no manual pre-registration step per machine). A freshly
+  // auto-registered device has no owner/division yet (see the entity
+  // comments — those columns are nullable for exactly this reason) and
+  // shows up on the dashboard's Suspicious Device Alerts as
+  // "No Owner/Division" until an admin assigns it to someone.
   async reportFromAgent(dto: AgentReportDto): Promise<UnifiedDevice> {
     const tablesToSearch: DeviceTypeSlug[] = dto.device_type
       ? [dto.device_type]
@@ -130,14 +174,51 @@ export class InventoryDevicesService {
         continue;
       }
 
-      const { serial_no: _serialNo, device_type: _deviceType, ...updates } = dto;
-      Object.assign(existing, updates, { last_updated_at: new Date().toISOString().slice(0, 10) });
+      // hostname only ever seeds a brand-new device's name (below) — an
+      // existing, possibly admin-renamed device_name is never touched.
+      const { serial_no: _serialNo, device_type: _deviceType, hostname: _hostname, ...updates } = dto;
+
+      this.stringifyAgentJsonFields(updates as Record<string, any>);
+
+      Object.assign(existing, updates, {
+        last_updated_at: new Date().toISOString().slice(0, 10),
+        last_agent_report_at: new Date(),
+      });
       const saved = await repo.save(existing);
       return normalizeDevice(deviceType, saved as Record<string, any>);
     }
 
-    throw new NotFoundException(
-      `No desktop or laptop is registered with serial number "${dto.serial_no}". Add the device in Inventory Personnel first, then re-run the agent.`,
-    );
+    const createType: DeviceTypeSlug = dto.device_type ?? 'desktops';
+    const repo = this.repositories[createType];
+
+    const { serial_no, device_type: _deviceType2, hostname, ...rest } = dto;
+    this.stringifyAgentJsonFields(rest as Record<string, any>);
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const created = repo.create({
+      ...rest,
+      device_id: 0,
+      device_name: hostname?.trim() || serial_no,
+      personnel_id: null,
+      division_id: null,
+      par_serial_no: serial_no,
+      is_active: true,
+      created_date: today,
+      last_updated_at: today,
+      last_agent_report_at: new Date(),
+    });
+
+    const saved = await repo.save(created);
+    return normalizeDevice(createType, saved as Record<string, any>);
+  }
+
+  private stringifyAgentJsonFields(target: Record<string, any>): void {
+    for (const field of AGENT_JSON_FIELDS) {
+      const value = target[field];
+      if (value !== undefined) {
+        target[field] = JSON.stringify(value);
+      }
+    }
   }
 }

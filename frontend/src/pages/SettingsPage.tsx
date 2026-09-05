@@ -1,4 +1,12 @@
 import { useState } from "react";
+import {
+  CheckCircle2,
+  Mail,
+  ClipboardCheck,
+  FileSpreadsheet,
+  RefreshCw,
+  Rows3,
+} from "lucide-react";
 import "./SettingsPage.css";
 
 /*
@@ -203,7 +211,7 @@ export default function Settings() {
         <div className="settings-status-left">
 
           <div className="settings-status-icon">
-            ✓
+            <CheckCircle2 size={20} strokeWidth={2} />
           </div>
 
           <div>
@@ -400,7 +408,7 @@ export default function Settings() {
               <div className="settings-option">
 
                 <div className="settings-option-icon blue">
-                  !
+                  <Mail size={18} strokeWidth={2} />
                 </div>
 
                 <div className="settings-option-content">
@@ -440,7 +448,7 @@ export default function Settings() {
               <div className="settings-option">
 
                 <div className="settings-option-icon green">
-                  ✓
+                  <ClipboardCheck size={18} strokeWidth={2} />
                 </div>
 
                 <div className="settings-option-content">
@@ -480,7 +488,7 @@ export default function Settings() {
               <div className="settings-option">
 
                 <div className="settings-option-icon purple">
-                  XLS
+                  <FileSpreadsheet size={18} strokeWidth={2} />
                 </div>
 
                 <div className="settings-option-content">
@@ -628,7 +636,7 @@ export default function Settings() {
               <div className="settings-option">
 
                 <div className="settings-option-icon blue">
-                  ↻
+                  <RefreshCw size={18} strokeWidth={2} />
                 </div>
 
                 <div className="settings-option-content">
@@ -668,7 +676,7 @@ export default function Settings() {
               <div className="settings-option">
 
                 <div className="settings-option-icon teal">
-                  ≡
+                  <Rows3 size={18} strokeWidth={2} />
                 </div>
 
                 <div className="settings-option-content">
@@ -1055,7 +1063,7 @@ export default function Settings() {
             onClick={saveSettings}
           >
             <span>
-              ✓
+              <CheckCircle2 size={14} strokeWidth={2} />
             </span>
 
             Save Changes
@@ -1070,7 +1078,7 @@ export default function Settings() {
         <div className="settings-save-message">
 
           <span>
-            ✓
+            <CheckCircle2 size={14} strokeWidth={2} />
           </span>
 
           Settings saved successfully.

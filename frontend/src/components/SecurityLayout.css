@@ -1,0 +1,12 @@
+/* =========================================================
+   SECURITY DOMAIN — DISTINCT ACCENT
+
+   Reuses the base sidebar/topbar chrome defined in Dashboard.css
+   and MainLayout.css (same structure as the BMI domain) but swaps
+   the sliding nav indicator to a distinct accent so this section
+   reads as its own domain rather than another BMI page.
+========================================================= */
+
+.security-sidebar::before {
+  background: #b91c1c;
+}

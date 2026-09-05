@@ -63,6 +63,8 @@ textarea {
   display: flex;
   flex-direction: column;
 
+  overflow-x: hidden;
+
   background: #0d1b2a;
   color: white;
 
@@ -162,7 +164,7 @@ textarea {
     color 0.15s ease;
 }
 
-.nav-item span {
+.nav-item span:first-child {
   width: 20px;
 
   display: flex;
@@ -174,6 +176,13 @@ textarea {
   text-align: center;
 
   font-size: 17px;
+}
+
+.nav-label {
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .nav-item:hover {
@@ -382,7 +391,7 @@ textarea {
 
   margin-top: 2px;
 
-  color: #8994a5;
+  color: #6b7280;
 
   font-size: 10px;
 
@@ -634,6 +643,10 @@ textarea {
 .secondary-button {
   height: 38px;
 
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
   padding: 0 15px;
 
   border-radius: 7px;
@@ -725,7 +738,7 @@ textarea {
 
   gap: 10px;
 
-  color: #8994a5;
+  color: #6b7280;
 
   font-size: 9px;
   font-weight: 600;
@@ -848,6 +861,269 @@ textarea {
 
 
 /* =========================================================
+   TREND CHARTS
+========================================================= */
+
+.trend-card-single {
+  display: flex;
+  flex-direction: column;
+
+  margin-bottom: 20px;
+}
+
+.trend-pills {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  margin-bottom: 18px;
+}
+
+.trend-pill {
+  height: 30px;
+
+  padding: 0 13px;
+
+  border: 1px solid #dce2ea;
+  border-radius: 999px;
+
+  background: white;
+
+  color: #657184;
+
+  font-size: 11.5px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.trend-pill:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.trend-pill.active {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.chart-container {
+  width: 100%;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 200px;
+
+  padding: 20px;
+
+  border: 1px dashed #dce2ea;
+  border-radius: 9px;
+
+  color: #6b7280;
+
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.chart-footnote {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  margin-top: 4px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+}
+
+.chart-footnote-swatch {
+  width: 9px;
+  height: 9px;
+
+  flex-shrink: 0;
+
+  border-radius: 2px;
+
+  background: rgba(34, 197, 94, 0.35);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 8px 16px;
+
+  margin-top: 16px;
+  padding-top: 16px;
+
+  border-top: 1px solid #f0f2f5;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  color: #536071;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chart-legend-dot {
+  width: 9px;
+  height: 9px;
+
+  flex-shrink: 0;
+
+  border-radius: 3px;
+}
+
+
+/* =========================================================
+   SUSPICIOUS DEVICE ALERTS
+========================================================= */
+
+.suspicious-card {
+  margin-bottom: 20px;
+}
+
+.alert-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 25px;
+  padding: 0 12px;
+
+  border: 1px solid transparent;
+  border-radius: 20px;
+
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.alert-tag.danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.alert-tag.clear {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.alert-tag.info {
+  border-color: #e5e9ef;
+  background: #f8fafc;
+  color: #657184;
+}
+
+.alert-clear-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 16px 18px;
+
+  border: 1px dashed #bbf7d0;
+  border-radius: 9px;
+
+  background: #f7fefb;
+
+  color: #15803d;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.suspicious-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.alert-more-note {
+  padding: 12px 4px 2px;
+
+  color: #6b7280;
+
+  font-size: 11px;
+  text-align: center;
+}
+
+.chart-tooltip {
+  min-width: 130px;
+
+  padding: 10px 12px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+
+  box-shadow: 0 6px 18px -6px rgba(15, 23, 42, 0.18);
+
+  font-size: 11.5px;
+}
+
+.chart-tooltip > strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #172033;
+
+  font-size: 11.5px;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 2px 0;
+
+  color: #657184;
+}
+
+.chart-tooltip-row strong {
+  margin-left: auto;
+
+  color: #172033;
+}
+
+.chart-tooltip-dot {
+  width: 8px;
+  height: 8px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+}
+
+
+/* =========================================================
    CARD HEADER
 ========================================================= */
 
@@ -881,7 +1157,7 @@ textarea {
 .card-header p {
   margin: 0;
 
-  color: #8994a5;
+  color: #6b7280;
 
   font-size: 10px;
   line-height: 1.5;
@@ -1093,7 +1369,7 @@ textarea {
 .quick-actions small {
   display: block;
 
-  color: #8994a5;
+  color: #6b7280;
 
   font-size: 8px;
 
@@ -1103,11 +1379,13 @@ textarea {
 }
 
 .quick-actions button > span:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   color: #9aa4b2;
 
   font-size: 13px;
-
-  text-align: center;
 }
 
 
@@ -1151,7 +1429,7 @@ thead th {
 
   border-bottom: 1px solid #e7ebf1;
 
-  color: #8994a5;
+  color: #6b7280;
 
   font-size: 9px;
   font-weight: 700;
@@ -1597,8 +1875,12 @@ td > small {
     padding: 0;
   }
 
-  .nav-item span {
+  .nav-item span:first-child {
     width: auto;
+  }
+
+  .nav-label {
+    display: none;
   }
 
   .nav-item:not(.active)::after {
@@ -2048,4 +2330,85 @@ td > small {
   color: #1e293b;
   background-color: #ffffff;
   padding: 0.5rem;
+}
+
+/* Import CSV success feedback (mirrors .assessment-error's layout, green) */
+.assessment-success {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 13px 15px;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.assessment-success span {
+  color: #15803d;
+  font-size: 10px;
+}
+
+/* PC Info assessment detail page — label/value grid, friendlier to read
+   than a raw table when there are only ~2-6 facts per group. */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 18px 24px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item span {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-item strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.category-group {
+  border-top: 1px solid #f1f5f9;
+}
+
+.category-group h4 {
+  margin: 0;
+  padding: 14px 24px 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.category-group .detail-grid {
+  padding-top: 8px;
+}
+
+/* Hostname cell in the "Assessed Machines" table, made clickable to open
+   the PC detail page. */
+.machine-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.machine-link:hover {
+  text-decoration: underline;
 }

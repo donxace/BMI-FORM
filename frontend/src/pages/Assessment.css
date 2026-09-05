@@ -785,8 +785,10 @@
 }
 
 .quick-actions button > span:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #9aa4b2;
-    font-size: 18px;
 }
 
 /* =========================================================

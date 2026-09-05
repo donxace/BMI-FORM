@@ -1,0 +1,1210 @@
+/* =========================================================
+   KIOSK PAGE — FULL-BLEED, ESCAPES #root's centered max-width
+
+   Self-contained design tokens (BMI-FORM's blue admin theme,
+   not the site's default index.css purple accent) — scoped to
+   .kiosk-page so this standalone screen doesn't need the rest
+   of the app to define anything.
+========================================================= */
+
+.kiosk-page {
+  --k-bg: #f5f7fb;
+  --k-surface: rgba(255, 255, 255, 0.98);
+  --k-surface-strong: #ffffff;
+  --k-surface-soft: #f8fafc;
+  --k-card-border: #e3e8ef;
+
+  --k-primary: #2563eb;
+  --k-primary-strong: #1d4ed8;
+  --k-primary-soft: rgba(37, 99, 235, 0.08);
+
+  --k-accent: #3b82f6;
+  --k-accent-soft: rgba(37, 99, 235, 0.08);
+
+  --k-text-primary: #172033;
+  --k-text-secondary: #536071;
+  --k-text-muted: #8994a5;
+
+  --k-status-underweight: #94a3b8;
+  --k-status-normal: #16a34a;
+  --k-status-overweight: #d97706;
+  --k-status-obese: #dc2626;
+
+  --k-shadow-elevated: 0 10px 30px rgba(15, 23, 42, 0.12);
+
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  background: radial-gradient(
+      circle at 20% 20%,
+      var(--k-primary-soft) 0%,
+      transparent 55%
+    ),
+    radial-gradient(circle at 85% 80%, var(--k-accent-soft) 0%, transparent 50%),
+    var(--k-bg);
+
+  font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
+}
+
+/* =========================================================
+   ANIMATED BACKGROUND BLOBS
+========================================================= */
+
+.kiosk-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.kiosk-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.16;
+  will-change: transform;
+}
+
+.blob-1 {
+  top: -10%;
+  left: -8%;
+  width: 480px;
+  height: 480px;
+  background: var(--k-primary);
+  animation: kioskBlobFloat 22s ease-in-out infinite;
+}
+
+.blob-2 {
+  bottom: -15%;
+  right: -10%;
+  width: 520px;
+  height: 520px;
+  background: var(--k-accent);
+  animation: kioskBlobFloat 26s ease-in-out infinite reverse;
+}
+
+.blob-3 {
+  top: 40%;
+  right: 20%;
+  width: 320px;
+  height: 320px;
+  background: var(--k-primary-strong);
+  opacity: 0.12;
+  animation: kioskBlobFloat 18s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+@keyframes kioskBlobFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, 30px) scale(1.08); }
+  66% { transform: translate(-30px, 20px) scale(0.95); }
+}
+
+/* =========================================================
+   FRAME
+========================================================= */
+
+.kiosk-frame {
+  position: relative;
+  z-index: 1;
+
+  width: min(720px, 92vw);
+  height: min(880px, 94vh);
+  height: min(880px, 94dvh);
+
+  display: flex;
+  flex-direction: column;
+
+  color: var(--k-text-primary);
+}
+
+/* =========================================================
+   TOP BAR
+========================================================= */
+
+.kiosk-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 4px 4px 20px;
+}
+
+.kiosk-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  text-align: left;
+}
+
+.kiosk-brand-logo {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--k-primary), var(--k-primary-strong));
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.kiosk-brand strong {
+  display: block;
+  color: var(--k-text-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.kiosk-brand small {
+  display: block;
+  margin-top: 2px;
+  color: var(--k-text-muted);
+  font-size: 10px;
+}
+
+.kiosk-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kiosk-lang-toggle {
+  display: flex;
+  padding: 3px;
+
+  border-radius: 20px;
+  background: var(--k-surface-strong);
+  border: 1px solid var(--k-card-border);
+}
+
+.kiosk-lang-toggle button {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+
+  color: var(--k-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.kiosk-lang-toggle button.active {
+  background: linear-gradient(135deg, var(--k-primary), var(--k-primary-strong));
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+}
+
+.kiosk-clock {
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: var(--k-surface-strong);
+  border: 1px solid var(--k-card-border);
+  color: var(--k-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   STAGE + STEP CARD
+========================================================= */
+
+.kiosk-stage {
+  flex: 1;
+  min-height: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kiosk-step {
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+
+  padding: 44px 40px;
+
+  background: var(--k-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--k-card-border);
+  border-radius: 28px;
+  box-shadow:
+    var(--k-shadow-elevated),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  text-align: center;
+
+  animation: kioskStepIn 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kioskStepIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.kiosk-step h1 {
+  margin: 0 0 10px;
+  color: var(--k-text-primary);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.kiosk-step > p {
+  margin: 0 0 28px;
+  color: var(--k-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.kiosk-actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.kiosk-primary-button {
+  padding: 16px 30px;
+  border: none;
+  border-radius: 16px;
+
+  background: linear-gradient(135deg, var(--k-primary), var(--k-primary-strong));
+  color: #ffffff;
+
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+  transition:
+    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease;
+}
+
+.kiosk-primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.38);
+}
+
+.kiosk-primary-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.kiosk-primary-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.kiosk-secondary-button {
+  padding: 16px 26px;
+  border: 1.5px solid var(--k-primary);
+  border-radius: 16px;
+
+  background: transparent;
+  color: var(--k-primary);
+
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.kiosk-secondary-button:hover {
+  background: var(--k-primary-soft);
+  border-color: var(--k-primary-strong);
+}
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+.kiosk-toast {
+  margin-top: 20px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  animation: kioskToastIn 0.3s ease;
+}
+
+.kiosk-toast.error {
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: var(--k-status-obese);
+}
+
+@keyframes kioskToastIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================
+   DISCLAIMER STEP
+========================================================= */
+
+.kiosk-disclaimer {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.kiosk-disclaimer-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--k-primary), var(--k-primary-strong));
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.3);
+
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.kiosk-disclaimer .kiosk-instructions {
+  max-width: 480px;
+  font-size: 14px;
+}
+
+.kiosk-disclaimer .kiosk-instructions strong {
+  color: var(--k-primary-strong);
+}
+
+/* =========================================================
+   TEST MODE SKIP BUTTON
+========================================================= */
+
+.kiosk-test-skip {
+  display: block;
+  margin: 22px auto 0;
+  padding: 8px 14px;
+
+  border: 1px dashed var(--k-card-border);
+  border-radius: 10px;
+  background: transparent;
+
+  color: var(--k-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.kiosk-test-skip:hover {
+  color: var(--k-primary);
+  border-color: var(--k-primary);
+}
+
+/* =========================================================
+   WELCOME STEP
+========================================================= */
+
+.kiosk-welcome {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.kiosk-rfid-icon {
+  position: relative;
+
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kiosk-rfid-wave {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 99, 235, 0.4);
+  animation: rfidWave 2.4s ease-out infinite;
+}
+
+.kiosk-rfid-wave.wave-2 {
+  animation-delay: 1.2s;
+}
+
+@keyframes rfidWave {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.kiosk-rfid-card {
+  position: relative;
+  z-index: 1;
+
+  width: 92px;
+  height: 62px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--k-accent), var(--k-primary-strong));
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.35);
+
+  animation: rfidCardFloat 3s ease-in-out infinite;
+}
+
+@keyframes rfidCardFloat {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+
+.kiosk-rfid-chip {
+  width: 22px;
+  height: 16px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #fde68a, #f59e0b);
+}
+
+/* =========================================================
+   IDENTIFIED STEP
+========================================================= */
+
+.kiosk-avatar {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--k-primary), var(--k-primary-strong));
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.3);
+
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 800;
+
+  animation: avatarPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes avatarPopIn {
+  0% { opacity: 0; transform: scale(0.3) rotate(-10deg); }
+  60% { opacity: 1; transform: scale(1.12) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.kiosk-subtitle {
+  margin: 0 0 24px;
+  color: var(--k-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.kiosk-instructions {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 16px 20px;
+
+  border-radius: 14px;
+  background: var(--k-primary-soft);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+
+  color: var(--k-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   GUIDED MEASUREMENT INSTRUCTIONS
+========================================================= */
+
+.kiosk-guide {
+  margin-bottom: 22px;
+  text-align: left;
+
+  animation: kioskToastIn 0.3s ease;
+}
+
+.kiosk-guide > strong {
+  display: block;
+  margin-bottom: 8px;
+
+  color: var(--k-primary-strong);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kiosk-guide ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.kiosk-guide li {
+  margin-bottom: 4px;
+}
+
+.kiosk-guide li:last-child {
+  margin-bottom: 0;
+}
+
+.kiosk-guide-tip {
+  text-align: center;
+  font-size: 12px;
+}
+
+.kiosk-guide-tip strong {
+  color: var(--k-primary-strong);
+}
+
+/* =========================================================
+   MEASURING STEP
+========================================================= */
+
+.kiosk-platform {
+  margin: 10px auto 0;
+}
+
+.kiosk-platform-icon {
+  position: relative;
+  overflow: hidden;
+
+  width: 108px;
+  height: 108px;
+  margin: 0 auto 26px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 24px;
+  background: var(--k-surface-soft);
+  border: 1px solid var(--k-card-border);
+
+  font-size: 40px;
+
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.kiosk-platform-icon.done {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: var(--k-primary);
+}
+
+.kiosk-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--k-primary),
+    transparent
+  );
+
+  box-shadow: 0 0 10px 2px rgba(37, 99, 235, 0.5);
+}
+
+.kiosk-platform-icon.scanning .kiosk-scan-line {
+  animation: scanSweep 1.8s ease-in-out infinite;
+}
+
+.kiosk-platform-icon.done .kiosk-scan-line {
+  display: none;
+}
+
+@keyframes scanSweep {
+  0% { top: 8%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 88%; opacity: 0; }
+}
+
+/* =========================================================
+   SINGLE-METRIC HERO VALUE
+========================================================= */
+
+.kiosk-metric-value {
+  margin: 4px auto 0;
+
+  color: var(--k-text-primary);
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+
+  animation: kioskMetricPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes kioskMetricPopIn {
+  0% { opacity: 0; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.kiosk-metric-value small {
+  color: var(--k-text-muted);
+  font-size: 20px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.kiosk-manual-entry {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px dashed var(--k-card-border);
+
+  animation: kioskToastIn 0.3s ease;
+}
+
+.kiosk-manual-entry p {
+  margin: 0 0 14px;
+  color: var(--k-text-muted);
+  font-size: 12px;
+}
+
+.kiosk-manual-fields {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.kiosk-manual-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  color: var(--k-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.kiosk-manual-fields input {
+  width: 130px;
+  padding: 10px 12px;
+
+  border-radius: 10px;
+  border: 1px solid var(--k-card-border);
+  background: var(--k-surface-strong);
+
+  color: var(--k-text-primary);
+  font-size: 15px;
+  font-weight: 700;
+
+  outline: none;
+}
+
+.kiosk-manual-fields input:focus {
+  border-color: var(--k-primary);
+}
+
+/* =========================================================
+   RESULT STEP — OVERALL STATUS ICON
+========================================================= */
+
+.kiosk-status-ring {
+  position: relative;
+
+  width: 120px;
+  height: 120px;
+  margin: 6px auto 20px;
+
+  animation: kioskStatusIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes kioskStatusIn {
+  from { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.kiosk-status-ring.celebrate::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(22, 163, 74, 0.3),
+    transparent 70%
+  );
+  animation: celebrateGlow 2.4s ease-in-out infinite;
+  z-index: -1;
+}
+
+@keyframes celebrateGlow {
+  0%, 100% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.kiosk-status-icon {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  font-size: 34px;
+  font-weight: 800;
+
+  border: 3px solid;
+}
+
+.kiosk-status-icon.underweight {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: var(--k-status-underweight);
+  color: var(--k-status-underweight);
+}
+
+.kiosk-status-icon.normal {
+  background: rgba(22, 163, 74, 0.12);
+  border-color: var(--k-status-normal);
+  color: var(--k-status-normal);
+}
+
+.kiosk-status-icon.overweight {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: var(--k-status-overweight);
+  color: var(--k-status-overweight);
+}
+
+.kiosk-status-icon.obese {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: var(--k-status-obese);
+  color: var(--k-status-obese);
+}
+
+/* =========================================================
+   RESULT STEP — CLASSIFICATION BADGE
+========================================================= */
+
+.kiosk-classification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-bottom: 22px;
+  padding: 10px 20px;
+
+  border-radius: 30px;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  animation: badgePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+@keyframes badgePop {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.kiosk-classification-badge small {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.kiosk-classification-badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.kiosk-classification-badge.underweight {
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: var(--k-status-underweight);
+}
+.kiosk-classification-badge.underweight .dot { background: var(--k-status-underweight); }
+
+.kiosk-classification-badge.normal {
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.35);
+  color: var(--k-status-normal);
+}
+.kiosk-classification-badge.normal .dot { background: var(--k-status-normal); }
+
+.kiosk-classification-badge.overweight {
+  background: rgba(217, 119, 6, 0.12);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  color: var(--k-status-overweight);
+}
+.kiosk-classification-badge.overweight .dot { background: var(--k-status-overweight); }
+
+.kiosk-classification-badge.obese {
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: var(--k-status-obese);
+}
+.kiosk-classification-badge.obese .dot { background: var(--k-status-obese); }
+
+/* =========================================================
+   RESULT STEP — DETAIL TILES
+========================================================= */
+
+.kiosk-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+
+  max-width: 480px;
+  margin: 0 auto 20px;
+}
+
+.kiosk-result-grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 420px;
+}
+
+.kiosk-result-tile {
+  padding: 14px 10px;
+
+  border-radius: 14px;
+  background: var(--k-surface-soft);
+  border: 1px solid var(--k-card-border);
+}
+
+.kiosk-result-tile span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--k-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.kiosk-result-tile strong {
+  color: var(--k-text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kiosk-classification-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+
+  margin: 0 0 18px;
+  color: var(--k-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kiosk-classification-row strong {
+  color: var(--k-text-primary);
+  font-weight: 700;
+}
+
+.kiosk-save-status {
+  min-height: 18px;
+  margin-bottom: 18px;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.kiosk-save-status .ok { color: var(--k-status-normal); }
+.kiosk-save-status .error { color: var(--k-status-obese); }
+
+/* =========================================================
+   RESET COUNTDOWN
+========================================================= */
+
+.kiosk-reset-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 8px;
+}
+
+.kiosk-reset-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.kiosk-reset-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-track,
+.ring-progress {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ring-track {
+  stroke: var(--k-card-border);
+}
+
+.ring-progress {
+  stroke: var(--k-primary);
+  stroke-linecap: round;
+  stroke-dasharray: 106.8px;
+  transition: stroke-dashoffset 1s linear;
+}
+
+.kiosk-reset-ring span {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--k-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   STEP INDICATOR DOTS
+========================================================= */
+
+.kiosk-dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 4px 4px;
+}
+
+.kiosk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  background: var(--k-card-border);
+
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.kiosk-dot.active {
+  background: var(--k-accent);
+}
+
+.kiosk-dot.current {
+  width: 22px;
+  background: var(--k-primary);
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.45);
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 640px) {
+  /* Edge-to-edge: drop the floating-card look and let the
+     kiosk fill the whole mobile viewport, top bar and dots
+     included, instead of sitting in a margined card. */
+
+  .kiosk-page {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .kiosk-frame {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .kiosk-topbar {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    padding: 16px 16px 14px;
+  }
+
+  .kiosk-topbar-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .kiosk-brand small {
+    display: none;
+  }
+
+  .kiosk-stage {
+    padding: 0 12px;
+  }
+
+  .kiosk-step {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 28px 20px;
+    border-radius: 22px;
+  }
+
+  .kiosk-step h1 {
+    font-size: 21px;
+  }
+
+  .kiosk-step > p {
+    margin-bottom: 22px;
+  }
+
+  .kiosk-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .kiosk-primary-button,
+  .kiosk-secondary-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .kiosk-rfid-icon {
+    width: 130px;
+    height: 130px;
+    margin-bottom: 26px;
+  }
+
+  .kiosk-metric-value {
+    font-size: 44px;
+  }
+
+  .kiosk-metric-value small {
+    font-size: 16px;
+  }
+
+  .kiosk-status-ring {
+    width: 96px;
+    height: 96px;
+  }
+
+  .kiosk-status-icon {
+    font-size: 26px;
+  }
+
+  .kiosk-result-grid {
+    grid-template-columns: 1fr 1fr;
+    max-width: 320px;
+  }
+
+  .kiosk-classification-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .kiosk-manual-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .kiosk-manual-fields label {
+    width: 100%;
+  }
+
+  .kiosk-manual-fields input {
+    width: 100%;
+  }
+
+  .kiosk-reset-row {
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .kiosk-reset-row .kiosk-primary-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .kiosk-brand strong {
+    font-size: 13px;
+  }
+
+  .kiosk-brand-logo {
+    width: 36px;
+    height: 36px;
+    font-size: 10px;
+  }
+
+  .kiosk-clock {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .kiosk-lang-toggle button {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .kiosk-step {
+    padding: 24px 16px;
+    border-radius: 18px;
+  }
+
+  .kiosk-step h1 {
+    font-size: 19px;
+  }
+
+  .kiosk-result-grid {
+    grid-template-columns: 1fr;
+    max-width: 260px;
+  }
+}

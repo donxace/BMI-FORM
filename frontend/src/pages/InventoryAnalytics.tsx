@@ -38,7 +38,7 @@ const DEVICE_TYPE_LABELS: Record<string, string> = {
 const DIVISION_COLORS = ["#1d4ed8", "#7c3aed", "#0d9488", "#f59e0b", "#ef4444", "#22c55e", "#0891b2", "#db2777"];
 
 function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("authToken")}` };
+  return { Authorization: `Bearer ${localStorage.getItem("inventoryAuthToken")}` };
 }
 
 function formatDate(date: string | null) {

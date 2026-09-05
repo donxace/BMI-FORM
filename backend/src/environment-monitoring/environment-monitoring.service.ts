@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
+import { EnvironmentLog } from './entities/environment-log.entity';
 
 export type EnvironmentStatus =
   | 'normal'
@@ -27,8 +31,13 @@ export class EnvironmentMonitoringService {
     updated_at: null,
   };
 
+  constructor(
+    @InjectRepository(EnvironmentLog)
+    private readonly environmentLogRepository: Repository<EnvironmentLog>,
+  ) {}
+
   // ESP32 SAVE
-  reportReading(data: any): EnvironmentReading {
+  async reportReading(data: any): Promise<EnvironmentReading> {
     const temperature =
       data.temperature != null
         ? Number(data.temperature)
@@ -50,6 +59,8 @@ export class EnvironmentMonitoringService {
       status = 'high_temperature';
     }
 
+    const statusChanged = status !== this.latest.status;
+
     this.latest = {
       temperature,
       smoke_level,
@@ -58,10 +69,34 @@ export class EnvironmentMonitoringService {
       updated_at: new Date().toISOString(),
     };
 
+    /*
+     * Log every genuine state change — entering smoke_detected/
+     * high_temperature, and returning to normal — so there's a
+     * history of alerts, not just the current snapshot.
+     */
+    if (statusChanged) {
+      const log = this.environmentLogRepository.create({
+        sensor_id: this.latest.sensor_id || null,
+        status: this.latest.status,
+        temperature: this.latest.temperature,
+        smoke_level: this.latest.smoke_level,
+        event_time: new Date(),
+      });
+
+      await this.environmentLogRepository.save(log);
+    }
+
     return this.latest;
   }
 
   getLatest(): EnvironmentReading {
     return this.latest;
+  }
+
+  async getLogs(limit = 50): Promise<EnvironmentLog[]> {
+    return this.environmentLogRepository.find({
+      order: { log_id: 'DESC' },
+      take: limit,
+    });
   }
 }

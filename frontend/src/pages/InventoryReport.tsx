@@ -48,7 +48,7 @@ const DEVICE_TYPE_LABELS: Record<string, string> = {
 };
 
 function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("authToken")}` };
+  return { Authorization: `Bearer ${localStorage.getItem("inventoryAuthToken")}` };
 }
 
 function formatDate(date: string | null) {

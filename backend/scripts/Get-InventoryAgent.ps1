@@ -108,14 +108,25 @@ $PlaceholderSerialPattern = '^(default|to be filled|o\.e\.m|none|not specified|s
 # ==============================================================
 
 function Get-SerialNumber {
-    $bios = Get-CimInstance -ClassName Win32_BIOS -ErrorAction Stop
-    $serial = "$($bios.SerialNumber)".Trim()
+    # BIOS/chassis serials are frequently left at a placeholder on desktops
+    # built from generic or off-brand motherboards. Fall through to the
+    # motherboard's own serial, then the chassis, before giving up — same
+    # order Belarc-style tools use.
+    $candidates = @(
+        (Get-CimInstance -ClassName Win32_BIOS -ErrorAction SilentlyContinue).SerialNumber,
+        (Get-CimInstance -ClassName Win32_BaseBoard -ErrorAction SilentlyContinue).SerialNumber,
+        (Get-CimInstance -ClassName Win32_SystemEnclosure -ErrorAction SilentlyContinue).SerialNumber
+    )
 
-    if ([string]::IsNullOrWhiteSpace($serial) -or $serial -match $PlaceholderSerialPattern) {
-        throw "Could not read a usable system serial number (got '$serial'). This machine's ""Serial No."" in Inventory must match its real system serial for matching to work."
+    foreach ($candidate in $candidates) {
+        $serial = "$candidate".Trim()
+        if (-not [string]::IsNullOrWhiteSpace($serial) -and $serial -notmatch $PlaceholderSerialPattern) {
+            return $serial
+        }
     }
 
-    return $serial
+    $tried = ($candidates | ForEach-Object { "'$_'" }) -join ", "
+    throw "Could not read a usable system serial number (BIOS/motherboard/chassis all placeholders: $tried). This machine's ""Serial No."" in Inventory must match its real system serial for matching to work."
 }
 
 function Get-DeviceType {

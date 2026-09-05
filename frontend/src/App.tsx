@@ -8,7 +8,7 @@ import {
 import MainLayout from "./components/MainLayout";
 import SecurityLayout from "./components/SecurityLayout";
 import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import ProtectedRoute
-import SecurityProtectedRoute from "./components/SecurityProtectedRoute";
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
@@ -32,7 +32,7 @@ import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./pages/Login";
-import SecurityLogin from "./pages/SecurityLogin";
+import DomainLogin from "./pages/DomainLogin";
 import MyRecords from "./pages/MyRecords";
 import MyMeasurement from "./pages/MyMeasurement";
 import Kiosk from "./pages/Kiosk";
@@ -54,12 +54,75 @@ function App() {
           element={<Login />}
         />
 
+        {/* Domain-specific logins for the other 4 landing-page systems.
+            Each stores its session under its own keys — see
+            RoleProtectedRoute — so signing into one never signs you
+            into another. */}
+        <Route
+          path="/inventory/login"
+          element={
+            <DomainLogin
+              badgeText="HARDWARE INVENTORY SYSTEM"
+              heading="Inventory sign-in"
+              subtitle="Sign in to access the Computer Hardware Inventory system"
+              tokenKey="inventoryAuthToken"
+              roleKey="inventoryUserRole"
+              redirectPath="/inventory"
+              expectedRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
+            />
+          }
+        />
+
+        <Route
+          path="/pc-info/login"
+          element={
+            <DomainLogin
+              badgeText="PC INFORMATION SYSTEM"
+              heading="PC Info sign-in"
+              subtitle="Sign in to access per-machine hardware and security reports"
+              tokenKey="pcInfoAuthToken"
+              roleKey="pcInfoUserRole"
+              redirectPath="/pc-info"
+              expectedRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
+            />
+          }
+        />
+
+        <Route
+          path="/security/intrusion-login"
+          element={
+            <DomainLogin
+              badgeText="INTRUSION DETECTION"
+              heading="Intrusion Detection sign-in"
+              subtitle="Sign in to access facility security monitoring and alerts"
+              tokenKey="intrusionAuthToken"
+              roleKey="intrusionUserRole"
+              redirectPath="/security/intrusion-detection"
+              expectedRole={["intrusion_admin", "intrusion_editor", "intrusion_viewer"]}
+            />
+          }
+        />
+
+        <Route
+          path="/security/environment-login"
+          element={
+            <DomainLogin
+              badgeText="ENVIRONMENT MONITORING"
+              heading="Environment Monitoring sign-in"
+              subtitle="Sign in to access smoke and temperature sensor readings"
+              tokenKey="environmentAuthToken"
+              roleKey="environmentUserRole"
+              redirectPath="/security/environment-monitoring"
+              expectedRole={["environment_admin", "environment_editor", "environment_viewer"]}
+            />
+          }
+        />
+
         {/* Public, unattended touch kiosk — tap RFID to measure */}
         <Route
           path="/kiosk"
           element={<Kiosk />}
         />
-
 
         {/* =====================================================
             PROTECTED ROUTES (Requires valid login token)
@@ -102,6 +165,27 @@ function App() {
               element={<SettingsPage />}
             />
 
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            HARDWARE INVENTORY DOMAIN
+            Own role (inventory_admin), own login, own session — no
+            longer shares the BMI admin's session even though it
+            reuses MainLayout's chrome.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
+              tokenKey="inventoryAuthToken"
+              roleKey="inventoryUserRole"
+              loginPath="/inventory/login"
+            />
+          }
+        >
+          <Route element={<MainLayout />}>
+
             <Route
               path="/inventory"
               element={<Navigate to="/inventory/dashboard" replace />}
@@ -126,6 +210,25 @@ function App() {
               path="/inventory/analytics"
               element={<InventoryAnalytics />}
             />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            PC INFORMATION SYSTEM DOMAIN
+            Own role (pcinfo_admin), own login, own session.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
+              tokenKey="pcInfoAuthToken"
+              roleKey="pcInfoUserRole"
+              loginPath="/pc-info/login"
+            />
+          }
+        >
+          <Route element={<MainLayout />}>
 
             <Route
               path="/pc-info"
@@ -161,17 +264,21 @@ function App() {
         </Route>
 
         {/* =====================================================
-            SECURITY & ENVIRONMENT DOMAIN
-            Fully separate authentication from the BMI system above —
-            its own login page and its own session/token, even though
-            it shares the same backend and account table for now.
+            INTRUSION DETECTION DOMAIN
+            Own role (intrusion_admin), own login, own session — no
+            longer shares a session with Environment Monitoring even
+            though both still use SecurityLayout's chrome.
         ====================================================== */}
         <Route
-          path="/security/login"
-          element={<SecurityLogin />}
-        />
-
-        <Route element={<SecurityProtectedRoute />}>
+          element={
+            <RoleProtectedRoute
+              requiredRole={["intrusion_admin", "intrusion_editor", "intrusion_viewer"]}
+              tokenKey="intrusionAuthToken"
+              roleKey="intrusionUserRole"
+              loginPath="/security/intrusion-login"
+            />
+          }
+        >
           <Route element={<SecurityLayout />}>
 
             <Route
@@ -183,6 +290,25 @@ function App() {
               path="/security/intrusion-detection"
               element={<IntrusionDetection />}
             />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            ENVIRONMENT MONITORING DOMAIN
+            Own role (environment_admin), own login, own session.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["environment_admin", "environment_editor", "environment_viewer"]}
+              tokenKey="environmentAuthToken"
+              roleKey="environmentUserRole"
+              loginPath="/security/environment-login"
+            />
+          }
+        >
+          <Route element={<SecurityLayout />}>
 
             <Route
               path="/security/environment-monitoring"

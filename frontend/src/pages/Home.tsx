@@ -33,7 +33,7 @@ const OPTIONS: SystemOption[] = [
     description: "Facility security monitoring and alerts.",
     icon: ShieldAlert,
     accent: "red",
-    path: "/security/intrusion-detection",
+    path: "/security/intrusion-login",
   },
   {
     key: "environment",
@@ -41,7 +41,7 @@ const OPTIONS: SystemOption[] = [
     description: "Smoke and temperature sensor readings.",
     icon: Thermometer,
     accent: "green",
-    path: "/security/environment-monitoring",
+    path: "/security/environment-login",
   },
   {
     key: "inventory",
@@ -49,7 +49,7 @@ const OPTIONS: SystemOption[] = [
     description: "Computer hardware inventory system.",
     icon: HardDrive,
     accent: "purple",
-    path: "/inventory",
+    path: "/inventory/login",
   },
   {
     key: "pc-info",
@@ -57,7 +57,7 @@ const OPTIONS: SystemOption[] = [
     description: "Per-machine hardware and security assessment reports.",
     icon: Cpu,
     accent: "teal",
-    path: "/pc-info",
+    path: "/pc-info/login",
   },
 ];
 

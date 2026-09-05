@@ -25,6 +25,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import StatDrilldownModal, {
+  type DrilldownRow,
+} from "../components/StatDrilldownModal";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
@@ -246,7 +249,7 @@ export default function Dashboard() {
 
   // Raw fetched assessments
   const [allAssessments, setAllAssessments] = useState<Assessment[]>([]);
-  const [totalPersonnel, setTotalPersonnel] = useState(0);
+  const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -260,8 +263,13 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Stat card drill-down modal ("who are these numbers")
+  const [activeStat, setActiveStat] = useState<
+    "personnel" | "assessments" | "normal" | "attention" | null
+  >(null);
+
   /*
-   * Fetch Personnel Count
+   * Fetch Personnel
    */
   useEffect(() => {
     const fetchPersonnel = async () => {
@@ -274,7 +282,19 @@ export default function Dashboard() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (Array.isArray(data)) {
-          setTotalPersonnel(data.length);
+          setPersonnelList(
+            data.map((person: any) => ({
+              personnel_id: Number(person.personnel_id),
+              rfid_uid: person.rfid_uid ?? "",
+              rank: person.rank ?? "",
+              surname: person.surname ?? "",
+              first_name: person.first_name ?? "",
+              middle_initial: person.middle_initial ?? null,
+              office: person.office ?? null,
+              age: numberOrNull(person.age),
+              sex: person.sex ?? null,
+            }))
+          );
         }
       } catch (err) {
         console.error("PERSONNEL FETCH ERROR:", err);
@@ -443,6 +463,14 @@ export default function Dashboard() {
    * COMPUTED METRICS
    */
   const totalAssessments = filteredList.length;
+
+  const totalPersonnel = personnelList.length;
+
+  const sortedPersonnelList = useMemo(() => {
+    return [...personnelList].sort((a, b) =>
+      getFullName(a).localeCompare(getFullName(b))
+    );
+  }, [personnelList]);
 
   const uniquePersonnelCount = useMemo(() => {
     const ids = new Set(filteredList.map((a) => a.personnel_id));
@@ -650,6 +678,84 @@ export default function Dashboard() {
     return [...filteredList].sort((a, b) => b.assessment_id - a.assessment_id);
   }, [filteredList]);
 
+  /*
+   * STAT CARD DRILL-DOWN LISTS ("who are these numbers")
+   *
+   * Rows are built lazily (only for the currently open modal,
+   * inside useMemo) instead of eagerly for all four categories
+   * on every render -- otherwise switching months or re-fetching
+   * would re-map the assessment list four times over.
+   */
+
+  const statMeta = {
+    personnel: {
+      title: "Total Personnel",
+      subtitle: `${totalPersonnel} personnel registered in system`,
+      emptyMessage: "No personnel registered yet.",
+    },
+    assessments: {
+      title: "Total Assessments",
+      subtitle: `${totalAssessments} assessments recorded for ${
+        selectedMonthFilter === "ALL" ? "all periods" : currentMonthLabel
+      }`,
+      emptyMessage: "No assessments found for this period.",
+    },
+    normal: {
+      title: "Normal BMI",
+      subtitle: `${normalCount} personnel currently within normal BMI range`,
+      emptyMessage: "No assessments found for this period.",
+    },
+    attention: {
+      title: "Needs Attention",
+      subtitle: `${needsAttentionCount} personnel outside the normal BMI range`,
+      emptyMessage: "No assessments found for this period.",
+    },
+  } as const;
+
+  const activeStatRows = useMemo((): DrilldownRow[] => {
+    if (!activeStat) {
+      return [];
+    }
+
+    const toRow = (a: Assessment): DrilldownRow => ({
+      id: a.assessment_id,
+      initials: getInitials(a.personnel),
+      title: getFullName(a.personnel),
+      subtitle: `${a.personnel.office || "No office"} · ${formatDate(
+        a.assessment_date
+      )}`,
+      value: a.bmi > 0 ? a.bmi.toFixed(1) : "N/A",
+      valueUnit: "kg/m²",
+      badgeLabel: a.who_classification,
+      badgeClass: classificationClass(a.who_classification),
+    });
+
+    switch (activeStat) {
+      case "personnel":
+        return sortedPersonnelList.map(
+          (person): DrilldownRow => ({
+            id: person.personnel_id,
+            initials: getInitials(person),
+            title: `${person.rank} ${getFullName(person)}`.trim(),
+            subtitle: person.office || "No office assigned",
+            metaText: `ID #${String(person.personnel_id).padStart(4, "0")}`,
+          })
+        );
+      case "assessments":
+        return sortedAssessments.map(toRow);
+      case "normal":
+        return sortedAssessments
+          .filter((a) => a.who_classification === "Normal")
+          .map(toRow);
+      case "attention":
+        return sortedAssessments
+          .filter((a) => a.who_classification !== "Normal")
+          .map(toRow);
+      default:
+        return [];
+    }
+  }, [activeStat, sortedPersonnelList, sortedAssessments]);
+
   const totalPages = Math.ceil(sortedAssessments.length / itemsPerPage) || 1;
 
   const paginatedAssessments = useMemo(() => {
@@ -667,6 +773,7 @@ export default function Dashboard() {
     setSelectedMonthFilter(val);
     setCurrentPage(1); // Reset page on month switch
   };
+
 
   /*
    * RENDER
@@ -732,7 +839,11 @@ export default function Dashboard() {
 
           {/* STAT CARDS */}
           <section className="stat-grid">
-            <div className="stat-card">
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
+              onClick={() => setActiveStat("personnel")}
+            >
               <div className="stat-top">
                 <span>Total Personnel</span>
                 <div className="stat-icon blue"><Users size={18} strokeWidth={2} /></div>
@@ -741,9 +852,14 @@ export default function Dashboard() {
               <div className="stat-change positive">
                 <span>Registered in system</span>
               </div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
 
-            <div className="stat-card">
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
+              onClick={() => setActiveStat("assessments")}
+            >
               <div className="stat-top">
                 <span>Total Assessments</span>
                 <div className="stat-icon purple"><ClipboardCheck size={18} strokeWidth={2} /></div>
@@ -752,9 +868,14 @@ export default function Dashboard() {
               <div className="stat-change positive">
                 <span>Recorded for selected period</span>
               </div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
 
-            <div className="stat-card">
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
+              onClick={() => setActiveStat("normal")}
+            >
               <div className="stat-top">
                 <span>Normal BMI</span>
                 <div className="stat-icon green"><CheckCircle2 size={18} strokeWidth={2} /></div>
@@ -766,9 +887,14 @@ export default function Dashboard() {
                   : "0%"}
                 <span> of assessments</span>
               </div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
 
-            <div className="stat-card">
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
+              onClick={() => setActiveStat("attention")}
+            >
               <div className="stat-top">
                 <span>Needs Attention</span>
                 <div className="stat-icon orange"><AlertTriangle size={18} strokeWidth={2} /></div>
@@ -780,7 +906,8 @@ export default function Dashboard() {
                   : "0%"}
                 <span> need monitoring</span>
               </div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
           </section>
 
           {/* MAIN DASHBOARD GRID */}
@@ -1415,6 +1542,20 @@ export default function Dashboard() {
 
         </div>
       </main>
+
+      {/* ======================================================
+          STAT CARD DRILL-DOWN MODAL ("who are these numbers")
+      ======================================================= */}
+
+      {activeStat && (
+        <StatDrilldownModal
+          title={statMeta[activeStat].title}
+          subtitle={statMeta[activeStat].subtitle}
+          rows={activeStatRows}
+          emptyMessage={statMeta[activeStat].emptyMessage}
+          onClose={() => setActiveStat(null)}
+        />
+      )}
     </div>
   );
 }

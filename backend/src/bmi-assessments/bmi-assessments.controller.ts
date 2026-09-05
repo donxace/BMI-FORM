@@ -12,6 +12,7 @@ import type { Request } from 'express';
 import { BmiAssessmentsService } from './bmi-assessments.service';
 import { PersonnelAuthGuard } from '../auth/guards/personnel-auth.guard';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 type AuthedRequest = Request & { user: { sub: number } };
 
@@ -88,12 +89,14 @@ export class BmiAssessmentsController {
   }
 
   @UseGuards(AdminAuthGuard)
+  @Roles('bmi_admin', 'bmi_editor', 'bmi_viewer')
   @Get()
   async findAll() {
     return await this.bmiAssessmentsService.findAll();
   }
 
   @UseGuards(AdminAuthGuard)
+  @Roles('bmi_admin', 'bmi_editor', 'bmi_viewer')
   @Get('personnel/:personnelId')
   async findByPersonnel(
     @Param('personnelId') personnelId: string,

@@ -213,7 +213,7 @@ export default function IntrusionDetection() {
             method: "GET",
             headers: {
               Accept: "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              Authorization: `Bearer ${localStorage.getItem("intrusionAuthToken")}`,
             },
             cache: "no-store",
           }

@@ -11,6 +11,9 @@ import {
 } from "recharts";
 import { CheckCircle2 } from "lucide-react";
 import "./Analytics.css";
+import StatDrilldownModal, {
+  type DrilldownRow,
+} from "../components/StatDrilldownModal";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
@@ -80,6 +83,17 @@ function getFullName(personnel?: Personnel) {
     .join(" ");
 }
 
+function getInitials(personnel?: Personnel) {
+  if (!personnel) {
+    return "NA";
+  }
+
+  const first = personnel.first_name?.charAt(0) ?? "";
+  const last = personnel.surname?.charAt(0) ?? "";
+
+  return `${first}${last}`.toUpperCase();
+}
+
 function getClassificationClass(classification: string) {
   return classification
     .toLowerCase()
@@ -135,6 +149,17 @@ export default function Analytics() {
 
   const [error, setError] =
     useState("");
+
+  // Stat card drill-down modal ("who are these numbers")
+  const [activeStat, setActiveStat] = useState<
+    | "assessments"
+    | "personnel"
+    | "bmi"
+    | "normal"
+    | "elevated"
+    | "weight"
+    | null
+  >(null);
 
   /*
    * ==========================================================
@@ -551,6 +576,126 @@ export default function Analytics() {
           totalAssessments) *
         100
       : 0;
+
+  /*
+   * ==========================================================
+   * STAT CARD DRILL-DOWN LISTS ("who are these numbers")
+   *
+   * Rows are built lazily (only for the currently open modal,
+   * inside useMemo) instead of eagerly for all six categories
+   * on every render -- otherwise every keystroke in a filter
+   * field would re-map the entire filtered assessment list six
+   * times over.
+   * ==========================================================
+   */
+
+  const statMeta = {
+    assessments: {
+      title: "Assessments",
+      subtitle: `${totalAssessments} filtered records`,
+    },
+    personnel: {
+      title: "Personnel",
+      subtitle: `${uniquePersonnel} unique personnel in this filter`,
+    },
+    bmi: {
+      title: "Average BMI",
+      subtitle: `Based on ${totalAssessments} records, sorted highest to lowest`,
+    },
+    normal: {
+      title: "Normal",
+      subtitle: `${normalCount} personnel within normal BMI range`,
+    },
+    elevated: {
+      title: "Elevated",
+      subtitle: `${
+        overweightCount + obeseCount
+      } personnel overweight or obese`,
+    },
+    weight: {
+      title: "Average Weight",
+      subtitle: `Based on ${totalAssessments} records, sorted highest to lowest`,
+    },
+  } as const;
+
+  const activeStatRows = useMemo((): DrilldownRow[] => {
+    if (!activeStat) {
+      return [];
+    }
+
+    const toRow = (a: Assessment): DrilldownRow => ({
+      id: a.assessment_id,
+      initials: getInitials(a.personnel),
+      title: getFullName(a.personnel),
+      subtitle: `${a.personnel?.office || "No office"} · ${formatDate(
+        a.assessment_date
+      )}`,
+      value: a.bmi > 0 ? a.bmi.toFixed(1) : "N/A",
+      valueUnit: "kg/m²",
+      badgeLabel: a.who_classification,
+      badgeClass: getClassificationClass(a.who_classification),
+    });
+
+    switch (activeStat) {
+      case "assessments":
+        return filteredAssessments.map(toRow);
+
+      case "personnel": {
+        const seen = new Map<number, Assessment>();
+
+        filteredAssessments.forEach((a) => {
+          if (!seen.has(a.personnel_id)) {
+            seen.set(a.personnel_id, a);
+          }
+        });
+
+        return Array.from(seen.values()).map(
+          (a): DrilldownRow => ({
+            id: a.personnel_id,
+            initials: getInitials(a.personnel),
+            title: `${a.personnel?.rank ?? ""} ${getFullName(
+              a.personnel
+            )}`.trim(),
+            subtitle: a.personnel?.office || "No office assigned",
+            metaText: `ID #${String(a.personnel_id).padStart(4, "0")}`,
+          })
+        );
+      }
+
+      case "bmi":
+        return [...filteredAssessments]
+          .sort((a, b) => b.bmi - a.bmi)
+          .map(toRow);
+
+      case "normal":
+        return filteredAssessments
+          .filter((a) => a.who_classification === "Normal")
+          .map(toRow);
+
+      case "elevated":
+        return filteredAssessments
+          .filter(
+            (a) =>
+              a.who_classification === "Overweight" ||
+              a.who_classification === "Obese"
+          )
+          .map(toRow);
+
+      case "weight":
+        return [...filteredAssessments]
+          .sort((a, b) => b.weight - a.weight)
+          .map(
+            (a): DrilldownRow => ({
+              ...toRow(a),
+              value: a.weight > 0 ? a.weight.toFixed(1) : "N/A",
+              valueUnit: "kg",
+            })
+          );
+
+      default:
+        return [];
+    }
+  }, [activeStat, filteredAssessments]);
 
   /*
    * ==========================================================
@@ -1069,7 +1214,11 @@ export default function Analytics() {
 
       <section className="analytics-summary">
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("assessments")}
+        >
 
           <div className="analytics-icon blue">
             #
@@ -1089,11 +1238,17 @@ export default function Analytics() {
               Filtered records
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("personnel")}
+        >
 
           <div className="analytics-icon green">
             P
@@ -1113,11 +1268,17 @@ export default function Analytics() {
               Unique personnel
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("bmi")}
+        >
 
           <div className="analytics-icon teal">
             BMI
@@ -1139,11 +1300,17 @@ export default function Analytics() {
               Population average
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("normal")}
+        >
 
           <div className="analytics-icon green">
             <CheckCircle2 size={18} strokeWidth={2} />
@@ -1166,11 +1333,17 @@ export default function Analytics() {
               % of assessments
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("elevated")}
+        >
 
           <div className="analytics-icon orange">
             !
@@ -1194,11 +1367,17 @@ export default function Analytics() {
               % overweight/obese
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("weight")}
+        >
 
           <div className="analytics-icon purple">
             KG
@@ -1222,11 +1401,23 @@ export default function Analytics() {
               Average kilograms
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
       </section>
+
+      {activeStat && (
+        <StatDrilldownModal
+          title={statMeta[activeStat].title}
+          subtitle={statMeta[activeStat].subtitle}
+          rows={activeStatRows}
+          emptyMessage="No records found."
+          onClose={() => setActiveStat(null)}
+        />
+      )}
 
       {/* OFFICE BMI TREND LINE CHART */}
       <section className="analytics-card">

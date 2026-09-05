@@ -148,6 +148,11 @@ const SUSPICIOUS_REASON_LABELS: Record<SuspiciousReason, string> = {
 
 export default function InventoryDashboard() {
   const navigate = useNavigate();
+  // This page's only write action is delete, which is admin-only — editors
+  // and viewers both see a read-only view here (the backend rejects the
+  // requests anyway, but hiding the button avoids a confusing 401).
+  const inventoryRole = localStorage.getItem("inventoryUserRole");
+  const canDelete = inventoryRole === "inventory_admin" || inventoryRole === "admin";
   const [devices, setDevices] = useState<UnifiedDevice[]>([]);
   const [personnel, setPersonnel] = useState<InventoryPersonnel[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -168,7 +173,7 @@ export default function InventoryDashboard() {
     setReportLoading(true);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = localStorage.getItem("inventoryAuthToken");
       const response = await fetch(
         `${API_BASE_URL}/inventory/devices/${device.deviceType}/${device.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -210,7 +215,7 @@ export default function InventoryDashboard() {
     setDeletingDeviceKey(key);
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = localStorage.getItem("inventoryAuthToken");
       const response = await fetch(
         `${API_BASE_URL}/inventory/devices/${device.deviceType}/${device.id}`,
         { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
@@ -235,7 +240,7 @@ export default function InventoryDashboard() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("inventoryAuthToken");
 
     async function loadData() {
       try {
@@ -507,23 +512,25 @@ export default function InventoryDashboard() {
                           </div>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            onClick={() => deleteDevice(device)}
-                            disabled={deletingDeviceKey === `${device.deviceType}-${device.id}`}
-                            style={{
-                              border: "1px solid #fecaca",
-                              background: "#fef2f2",
-                              color: "#b91c1c",
-                              borderRadius: "6px",
-                              padding: "5px 10px",
-                              fontSize: "12px",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            {deletingDeviceKey === `${device.deviceType}-${device.id}` ? "..." : "Delete"}
-                          </button>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => deleteDevice(device)}
+                              disabled={deletingDeviceKey === `${device.deviceType}-${device.id}`}
+                              style={{
+                                border: "1px solid #fecaca",
+                                background: "#fef2f2",
+                                color: "#b91c1c",
+                                borderRadius: "6px",
+                                padding: "5px 10px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {deletingDeviceKey === `${device.deviceType}-${device.id}` ? "..." : "Delete"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -757,23 +764,25 @@ export default function InventoryDashboard() {
                               )}
                             </td>
                             <td>
-                              <button
-                                type="button"
-                                onClick={() => deleteDevice(device)}
-                                disabled={deletingDeviceKey === `${device.deviceType}-${device.id}`}
-                                style={{
-                                  border: "1px solid #fecaca",
-                                  background: "#fef2f2",
-                                  color: "#b91c1c",
-                                  borderRadius: "6px",
-                                  padding: "5px 10px",
-                                  fontSize: "12px",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                {deletingDeviceKey === `${device.deviceType}-${device.id}` ? "..." : "Delete"}
-                              </button>
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteDevice(device)}
+                                  disabled={deletingDeviceKey === `${device.deviceType}-${device.id}`}
+                                  style={{
+                                    border: "1px solid #fecaca",
+                                    background: "#fef2f2",
+                                    color: "#b91c1c",
+                                    borderRadius: "6px",
+                                    padding: "5px 10px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {deletingDeviceKey === `${device.deviceType}-${device.id}` ? "..." : "Delete"}
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))
@@ -1034,7 +1043,7 @@ export default function InventoryDashboard() {
                 </p>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                {reportDevice && (
+                {reportDevice && canDelete && (
                   <button
                     type="button"
                     onClick={() => deleteDevice(reportDevice)}

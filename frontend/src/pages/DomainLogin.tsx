@@ -9,17 +9,47 @@ import {
 } from "lucide-react";
 import "./Login.css";
 
-// Dynamically resolves to 'localhost' or your LAN IP (e.g. 192.168.x.x)
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
+type DomainLoginProps = {
+  /** Badge line above the heading, e.g. "HARDWARE INVENTORY SYSTEM". */
+  badgeText: string;
+  /** Main heading, e.g. "Inventory sign-in". */
+  heading: string;
+  /** Subtitle under the heading. */
+  subtitle: string;
+  /** localStorage key to store the JWT under. */
+  tokenKey: string;
+  /** localStorage key to store the returned role under. */
+  roleKey: string;
+  /** Route to send the user to after a successful login. */
+  redirectPath: string;
+  /** Role(s) this domain expects back from the server, e.g.
+   *  "inventory_admin", or ["inventory_admin", "inventory_viewer"] for a
+   *  domain with both a full-access and a read-only role. Login still
+   *  succeeds and stores the token for any role — RoleProtectedRoute is
+   *  what actually enforces the match — but a mismatch shows a clearer
+   *  error right away instead of silently bouncing at the next protected
+   *  route. */
+  expectedRole: string | string[];
+};
+
 /*
- * Standalone login for the Security & Environment domain
- * (Intrusion Detection, Smoke & Temperature). Same backend endpoint
- * and account table as the BMI admin login, but its own page and
- * its own session — see SecurityProtectedRoute for the token key
- * this writes.
+ * One login form, reused for all 5 landing-page domains (BMI, Intrusion
+ * Detection, Environment Monitoring, Hardware Inventory, PC Information
+ * System). Each instance posts to the same /auth/login endpoint but
+ * stores the result under its own domain-specific keys, so the 5
+ * sessions never overlap — see RoleProtectedRoute.
  */
-export default function SecurityLogin() {
+export default function DomainLogin({
+  badgeText,
+  heading,
+  subtitle,
+  tokenKey,
+  roleKey,
+  redirectPath,
+  expectedRole,
+}: DomainLoginProps) {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
@@ -55,15 +85,23 @@ export default function SecurityLogin() {
       }
 
       const data = await response.json();
+      const role = data.user?.role;
+      const acceptedRoles = Array.isArray(expectedRole) ? expectedRole : [expectedRole];
 
-      if (data.token) {
-        localStorage.setItem("securityAuthToken", data.token);
-        localStorage.setItem("securityUserRole", data.user?.role ?? "admin");
+      if (role !== "admin" && !acceptedRoles.includes(role)) {
+        throw new Error(
+          "This account does not have access to this system."
+        );
       }
 
-      navigate("/security");
+      if (data.token) {
+        localStorage.setItem(tokenKey, data.token);
+        localStorage.setItem(roleKey, role);
+      }
+
+      navigate(redirectPath);
     } catch (err) {
-      console.error("SECURITY LOGIN ERROR:", err);
+      console.error("DOMAIN LOGIN ERROR:", err);
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred."
       );
@@ -88,16 +126,16 @@ export default function SecurityLogin() {
         <div className="login-brand-header">
           <img
             src="/PNP-ITMS-LOGO.png"
-            alt="PNP ITMS Security System"
+            alt="PNP ITMS"
             className="login-logo"
           />
 
-          <div className="login-badge">FACILITY SECURITY &amp; ENVIRONMENT</div>
+          <div className="login-badge">{badgeText}</div>
         </div>
 
         <div className="login-header">
-          <h1>Security sign-in</h1>
-          <p>Sign in to access Intrusion Detection and Smoke &amp; Temperature</p>
+          <h1>{heading}</h1>
+          <p>{subtitle}</p>
         </div>
 
         {error && (
@@ -109,11 +147,11 @@ export default function SecurityLogin() {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="security-username">Username</label>
+            <label htmlFor="domain-username">Username</label>
             <div className="input-with-icon">
               <span className="input-icon"><User size={15} strokeWidth={2} /></span>
               <input
-                id="security-username"
+                id="domain-username"
                 type="text"
                 placeholder="Enter your username"
                 value={username}
@@ -125,11 +163,11 @@ export default function SecurityLogin() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="security-password">Password</label>
+            <label htmlFor="domain-password">Password</label>
             <div className="input-with-icon">
               <span className="input-icon"><KeyRound size={15} strokeWidth={2} /></span>
               <input
-                id="security-password"
+                id="domain-password"
                 type="password"
                 placeholder="••••••••"
                 value={password}

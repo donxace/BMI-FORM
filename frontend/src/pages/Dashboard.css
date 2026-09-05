@@ -731,6 +731,49 @@ textarea {
     0 8px 20px rgba(15, 23, 42, 0.05);
 }
 
+.stat-card-clickable {
+  display: block;
+  width: 100%;
+
+  font-family: inherit;
+  cursor: pointer;
+
+  position: relative;
+}
+
+.stat-card-clickable:hover {
+  border-color: #d3dae4;
+}
+
+.stat-card-clickable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.stat-view-hint {
+  display: block;
+
+  margin-top: 10px;
+
+  color: #2563eb;
+
+  font-size: 9px;
+  font-weight: 600;
+
+  opacity: 0;
+  transform: translateX(-3px);
+
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.stat-card-clickable:hover .stat-view-hint,
+.stat-card-clickable:focus-visible .stat-view-hint {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 .stat-top {
   display: flex;
   align-items: center;
@@ -1602,7 +1645,6 @@ td > small {
 .badge.underweight .badge-dot {
   background: #60a5fa;
 }
-
 
 /* =========================================================
    BOTTOM GRID

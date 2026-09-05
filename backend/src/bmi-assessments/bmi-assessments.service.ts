@@ -54,7 +54,39 @@ export class BmiAssessmentsService {
    * =========================================================
    */
 
-  private calculateBmiFields(height: number, weight: number) {
+  // PNP Acceptable BMI Classification, as of January 2020 (DHRDD). The
+  // Severely Underweight / Underweight / Normal / Obese Class 1-2-3 bands
+  // are fixed for every age; only the "Acceptable BMI" buffer above
+  // Normal (and therefore where Overweight starts) widens with age.
+  private getPnpAcceptableUpperBound(age: number | null): number {
+    if (age === null) return 24.9; // no age on file — use the strictest (youngest) band
+    if (age <= 29) return 24.9;
+    if (age <= 34) return 25.0;
+    if (age <= 39) return 25.5;
+    if (age <= 44) return 26.0;
+    if (age <= 50) return 26.5;
+    return 27.0; // 51 and above
+  }
+
+  private getPnpClassification(bmi: number, age: number | null): string {
+    if (bmi < 17) return 'Severely Underweight';
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi <= 24.9) return 'Normal';
+
+    if (bmi <= this.getPnpAcceptableUpperBound(age)) return 'Acceptable BMI';
+
+    if (bmi <= 29.9) return 'Overweight';
+    if (bmi <= 34.9) return 'Obese Class 1';
+    if (bmi <= 39.9) return 'Obese Class 2';
+
+    return 'Obese Class 3';
+  }
+
+  private calculateBmiFields(
+    height: number,
+    weight: number,
+    age: number | null = null,
+  ) {
     const heightMeters = height / 100;
 
     const bmi = weight / (heightMeters * heightMeters);
@@ -63,16 +95,7 @@ export class BmiAssessmentsService {
 
     const weightToLose = weight > ibw ? weight - ibw : 0;
 
-    const pnpClassification =
-      bmi < 18.5
-        ? 'Underweight'
-        : bmi < 23
-        ? 'Normal'
-        : bmi < 25
-        ? 'Overweight'
-        : bmi < 30
-        ? 'Obese Class I'
-        : 'Obese Class II';
+    const pnpClassification = this.getPnpClassification(bmi, age);
 
     const whoClassification =
       bmi < 18.5
@@ -118,6 +141,7 @@ export class BmiAssessmentsService {
     const calc = this.calculateBmiFields(
       Number(data.height),
       Number(data.weight),
+      personnel.age,
     );
 
     /*
@@ -182,9 +206,14 @@ export class BmiAssessmentsService {
    */
 
   async createSelfAssessment(personnelId: number, data: any) {
+    const personnel = await this.personnelRepository.findOne({
+      where: { personnel_id: personnelId },
+    });
+
     const calc = this.calculateBmiFields(
       Number(data.height),
       Number(data.weight),
+      personnel?.age ?? null,
     );
 
     const assessment = this.bmiAssessmentRepository.create({

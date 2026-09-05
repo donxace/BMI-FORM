@@ -63,7 +63,7 @@ function parseArgs() {
 const PLACEHOLDER_SERIAL = /^(default|to be filled|o\.e\.m|none|not specified|system serial)/i;
 
 async function collect() {
-  const [system, chassis, osInfo, cpu, mem, nics, antivirusCount] = await Promise.all([
+  const [system, chassis, osInfo, cpu, mem, nics, antivirusCount, baseboard] = await Promise.all([
     si.system(),
     si.chassis(),
     si.osInfo(),
@@ -71,12 +71,22 @@ async function collect() {
     si.mem(),
     si.networkInterfaces(),
     countAntivirusProducts(),
+    si.baseboard(),
   ]);
 
-  const serialNo = (system.serial || '').trim();
-  if (!serialNo || PLACEHOLDER_SERIAL.test(serialNo)) {
+  // BIOS/chassis serials are frequently left at a placeholder on desktops
+  // built from generic or off-brand motherboards. Fall through to the
+  // motherboard's own serial before giving up — kept in sync with
+  // Get-InventoryAgent.ps1's Get-SerialNumber.
+  const serialCandidates = [system.serial, baseboard && baseboard.serial, chassis.serial];
+  const serialNo = (serialCandidates.find(
+    (candidate) => candidate && !PLACEHOLDER_SERIAL.test(candidate.trim()),
+  ) || '').trim();
+
+  if (!serialNo) {
+    const tried = serialCandidates.map((c) => `"${c || ''}"`).join(', ');
     throw new Error(
-      `Could not read a usable system serial number (got "${system.serial || ''}"). ` +
+      `Could not read a usable system serial number (BIOS/motherboard/chassis all placeholders: ${tried}). ` +
         'This machine\'s "Serial No." in Inventory must match its real system serial for matching to work.',
     );
   }

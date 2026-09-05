@@ -19,6 +19,19 @@ export class InventoryDevicesController {
     return this.inventoryDevicesService.findByPersonnel(personnelId);
   }
 
+  // Full single-device detail (Inventory Dashboard's "View Full Report"),
+  // including the agent-reported software/updates/USB/network/hotfix
+  // breakdown. Registered before the agent-report/:deviceType routes
+  // below only for readability — HTTP method already disambiguates them.
+  @UseGuards(AdminAuthGuard)
+  @Get(':deviceType/:id')
+  async findOne(
+    @Param('deviceType') deviceType: string,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.inventoryDevicesService.findOne(deviceType, id);
+  }
+
   // Unauthenticated on purpose, same trust model as POST /personnel/rfid/scan:
   // the local collector script has no admin session, and this can only ever
   // patch a device that was already registered through the UI (matched by

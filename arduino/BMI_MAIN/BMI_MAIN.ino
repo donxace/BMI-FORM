@@ -23,9 +23,11 @@ const char* sessionStatusUrl =
 //    board polls /bmi-assessments/session/status and only then
 //    starts prompting for input.
 // 3. Type a height value into the Serial Monitor and press
-//    Enter, then a weight value and press Enter -> both are
-//    posted to /bmi-assessments/reading and auto-fill the
-//    Height/Weight fields on the Measurement page.
+//    Enter -> it's posted to /bmi-assessments/reading right
+//    away and appears on the Measurement page within ~1s.
+//    Then type a weight value and press Enter -> same thing,
+//    posted the instant it's captured instead of waiting for
+//    both values.
 // ========================================
 
 // ---- STEP 1: FAKE RFID TAP (NO READER WIRED UP YET) ----
@@ -195,7 +197,10 @@ void promptForWeight() {
   Serial.println("Enter WEIGHT in kg, then press Enter:");
 }
 
-void sendReading(float heightCm, float weightKg) {
+// Posts a single field (height or weight) as soon as it's
+// captured, so the Measurement page's 1s poll can display it
+// live instead of waiting for the full height+weight cycle.
+void sendReading(const char* fieldName, float value) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected!");
     return;
@@ -206,14 +211,17 @@ void sendReading(float heightCm, float weightKg) {
   http.begin(readingUrl);
   http.addHeader("Content-Type", "application/json");
 
-  String json = "{";
-  json += "\"height\":" + String(heightCm, 1) + ",";
-  json += "\"weight\":" + String(weightKg, 1);
+  String json = "{\"";
+  json += fieldName;
+  json += "\":";
+  json += String(value, 1);
   json += "}";
 
   Serial.println();
   Serial.println("================================");
-  Serial.println("Sending live reading...");
+  Serial.print("Sending live reading (");
+  Serial.print(fieldName);
+  Serial.println(")...");
   Serial.println(json);
 
   int responseCode = http.POST(json);
@@ -244,6 +252,8 @@ void handleSerialInput() {
     Serial.print("Height set to: ");
     Serial.println(pendingHeight, 1);
 
+    sendReading("height", pendingHeight);
+
     readingStage = WAITING_FOR_WEIGHT;
     promptForWeight();
 
@@ -253,7 +263,7 @@ void handleSerialInput() {
     Serial.print("Weight set to: ");
     Serial.println(pendingWeight, 1);
 
-    sendReading(pendingHeight, pendingWeight);
+    sendReading("weight", pendingWeight);
 
     readingStage = WAITING_FOR_HEIGHT;
     promptForHeight();

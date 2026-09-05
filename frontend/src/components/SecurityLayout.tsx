@@ -32,10 +32,23 @@ export default function SecurityLayout() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
+  // Intrusion Detection and Environment Monitoring are separate roles
+  // and sessions now, even though they still share this one layout's
+  // chrome — logout has to clear whichever pair is actually active.
+  const isEnvironmentDomain = location.pathname.startsWith(
+    "/security/environment-monitoring"
+  );
+
   const handleLogout = () => {
-    localStorage.removeItem("securityAuthToken");
-    localStorage.removeItem("securityUserRole");
-    navigate("/security/login");
+    if (isEnvironmentDomain) {
+      localStorage.removeItem("environmentAuthToken");
+      localStorage.removeItem("environmentUserRole");
+      navigate("/security/environment-login");
+    } else {
+      localStorage.removeItem("intrusionAuthToken");
+      localStorage.removeItem("intrusionUserRole");
+      navigate("/security/intrusion-login");
+    }
   };
 
   useLayoutEffect(() => {

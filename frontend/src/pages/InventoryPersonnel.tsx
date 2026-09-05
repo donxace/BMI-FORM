@@ -182,10 +182,16 @@ const DEVICE_TYPE_LABELS: Record<string, string> = Object.fromEntries(
 const EMPTY_PERSONNEL_FORM = { division_id: "", rank_id: "", first_name: "", middle_name: "", last_name: "", is_active: true };
 
 function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("authToken")}` };
+  return { Authorization: `Bearer ${localStorage.getItem("inventoryAuthToken")}` };
 }
 
 export default function InventoryPersonnel() {
+  // inventory_viewer can't add or edit; only inventory_admin can delete
+  // (the one irreversible action here). The backend rejects the requests
+  // anyway — hiding the buttons avoids a confusing 401.
+  const inventoryRole = localStorage.getItem("inventoryUserRole");
+  const canEdit = inventoryRole === "inventory_admin" || inventoryRole === "inventory_editor" || inventoryRole === "admin";
+  const canDelete = inventoryRole === "inventory_admin" || inventoryRole === "admin";
   const [personnelList, setPersonnelList] = useState<InventoryPersonnelRecord[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [ranks, setRanks] = useState<Rank[]>([]);
@@ -614,7 +620,9 @@ export default function InventoryPersonnel() {
           </div>
 
           <div className="personnel-header-actions">
-            <button className="add-personnel-button" onClick={handleAddPersonnel}>+ Add Personnel</button>
+            {canEdit && (
+              <button className="add-personnel-button" onClick={handleAddPersonnel}>+ Add Personnel</button>
+            )}
           </div>
         </div>
 
@@ -702,8 +710,12 @@ export default function InventoryPersonnel() {
                       <td>
                         <div className="row-actions">
                           <button title="Devices" onClick={() => openDevicesModal(p)}>Devices</button>
-                          <button title="Edit" onClick={() => handleEditPersonnel(p)}>Edit</button>
-                          <button title="Delete" className="delete-action" onClick={() => handleDeletePersonnel(p)}>Delete</button>
+                          {canEdit && (
+                            <button title="Edit" onClick={() => handleEditPersonnel(p)}>Edit</button>
+                          )}
+                          {canDelete && (
+                            <button title="Delete" className="delete-action" onClick={() => handleDeletePersonnel(p)}>Delete</button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -775,14 +787,16 @@ export default function InventoryPersonnel() {
           </div>
 
           <div className="quick-actions">
-            <button onClick={handleAddPersonnel}>
-              <span className="quick-icon blue"><Users size={16} strokeWidth={2} /></span>
-              <div>
-                <strong>Add Personnel</strong>
-                <small>Register a new personnel record</small>
-              </div>
-              <span><ChevronRight size={16} strokeWidth={2} /></span>
-            </button>
+            {canEdit && (
+              <button onClick={handleAddPersonnel}>
+                <span className="quick-icon blue"><Users size={16} strokeWidth={2} /></span>
+                <div>
+                  <strong>Add Personnel</strong>
+                  <small>Register a new personnel record</small>
+                </div>
+                <span><ChevronRight size={16} strokeWidth={2} /></span>
+              </button>
+            )}
 
             <button onClick={() => window.location.assign("/inventory/report")}>
               <span className="quick-icon green"><Download size={16} strokeWidth={2} /></span>
@@ -898,12 +912,14 @@ export default function InventoryPersonnel() {
             </div>
 
             <div style={{ padding: "20px 28px" }}>
-              <button
-                onClick={openAddDevice}
-                style={{ marginBottom: "16px", padding: "10px 16px", border: "none", borderRadius: "8px", background: "#1d4ed8", color: "#fff", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                <HardDrive size={15} strokeWidth={2} /> + Add Device
-              </button>
+              {canEdit && (
+                <button
+                  onClick={openAddDevice}
+                  style={{ marginBottom: "16px", padding: "10px 16px", border: "none", borderRadius: "8px", background: "#1d4ed8", color: "#fff", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <HardDrive size={15} strokeWidth={2} /> + Add Device
+                </button>
+              )}
 
               {devicesLoading ? (
                 <div style={{ padding: "1.5rem", textAlign: "center" }}>Loading devices...</div>
@@ -935,8 +951,12 @@ export default function InventoryPersonnel() {
                           </td>
                           <td>
                             <div className="row-actions">
-                              <button onClick={() => openEditDevice(device)}>Edit</button>
-                              <button className="delete-action" onClick={() => handleDeleteDevice(device)}>Delete</button>
+                              {canEdit && (
+                                <button onClick={() => openEditDevice(device)}>Edit</button>
+                              )}
+                              {canDelete && (
+                                <button className="delete-action" onClick={() => handleDeleteDevice(device)}>Delete</button>
+                              )}
                             </div>
                           </td>
                         </tr>

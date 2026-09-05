@@ -105,12 +105,32 @@ function getClassification(bmi: number): Classification {
   return "Obese";
 }
 
-function getPNPClassification(bmi: number): string {
+// Official "PNP Acceptable BMI Classification" (as of January 2020,
+// DHRDD). Severely Underweight / Underweight / Normal / Obese Class
+// 1-2-3 are fixed for every age; only the "Acceptable BMI" buffer
+// above Normal (and therefore where Overweight starts) widens with age.
+function getPnpAcceptableUpperBound(age: number | null): number {
+  if (age === null) return 24.9; // no age on file — use the strictest (youngest) band
+  if (age <= 29) return 24.9;
+  if (age <= 34) return 25.0;
+  if (age <= 39) return 25.5;
+  if (age <= 44) return 26.0;
+  if (age <= 50) return 26.5;
+  return 27.0; // 51 and above
+}
+
+function getPNPClassification(bmi: number, age: number | null): string {
+  if (bmi < 17) return "Severely Underweight";
   if (bmi < 18.5) return "Underweight";
-  if (bmi < 23) return "Normal";
-  if (bmi < 25) return "Overweight";
-  if (bmi < 30) return "Obese Class I";
-  return "Obese Class II";
+  if (bmi <= 24.9) return "Normal";
+
+  if (bmi <= getPnpAcceptableUpperBound(age)) return "Acceptable BMI";
+
+  if (bmi <= 29.9) return "Overweight";
+  if (bmi <= 34.9) return "Obese Class 1";
+  if (bmi <= 39.9) return "Obese Class 2";
+
+  return "Obese Class 3";
 }
 
 function getFullName(personnel: Personnel): string {
@@ -577,7 +597,7 @@ export default function Kiosk() {
   })();
 
   const classification = bmi !== null ? getClassification(bmi) : null;
-  const pnpClassification = bmi !== null ? getPNPClassification(bmi) : null;
+  const pnpClassification = bmi !== null ? getPNPClassification(bmi, personnel?.age ?? null) : null;
 
   useEffect(() => {
     if (step !== "result" || !personnel || bmi === null) {

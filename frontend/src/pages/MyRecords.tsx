@@ -24,6 +24,9 @@ export default function MyRecords() {
   const [error, setError] = useState("");
   const [previewId, setPreviewId] = useState<number | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   useEffect(() => {
     const fetchRecords = async () => {
       const token = localStorage.getItem("personnelAuthToken");
@@ -67,6 +70,19 @@ export default function MyRecords() {
 
     fetchRecords();
   }, [navigate]);
+
+  const totalPages = Math.ceil(records.length / itemsPerPage) || 1;
+
+  const paginatedRecords = records.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   const downloadPdf = (assessmentId: number) => {
     /*
@@ -118,7 +134,7 @@ export default function MyRecords() {
             </thead>
 
             <tbody>
-              {records.map((record) => (
+              {paginatedRecords.map((record) => (
                 <tr key={record.assessment_id}>
                   <td>
                     {new Date(record.assessment_date).toLocaleDateString()}
@@ -152,6 +168,98 @@ export default function MyRecords() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && !error && records.length > itemsPerPage && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Showing{" "}
+            <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> to{" "}
+            <strong>
+              {Math.min(currentPage * itemsPerPage, records.length)}
+            </strong>{" "}
+            of <strong>{records.length}</strong> entries
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="btn-modern-nav"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              aria-label="Previous Page"
+            >
+              <svg
+                className="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>Previous</span>
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(
+                (page) =>
+                  page === 1 ||
+                  page === totalPages ||
+                  Math.abs(page - currentPage) <= 1
+              )
+              .reduce<(number | string)[]>((acc, page, idx, src) => {
+                if (idx > 0 && page - (src[idx - 1] as number) > 1) {
+                  acc.push("...");
+                }
+                acc.push(page);
+                return acc;
+              }, [])
+              .map((item, index) =>
+                typeof item === "number" ? (
+                  <button
+                    key={item}
+                    className={`pagination-btn ${
+                      currentPage === item ? "active" : ""
+                    }`}
+                    onClick={() => handlePageChange(item)}
+                  >
+                    {item}
+                  </button>
+                ) : (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="pagination-ellipsis"
+                  >
+                    •••
+                  </span>
+                )
+              )}
+
+            <button
+              className="btn-modern-nav btn-next"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Next Page"
+            >
+              <span>Next</span>
+              <svg
+                className="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 

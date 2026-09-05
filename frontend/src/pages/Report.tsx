@@ -13,6 +13,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import "./Report.css";
+import StatDrilldownModal, {
+  type DrilldownRow,
+} from "../components/StatDrilldownModal";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
@@ -157,6 +160,11 @@ export default function Report() {
   const [error, setError] =
     useState("");
 
+  // Stat card drill-down modal ("who are these numbers")
+  const [activeStat, setActiveStat] = useState<
+    "total" | "normal" | "overweight" | "obese" | "underweight" | "bmi" | null
+  >(null);
+
   /*
    * ============================================================
    * FILTERS
@@ -180,6 +188,19 @@ export default function Report() {
 
   const [dateFilter, setDateFilter] =
     useState("all");
+
+  /*
+   * ============================================================
+   * PAGINATION STATE
+   * ============================================================
+   */
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, rank, office, sex, classification, dateFilter]);
 
   /*
    * ============================================================
@@ -575,6 +596,26 @@ export default function Report() {
 
   /*
    * ============================================================
+   * PAGINATION
+   * ============================================================
+   */
+
+  const totalPages =
+    Math.ceil(filteredReports.length / itemsPerPage) || 1;
+
+  const paginatedReports = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReports, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  /*
+   * ============================================================
    * STATISTICS
    * ============================================================
    */
@@ -618,6 +659,89 @@ export default function Report() {
           0,
         ) / filteredReports.length
       : 0;
+
+  /*
+   * ============================================================
+   * STAT CARD DRILL-DOWN LISTS ("who are these numbers")
+   *
+   * Rows are built lazily (only for the currently open modal,
+   * inside useMemo) instead of eagerly for all six categories
+   * on every render -- otherwise every keystroke in a filter
+   * field would re-map the entire filtered report list six
+   * times over.
+   * ============================================================
+   */
+
+  const statMeta = {
+    total: {
+      title: "Filtered Records",
+      subtitle: `${totalReports} records match the current filters`,
+    },
+    normal: {
+      title: "Normal",
+      subtitle: `${normalCount} personnel within normal BMI range`,
+    },
+    overweight: {
+      title: "Overweight",
+      subtitle: `${overweightCount} personnel classified as overweight`,
+    },
+    obese: {
+      title: "Obese",
+      subtitle: `${obeseCount} personnel classified as obese`,
+    },
+    underweight: {
+      title: "Underweight",
+      subtitle: `${underweightCount} personnel classified as underweight`,
+    },
+    bmi: {
+      title: "Average BMI",
+      subtitle: `Based on ${filteredReports.length} filtered records, sorted highest to lowest`,
+    },
+  } as const;
+
+  const activeStatRows = useMemo((): DrilldownRow[] => {
+    if (!activeStat) {
+      return [];
+    }
+
+    const toRow = (a: Assessment): DrilldownRow => ({
+      id: a.assessment_id,
+      initials: getInitials(a.personnel),
+      title: getFullName(a.personnel),
+      subtitle: `${a.personnel?.office || "No office"} · ${formatDate(
+        a.assessment_date
+      )}`,
+      value: a.bmi > 0 ? a.bmi.toFixed(1) : "N/A",
+      valueUnit: "kg/m²",
+      badgeLabel: a.who_classification,
+      badgeClass: getClassificationClass(a.who_classification),
+    });
+
+    switch (activeStat) {
+      case "total":
+        return filteredReports.map(toRow);
+      case "normal":
+        return filteredReports
+          .filter((a) => a.who_classification === "Normal")
+          .map(toRow);
+      case "overweight":
+        return filteredReports
+          .filter((a) => a.who_classification === "Overweight")
+          .map(toRow);
+      case "obese":
+        return filteredReports
+          .filter((a) => a.who_classification === "Obese")
+          .map(toRow);
+      case "underweight":
+        return filteredReports
+          .filter((a) => a.who_classification === "Underweight")
+          .map(toRow);
+      case "bmi":
+        return [...filteredReports].sort((a, b) => b.bmi - a.bmi).map(toRow);
+      default:
+        return [];
+    }
+  }, [activeStat, filteredReports]);
 
   /*
    * ============================================================
@@ -1020,7 +1144,11 @@ export default function Report() {
 
       <section className="report-summary">
 
-        <div className="report-summary-card">
+        <button
+          type="button"
+          className="report-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("total")}
+        >
 
           <div className="summary-icon blue">
             <Hash size={18} strokeWidth={2} />
@@ -1034,11 +1162,17 @@ export default function Report() {
             <strong>
               {totalReports}
             </strong>
+
+            <span className="sdm-view-hint">View list →</span>
           </div>
 
-        </div>
+        </button>
 
-        <div className="report-summary-card">
+        <button
+          type="button"
+          className="report-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("normal")}
+        >
 
           <div className="summary-icon green">
             <CheckCircle2 size={18} strokeWidth={2} />
@@ -1052,11 +1186,17 @@ export default function Report() {
             <strong>
               {normalCount}
             </strong>
+
+            <span className="sdm-view-hint">View list →</span>
           </div>
 
-        </div>
+        </button>
 
-        <div className="report-summary-card">
+        <button
+          type="button"
+          className="report-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("overweight")}
+        >
 
           <div className="summary-icon orange">
             <TrendingUp size={18} strokeWidth={2} />
@@ -1070,11 +1210,17 @@ export default function Report() {
             <strong>
               {overweightCount}
             </strong>
+
+            <span className="sdm-view-hint">View list →</span>
           </div>
 
-        </div>
+        </button>
 
-        <div className="report-summary-card">
+        <button
+          type="button"
+          className="report-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("obese")}
+        >
 
           <div className="summary-icon red">
             <AlertTriangle size={18} strokeWidth={2} />
@@ -1088,11 +1234,17 @@ export default function Report() {
             <strong>
               {obeseCount}
             </strong>
+
+            <span className="sdm-view-hint">View list →</span>
           </div>
 
-        </div>
+        </button>
 
-        <div className="report-summary-card">
+        <button
+          type="button"
+          className="report-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("underweight")}
+        >
 
           <div className="summary-icon purple">
             <TrendingDown size={18} strokeWidth={2} />
@@ -1106,11 +1258,17 @@ export default function Report() {
             <strong>
               {underweightCount}
             </strong>
+
+            <span className="sdm-view-hint">View list →</span>
           </div>
 
-        </div>
+        </button>
 
-        <div className="report-summary-card">
+        <button
+          type="button"
+          className="report-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("bmi")}
+        >
 
           <div className="summary-icon teal">
             BMI
@@ -1126,11 +1284,23 @@ export default function Report() {
                 ? averageBMI.toFixed(1)
                 : "—"}
             </strong>
+
+            <span className="sdm-view-hint">View list →</span>
           </div>
 
-        </div>
+        </button>
 
       </section>
+
+      {activeStat && (
+        <StatDrilldownModal
+          title={statMeta[activeStat].title}
+          subtitle={statMeta[activeStat].subtitle}
+          rows={activeStatRows}
+          emptyMessage="No records found."
+          onClose={() => setActiveStat(null)}
+        />
+      )}
 
       {/* ======================================================
           PERSONNEL FILTERS
@@ -1533,7 +1703,7 @@ export default function Report() {
 
                 ) : (
 
-                  filteredReports.map(
+                  paginatedReports.map(
                     (assessment) => {
 
                       const personnel =
@@ -1689,27 +1859,113 @@ export default function Report() {
 
         )}
 
+        {/* ====================================================
+            MODERN PAGINATION CONTROLS
+        ===================================================== */}
+
         {!loading &&
-          filteredReports.length > 0 && (
+          filteredReports.length > itemsPerPage && (
+            <div className="pagination-container">
+              <div className="pagination-info">
+                Showing{" "}
+                <strong>
+                  {(currentPage - 1) * itemsPerPage + 1}
+                </strong>{" "}
+                to{" "}
+                <strong>
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    filteredReports.length
+                  )}
+                </strong>{" "}
+                of <strong>{filteredReports.length}</strong> entries
+              </div>
 
-            <div className="report-footer">
+              <div className="pagination-controls">
+                {/* Previous Button */}
+                <button
+                  className="btn-modern-nav"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  aria-label="Previous Page"
+                >
+                  <svg
+                    className="nav-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                  <span>Previous</span>
+                </button>
 
-              Showing{" "}
+                {/* Page Numbers */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - currentPage) <= 1
+                  )
+                  .reduce<(number | string)[]>((acc, page, idx, src) => {
+                    if (
+                      idx > 0 &&
+                      page - (src[idx - 1] as number) > 1
+                    ) {
+                      acc.push("...");
+                    }
+                    acc.push(page);
+                    return acc;
+                  }, [])
+                  .map((item, index) =>
+                    typeof item === "number" ? (
+                      <button
+                        key={item}
+                        className={`pagination-btn ${
+                          currentPage === item ? "active" : ""
+                        }`}
+                        onClick={() => handlePageChange(item)}
+                      >
+                        {item}
+                      </button>
+                    ) : (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="pagination-ellipsis"
+                      >
+                        •••
+                      </span>
+                    )
+                  )}
 
-              <strong>
-                {filteredReports.length}
-              </strong>{" "}
-
-              of{" "}
-
-              <strong>
-                {assessments.length}
-              </strong>{" "}
-
-              records
-
+                {/* Next Button */}
+                <button
+                  className="btn-modern-nav btn-next"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  aria-label="Next Page"
+                >
+                  <span>Next</span>
+                  <svg
+                    className="nav-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
+              </div>
             </div>
-
           )}
 
       </section>

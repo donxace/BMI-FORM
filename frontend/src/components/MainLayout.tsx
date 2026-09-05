@@ -51,11 +51,22 @@ export default function MainLayout() {
   const isPcInfoDomain = location.pathname.startsWith("/pc-info");
 
   const handleLogout = () => {
-    // Clear stored auth session
-    localStorage.removeItem("authToken");
-
-    // Redirect to login page
-    navigate("/login");
+    // Each domain sharing this layout keeps its own session keys and
+    // login page, so logout has to clear the pair for whichever domain
+    // is actually active rather than always the BMI ones.
+    if (isInventoryDomain) {
+      localStorage.removeItem("inventoryAuthToken");
+      localStorage.removeItem("inventoryUserRole");
+      navigate("/inventory/login");
+    } else if (isPcInfoDomain) {
+      localStorage.removeItem("pcInfoAuthToken");
+      localStorage.removeItem("pcInfoUserRole");
+      navigate("/pc-info/login");
+    } else {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userRole");
+      navigate("/login");
+    }
   };
 
   /*

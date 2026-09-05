@@ -14,6 +14,9 @@ import {
   Printer,
 } from "lucide-react";
 import "./Personnel.css";
+import StatDrilldownModal, {
+  type DrilldownRow,
+} from "../components/StatDrilldownModal";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
@@ -81,6 +84,14 @@ function getInitials(personnel: Personnel) {
  */
 
 export default function Personnel() {
+  // bmi_viewer can't add or edit; only bmi_admin can delete (the one
+  // irreversible action here) — same pattern as Hardware Inventory. The
+  // backend rejects the requests anyway; hiding the buttons avoids a
+  // confusing 401.
+  const bmiRole = localStorage.getItem("userRole");
+  const canEdit = bmiRole === "bmi_admin" || bmiRole === "bmi_editor" || bmiRole === "admin";
+  const canDelete = bmiRole === "bmi_admin" || bmiRole === "admin";
+
   /*
    * ============================================================
    * URL SEARCH PARAMETERS
@@ -100,6 +111,11 @@ export default function Personnel() {
   const [loadingPersonnel, setLoadingPersonnel] = useState(true);
   const [personnelError, setPersonnelError] = useState("");
 
+  // Stat card drill-down modal ("who are these numbers")
+  const [activeStat, setActiveStat] = useState<
+    "total" | "male" | "female" | "search" | null
+  >(null);
+
   /*
    * ============================================================
    * SEARCH / FILTER STATE
@@ -113,6 +129,19 @@ export default function Personnel() {
 
   /*
    * ============================================================
+   * PAGINATION STATE
+   * ============================================================
+   */
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, rankFilter, sexFilter, officeFilter]);
+
+  /*
+   * ============================================================
    * ADD PERSONNEL MODAL
    * ============================================================
    */
@@ -123,6 +152,10 @@ export default function Personnel() {
    * ============================================================
    */
   const [showEditModal, setShowEditModal] = useState(false);
+  // The "View" action reuses this same modal in a read-only state,
+  // rather than duplicating the whole field layout — it was previously
+  // a stub that only logged to the console and showed nothing.
+  const [viewOnlyMode, setViewOnlyMode] = useState(false);
   const [editingPersonnelId, setEditingPersonnelId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState({
     rfid_uid: "",
@@ -387,6 +420,26 @@ export default function Personnel() {
 
   /*
    * ============================================================
+   * PAGINATION
+   * ============================================================
+   */
+
+  const totalPages =
+    Math.ceil(filteredPersonnel.length / itemsPerPage) || 1;
+
+  const paginatedPersonnel = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredPersonnel.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPersonnel, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  /*
+   * ============================================================
    * STATISTICS
    * ============================================================
    */
@@ -400,6 +453,67 @@ export default function Personnel() {
   const femalePersonnel = personnelList.filter(
     (person) => person.sex?.toLowerCase() === "female"
   ).length;
+
+  /*
+   * ============================================================
+   * STAT CARD DRILL-DOWN LISTS ("who are these numbers")
+   *
+   * Rows are built lazily (only for the currently open modal,
+   * inside useMemo) instead of eagerly for all four categories
+   * on every render -- otherwise every keystroke in the search
+   * box would re-map the personnel list four times over.
+   * ============================================================
+   */
+
+  const statMeta = {
+    total: {
+      title: "Total Personnel",
+      subtitle: `${totalPersonnel} active records`,
+    },
+    male: {
+      title: "Male Personnel",
+      subtitle: `${malePersonnel} male personnel`,
+    },
+    female: {
+      title: "Female Personnel",
+      subtitle: `${femalePersonnel} female personnel`,
+    },
+    search: {
+      title: "Search Results",
+      subtitle: `${filteredPersonnel.length} matching records`,
+    },
+  } as const;
+
+  const activeStatRows = useMemo((): DrilldownRow[] => {
+    if (!activeStat) {
+      return [];
+    }
+
+    const toRow = (person: Personnel): DrilldownRow => ({
+      id: person.personnel_id,
+      initials: getInitials(person),
+      title: `${person.rank} ${getFullName(person)}`.trim(),
+      subtitle: person.office || "No office assigned",
+      metaText: `ID #${String(person.personnel_id).padStart(4, "0")}`,
+    });
+
+    switch (activeStat) {
+      case "total":
+        return personnelList.map(toRow);
+      case "male":
+        return personnelList
+          .filter((p) => p.sex?.toLowerCase() === "male")
+          .map(toRow);
+      case "female":
+        return personnelList
+          .filter((p) => p.sex?.toLowerCase() === "female")
+          .map(toRow);
+      case "search":
+        return filteredPersonnel.map(toRow);
+      default:
+        return [];
+    }
+  }, [activeStat, personnelList, filteredPersonnel]);
 
   const offices = useMemo(() => {
     return Array.from(
@@ -678,13 +792,27 @@ export default function Personnel() {
    * ============================================================
    */
 
-  const handleViewPersonnel = (
-    personnel: Personnel
-  ) => {
-    console.log(
-      "Selected personnel:",
-      personnel
-    );
+  const populatePersonnelForm = (personnel: Personnel) => {
+    setEditingPersonnelId(personnel.personnel_id);
+    setEditFormData({
+      rfid_uid: personnel.rfid_uid || "",
+      rank: personnel.rank === "N/A" ? "" : personnel.rank || "",
+      surname: personnel.surname || "",
+      first_name: personnel.first_name || "",
+      middle_initial: personnel.middle_initial || "",
+      q: personnel.q || "",
+      age: personnel.age !== null ? String(personnel.age) : "",
+      sex: personnel.sex || "",
+      office: personnel.office || "",
+    });
+  };
+
+  // Opens the same modal as Edit, but read-only — this used to just
+  // console.log and show nothing to the user.
+  const handleViewPersonnel = (personnel: Personnel) => {
+    populatePersonnelForm(personnel);
+    setViewOnlyMode(true);
+    setShowEditModal(true);
   };
 
   /*
@@ -761,24 +889,15 @@ export default function Personnel() {
     */
 
     const handleEditPersonnel = (personnel: Personnel) => {
-      setEditingPersonnelId(personnel.personnel_id);
-      setEditFormData({
-        rfid_uid: personnel.rfid_uid || "",
-        rank: personnel.rank === "N/A" ? "" : personnel.rank || "",
-        surname: personnel.surname || "",
-        first_name: personnel.first_name || "",
-        middle_initial: personnel.middle_initial || "",
-        q: personnel.q || "",
-        age: personnel.age !== null ? String(personnel.age) : "",
-        sex: personnel.sex || "",
-        office: personnel.office || "",
-      });
+      populatePersonnelForm(personnel);
+      setViewOnlyMode(false);
       setShowEditModal(true);
     };
 
     const handleCloseEditModal = () => {
       if (savingPersonnel) return;
       setShowEditModal(false);
+      setViewOnlyMode(false);
       setEditingPersonnelId(null);
     };
 
@@ -984,7 +1103,11 @@ export default function Personnel() {
 
       <section className="personnel-stat-grid">
 
-        <div className="personnel-stat-card">
+        <button
+          type="button"
+          className="personnel-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("total")}
+        >
           <div className="stat-top">
             <span>Total Personnel</span>
 
@@ -1000,9 +1123,15 @@ export default function Personnel() {
           <div className="stat-change positive">
             Active Records
           </div>
-        </div>
 
-        <div className="personnel-stat-card">
+          <span className="sdm-view-hint">View list →</span>
+        </button>
+
+        <button
+          type="button"
+          className="personnel-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("male")}
+        >
           <div className="stat-top">
             <span>Male Personnel</span>
 
@@ -1027,9 +1156,15 @@ export default function Personnel() {
               of personnel
             </span>
           </div>
-        </div>
 
-        <div className="personnel-stat-card">
+          <span className="sdm-view-hint">View list →</span>
+        </button>
+
+        <button
+          type="button"
+          className="personnel-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("female")}
+        >
           <div className="stat-top">
             <span>Female Personnel</span>
 
@@ -1054,9 +1189,15 @@ export default function Personnel() {
               of personnel
             </span>
           </div>
-        </div>
 
-        <div className="personnel-stat-card">
+          <span className="sdm-view-hint">View list →</span>
+        </button>
+
+        <button
+          type="button"
+          className="personnel-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("search")}
+        >
           <div className="stat-top">
             <span>Search Results</span>
 
@@ -1072,9 +1213,21 @@ export default function Personnel() {
           <div className="stat-change neutral">
             Matching records
           </div>
-        </div>
+
+          <span className="sdm-view-hint">View list →</span>
+        </button>
 
       </section>
+
+      {activeStat && (
+        <StatDrilldownModal
+          title={statMeta[activeStat].title}
+          subtitle={statMeta[activeStat].subtitle}
+          rows={activeStatRows}
+          emptyMessage="No personnel found."
+          onClose={() => setActiveStat(null)}
+        />
+      )}
 
       {/* ======================================================
           EDIT PERSONNEL MODAL
@@ -1127,7 +1280,7 @@ export default function Personnel() {
                     fontWeight: 700,
                   }}
                 >
-                  Edit Personnel
+                  {viewOnlyMode ? "View Personnel" : "Edit Personnel"}
                 </h2>
                 <p
                   style={{
@@ -1136,7 +1289,9 @@ export default function Personnel() {
                     fontSize: "14px",
                   }}
                 >
-                  Modify registered personnel details for ID #{editingPersonnelId}.
+                  {viewOnlyMode
+                    ? `Registered personnel details for ID #${editingPersonnelId}.`
+                    : `Modify registered personnel details for ID #${editingPersonnelId}.`}
                 </p>
               </div>
 
@@ -1216,6 +1371,7 @@ export default function Personnel() {
                       name="rank"
                       value={editFormData.rank}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       required
                       style={{
                         width: "100%",
@@ -1246,6 +1402,7 @@ export default function Personnel() {
                       name="surname"
                       value={editFormData.surname}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       required
                       style={{
                         width: "100%",
@@ -1267,6 +1424,7 @@ export default function Personnel() {
                       name="first_name"
                       value={editFormData.first_name}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       required
                       style={{
                         width: "100%",
@@ -1289,6 +1447,7 @@ export default function Personnel() {
                       maxLength={2}
                       value={editFormData.middle_initial}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       style={{
                         width: "100%",
                         boxSizing: "border-box",
@@ -1309,6 +1468,7 @@ export default function Personnel() {
                       name="q"
                       value={editFormData.q}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       style={{
                         width: "100%",
                         boxSizing: "border-box",
@@ -1331,6 +1491,7 @@ export default function Personnel() {
                       max="120"
                       value={editFormData.age}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       style={{
                         width: "100%",
                         boxSizing: "border-box",
@@ -1350,6 +1511,7 @@ export default function Personnel() {
                       name="sex"
                       value={editFormData.sex}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       required
                       style={{
                         width: "100%",
@@ -1376,6 +1538,7 @@ export default function Personnel() {
                       name="office"
                       value={editFormData.office}
                       onChange={handleEditFormChange}
+                      disabled={viewOnlyMode}
                       style={{
                         width: "100%",
                         boxSizing: "border-box",
@@ -1411,25 +1574,27 @@ export default function Personnel() {
                     fontWeight: 600,
                   }}
                 >
-                  Cancel
+                  {viewOnlyMode ? "Close" : "Cancel"}
                 </button>
 
-                <button
-                  type="submit"
-                  disabled={savingPersonnel}
-                  style={{
-                    padding: "11px 22px",
-                    border: "none",
-                    background: "#2563eb",
-                    color: "#ffffff",
-                    borderRadius: "8px",
-                    cursor: savingPersonnel ? "not-allowed" : "pointer",
-                    fontWeight: 600,
-                    opacity: savingPersonnel ? 0.7 : 1,
-                  }}
-                >
-                  {savingPersonnel ? "Updating..." : "Update Personnel"}
-                </button>
+                {!viewOnlyMode && (
+                  <button
+                    type="submit"
+                    disabled={savingPersonnel}
+                    style={{
+                      padding: "11px 22px",
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      borderRadius: "8px",
+                      cursor: savingPersonnel ? "not-allowed" : "pointer",
+                      fontWeight: 600,
+                      opacity: savingPersonnel ? 0.7 : 1,
+                    }}
+                  >
+                    {savingPersonnel ? "Updating..." : "Update Personnel"}
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -1462,27 +1627,31 @@ export default function Personnel() {
 
           <div className="personnel-header-actions">
 
-            {/* PROVISION RFID CARD */}
+            {canEdit && (
+              <>
+                {/* PROVISION RFID CARD */}
 
-            <button
-              className="provision-rfid-button"
-              onClick={() => {
-                setProvisionError("");
-                setProvisionRfidUid("");
-                setShowProvisionModal(true);
-              }}
-            >
-              + Provision RFID Card
-            </button>
+                <button
+                  className="provision-rfid-button"
+                  onClick={() => {
+                    setProvisionError("");
+                    setProvisionRfidUid("");
+                    setShowProvisionModal(true);
+                  }}
+                >
+                  + Provision RFID Card
+                </button>
 
-            {/* NORMAL ADD BUTTON */}
+                {/* NORMAL ADD BUTTON */}
 
-            <button
-              className="add-personnel-button"
-              onClick={handleAddPersonnel}
-            >
-              + Add Personnel
-            </button>
+                <button
+                  className="add-personnel-button"
+                  onClick={handleAddPersonnel}
+                >
+                  + Add Personnel
+                </button>
+              </>
+            )}
 
           </div>
         </div>
@@ -1662,7 +1831,7 @@ export default function Personnel() {
                     </td>
                   </tr>
                 ) : (
-                  filteredPersonnel.map(
+                  paginatedPersonnel.map(
                     (personnel) => (
                       <tr
                         key={
@@ -1774,28 +1943,32 @@ export default function Personnel() {
                               QR
                             </button>
 
-                            <button
-                              title="Edit"
-                              onClick={() =>
-                                handleEditPersonnel(
-                                  personnel
-                                )
-                              }
-                            >
-                              Edit
-                            </button>
+                            {canEdit && (
+                              <button
+                                title="Edit"
+                                onClick={() =>
+                                  handleEditPersonnel(
+                                    personnel
+                                  )
+                                }
+                              >
+                                Edit
+                              </button>
+                            )}
 
-                            <button
-                              title="Delete"
-                              className="delete-action"
-                              onClick={() =>
-                                handleDeletePersonnel(
-                                  personnel
-                                )
-                              }
-                            >
-                              Delete
-                            </button>
+                            {canDelete && (
+                              <button
+                                title="Delete"
+                                className="delete-action"
+                                onClick={() =>
+                                  handleDeletePersonnel(
+                                    personnel
+                                  )
+                                }
+                              >
+                                Delete
+                              </button>
+                            )}
 
                           </div>
                         </td>
@@ -1812,25 +1985,110 @@ export default function Personnel() {
           </div>
         )}
 
-        {/* TABLE FOOTER */}
+        {/* MODERN PAGINATION CONTROLS */}
 
         {!loadingPersonnel &&
-          filteredPersonnel.length >
-            0 && (
-            <div className="table-footer">
-
-              <span>
+          filteredPersonnel.length > itemsPerPage && (
+            <div className="pagination-container">
+              <div className="pagination-info">
                 Showing{" "}
                 <strong>
-                  {filteredPersonnel.length}
+                  {(currentPage - 1) * itemsPerPage + 1}
                 </strong>{" "}
-                of{" "}
+                to{" "}
                 <strong>
-                  {personnelList.length}
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    filteredPersonnel.length
+                  )}
                 </strong>{" "}
-                personnel
-              </span>
+                of <strong>{filteredPersonnel.length}</strong> entries
+              </div>
 
+              <div className="pagination-controls">
+                {/* Previous Button */}
+                <button
+                  className="btn-modern-nav"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  aria-label="Previous Page"
+                >
+                  <svg
+                    className="nav-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                  <span>Previous</span>
+                </button>
+
+                {/* Page Numbers */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - currentPage) <= 1
+                  )
+                  .reduce<(number | string)[]>((acc, page, idx, src) => {
+                    if (
+                      idx > 0 &&
+                      page - (src[idx - 1] as number) > 1
+                    ) {
+                      acc.push("...");
+                    }
+                    acc.push(page);
+                    return acc;
+                  }, [])
+                  .map((item, index) =>
+                    typeof item === "number" ? (
+                      <button
+                        key={item}
+                        className={`pagination-btn ${
+                          currentPage === item ? "active" : ""
+                        }`}
+                        onClick={() => handlePageChange(item)}
+                      >
+                        {item}
+                      </button>
+                    ) : (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="pagination-ellipsis"
+                      >
+                        •••
+                      </span>
+                    )
+                  )}
+
+                {/* Next Button */}
+                <button
+                  className="btn-modern-nav btn-next"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  aria-label="Next Page"
+                >
+                  <span>Next</span>
+                  <svg
+                    className="nav-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
 

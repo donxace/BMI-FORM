@@ -5,8 +5,11 @@ export default function ProtectedRoute() {
   const role = localStorage.getItem("userRole");
   const location = useLocation();
 
-  // Admin routes require an admin-role token
-  if (!token || role !== "admin") {
+  // Admin routes require one of the BMI domain roles (or the legacy
+  // unrestricted 'admin' super-role), mirrored from AdminAuthGuard's
+  // backend check.
+  const bmiRoles = ["bmi_admin", "bmi_editor", "bmi_viewer"];
+  if (!token || (role !== "admin" && !(role && bmiRoles.includes(role)))) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

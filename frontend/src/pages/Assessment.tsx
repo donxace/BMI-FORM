@@ -10,6 +10,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import "./Assessment.css";
+import StatDrilldownModal, {
+  type DrilldownRow,
+} from "../components/StatDrilldownModal";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
@@ -310,6 +313,11 @@ export default function Assessment() {
   const [assessmentError, setAssessmentError] =
     useState("");
 
+  // Stat card drill-down modal ("who are these numbers")
+  const [activeStat, setActiveStat] = useState<
+    "total" | "normal" | "overweight" | "obese" | "underweight" | null
+  >(null);
+
   /*
    * ============================================================
    * SEARCH / FILTER
@@ -321,6 +329,19 @@ export default function Assessment() {
 
   const [classificationFilter, setClassificationFilter] =
     useState("");
+
+  /*
+   * ============================================================
+   * PAGINATION STATE
+   * ============================================================
+   */
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, classificationFilter]);
 
   /*
    * ============================================================
@@ -604,6 +625,26 @@ export default function Assessment() {
 
   /*
    * ============================================================
+   * PAGINATION
+   * ============================================================
+   */
+
+  const totalPages =
+    Math.ceil(filteredAssessments.length / itemsPerPage) || 1;
+
+  const paginatedAssessments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAssessments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAssessments, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  /*
+   * ============================================================
    * STATISTICS
    * ============================================================
    */
@@ -638,6 +679,82 @@ export default function Assessment() {
         assessment.who_classification ===
         "Underweight",
     ).length;
+
+  /*
+   * ============================================================
+   * STAT CARD DRILL-DOWN LISTS ("who are these numbers")
+   *
+   * Rows are built lazily (only for the currently open modal,
+   * inside useMemo) instead of eagerly for all five categories
+   * on every render -- otherwise every keystroke in the search
+   * box would re-map the entire assessment list five times over.
+   * ============================================================
+   */
+
+  const statMeta = {
+    total: {
+      title: "Total Assessments",
+      subtitle: `${totalAssessments} assessments recorded`,
+    },
+    normal: {
+      title: "Normal",
+      subtitle: `${normalAssessments} personnel within normal BMI range`,
+    },
+    overweight: {
+      title: "Overweight",
+      subtitle: `${overweightAssessments} personnel classified as overweight`,
+    },
+    obese: {
+      title: "Obese",
+      subtitle: `${obeseAssessments} personnel classified as obese`,
+    },
+    underweight: {
+      title: "Underweight",
+      subtitle: `${underweightAssessments} personnel classified as underweight`,
+    },
+  } as const;
+
+  const activeStatRows = useMemo((): DrilldownRow[] => {
+    if (!activeStat) {
+      return [];
+    }
+
+    const toRow = (a: Assessment): DrilldownRow => ({
+      id: a.assessment_id,
+      initials: getInitials(a.personnel),
+      title: getFullName(a.personnel),
+      subtitle: `${a.personnel?.office || "No office"} · ${formatDate(
+        a.assessment_date
+      )}`,
+      value: a.bmi > 0 ? a.bmi.toFixed(1) : "N/A",
+      valueUnit: "kg/m²",
+      badgeLabel: a.who_classification,
+      badgeClass: getClassificationClass(a.who_classification),
+    });
+
+    switch (activeStat) {
+      case "total":
+        return assessmentList.map(toRow);
+      case "normal":
+        return assessmentList
+          .filter((a) => a.who_classification === "Normal")
+          .map(toRow);
+      case "overweight":
+        return assessmentList
+          .filter((a) => a.who_classification === "Overweight")
+          .map(toRow);
+      case "obese":
+        return assessmentList
+          .filter((a) => a.who_classification === "Obese")
+          .map(toRow);
+      case "underweight":
+        return assessmentList
+          .filter((a) => a.who_classification === "Underweight")
+          .map(toRow);
+      default:
+        return [];
+    }
+  }, [activeStat, assessmentList]);
 
   /*
    * ============================================================
@@ -758,7 +875,11 @@ export default function Assessment() {
 
       <section className="assessment-stat-grid">
 
-        <div className="assessment-stat-card">
+        <button
+          type="button"
+          className="assessment-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("total")}
+        >
 
           <div className="stat-top">
 
@@ -780,9 +901,15 @@ export default function Assessment() {
             Recorded assessments
           </div>
 
-        </div>
+          <span className="sdm-view-hint">View list →</span>
 
-        <div className="assessment-stat-card">
+        </button>
+
+        <button
+          type="button"
+          className="assessment-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("normal")}
+        >
 
           <div className="stat-top">
 
@@ -816,9 +943,15 @@ export default function Assessment() {
 
           </div>
 
-        </div>
+          <span className="sdm-view-hint">View list →</span>
 
-        <div className="assessment-stat-card">
+        </button>
+
+        <button
+          type="button"
+          className="assessment-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("overweight")}
+        >
 
           <div className="stat-top">
 
@@ -852,9 +985,15 @@ export default function Assessment() {
 
           </div>
 
-        </div>
+          <span className="sdm-view-hint">View list →</span>
 
-        <div className="assessment-stat-card">
+        </button>
+
+        <button
+          type="button"
+          className="assessment-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("obese")}
+        >
 
           <div className="stat-top">
 
@@ -888,9 +1027,15 @@ export default function Assessment() {
 
           </div>
 
-        </div>
+          <span className="sdm-view-hint">View list →</span>
 
-        <div className="assessment-stat-card">
+        </button>
+
+        <button
+          type="button"
+          className="assessment-stat-card sdm-card-trigger"
+          onClick={() => setActiveStat("underweight")}
+        >
 
           <div className="stat-top">
 
@@ -924,9 +1069,21 @@ export default function Assessment() {
 
           </div>
 
-        </div>
+          <span className="sdm-view-hint">View list →</span>
+
+        </button>
 
       </section>
+
+      {activeStat && (
+        <StatDrilldownModal
+          title={statMeta[activeStat].title}
+          subtitle={statMeta[activeStat].subtitle}
+          rows={activeStatRows}
+          emptyMessage="No assessments found."
+          onClose={() => setActiveStat(null)}
+        />
+      )}
 
       {/* ======================================================
           ASSESSMENT RECORDS
@@ -1144,7 +1301,7 @@ export default function Assessment() {
 
                 ) : (
 
-                  filteredAssessments.map(
+                  paginatedAssessments.map(
                     (assessment) => {
 
                       const personnel =
@@ -1363,39 +1520,112 @@ export default function Assessment() {
         )}
 
         {/* ====================================================
-            FOOTER
+            MODERN PAGINATION CONTROLS
         ===================================================== */}
 
         {!loadingAssessments &&
-          filteredAssessments.length >
-            0 && (
-
-            <div className="table-footer">
-
-              <span>
-
+          filteredAssessments.length > itemsPerPage && (
+            <div className="pagination-container">
+              <div className="pagination-info">
                 Showing{" "}
-
                 <strong>
-                  {
+                  {(currentPage - 1) * itemsPerPage + 1}
+                </strong>{" "}
+                to{" "}
+                <strong>
+                  {Math.min(
+                    currentPage * itemsPerPage,
                     filteredAssessments.length
-                  }
+                  )}
                 </strong>{" "}
+                of <strong>{filteredAssessments.length}</strong> entries
+              </div>
 
-                of{" "}
+              <div className="pagination-controls">
+                {/* Previous Button */}
+                <button
+                  className="btn-modern-nav"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  aria-label="Previous Page"
+                >
+                  <svg
+                    className="nav-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                  <span>Previous</span>
+                </button>
 
-                <strong>
-                  {
-                    assessmentList.length
-                  }
-                </strong>{" "}
+                {/* Page Numbers */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - currentPage) <= 1
+                  )
+                  .reduce<(number | string)[]>((acc, page, idx, src) => {
+                    if (
+                      idx > 0 &&
+                      page - (src[idx - 1] as number) > 1
+                    ) {
+                      acc.push("...");
+                    }
+                    acc.push(page);
+                    return acc;
+                  }, [])
+                  .map((item, index) =>
+                    typeof item === "number" ? (
+                      <button
+                        key={item}
+                        className={`pagination-btn ${
+                          currentPage === item ? "active" : ""
+                        }`}
+                        onClick={() => handlePageChange(item)}
+                      >
+                        {item}
+                      </button>
+                    ) : (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="pagination-ellipsis"
+                      >
+                        •••
+                      </span>
+                    )
+                  )}
 
-                assessments
-
-              </span>
-
+                {/* Next Button */}
+                <button
+                  className="btn-modern-nav btn-next"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  aria-label="Next Page"
+                >
+                  <span>Next</span>
+                  <svg
+                    className="nav-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
+              </div>
             </div>
-
           )}
 
       </section>

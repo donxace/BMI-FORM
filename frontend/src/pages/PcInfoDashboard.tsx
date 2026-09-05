@@ -56,7 +56,7 @@ type ComponentFinding = {
 };
 
 function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("authToken")}` };
+  return { Authorization: `Bearer ${localStorage.getItem("pcInfoAuthToken")}` };
 }
 
 function formatDateTime(date: string | null) {
@@ -82,6 +82,11 @@ function riskBadgeClass(level: string | null) {
 
 export default function PcInfoDashboard() {
   const navigate = useNavigate();
+  // pcinfo_viewer is read-only — importing a new assessment CSV is
+  // hidden for that role (the backend rejects the request anyway, but
+  // hiding the button avoids a confusing 401).
+  const pcInfoRole = localStorage.getItem("pcInfoUserRole");
+  const canImport = pcInfoRole === "pcinfo_admin" || pcInfoRole === "pcinfo_editor" || pcInfoRole === "admin";
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [componentFindings, setComponentFindings] = useState<ComponentFinding[]>([]);
   const [loading, setLoading] = useState(true);
@@ -238,25 +243,29 @@ export default function PcInfoDashboard() {
             </div>
 
             <div className="header-actions">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImportFile(file);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                className="primary-button"
-                disabled={importing}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload size={13} strokeWidth={2.25} />
-                {importing ? "Importing..." : "Import CSV"}
-              </button>
+              {canImport && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImportFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    className="primary-button"
+                    disabled={importing}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload size={13} strokeWidth={2.25} />
+                    {importing ? "Importing..." : "Import CSV"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

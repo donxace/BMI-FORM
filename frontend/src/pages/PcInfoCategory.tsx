@@ -24,7 +24,7 @@ type Finding = {
 };
 
 function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("authToken")}` };
+  return { Authorization: `Bearer ${localStorage.getItem("pcInfoAuthToken")}` };
 }
 
 function formatDateTime(date: string | null) {

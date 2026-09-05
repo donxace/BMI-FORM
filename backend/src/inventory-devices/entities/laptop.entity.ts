@@ -5,8 +5,11 @@ export class Laptop {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'int' })
-  personnel_id!: number;
+  // Nullable so the agent can auto-register a brand-new device before
+  // anyone has assigned an owner — shown as "Unassigned" on the
+  // dashboard until an admin sets these.
+  @Column({ type: 'int', nullable: true })
+  personnel_id!: number | null;
 
   @Column({ type: 'int' })
   device_id!: number;
@@ -14,8 +17,8 @@ export class Laptop {
   @Column({ type: 'varchar', length: 150 })
   device_name!: string;
 
-  @Column({ type: 'int' })
-  division_id!: number;
+  @Column({ type: 'int', nullable: true })
+  division_id!: number | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   ip_address!: string | null;
@@ -103,4 +106,32 @@ export class Laptop {
 
   @Column({ type: 'date', nullable: true })
   acquisition_date!: string | null;
+
+  // ==========================================================
+  // AGENT-REPORTED INVENTORY (JSON-encoded arrays, populated by
+  // scripts/Get-InventoryAgent.ps1 via POST /inventory/devices/
+  // agent-report) — see InventoryDevicesService.reportFromAgent
+  // for the fields that get JSON.stringify'd into these columns.
+  // ==========================================================
+
+  @Column({ type: 'longtext', nullable: true })
+  installed_software!: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  missing_updates!: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  usb_history!: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  network_adapters!: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  printers_detected!: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  hotfixes!: string | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  last_agent_report_at!: Date | null;
 }

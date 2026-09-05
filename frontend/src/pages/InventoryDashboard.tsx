@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css";
 import {
@@ -37,6 +37,49 @@ type UnifiedDevice = {
   createdDate: string | null;
   lastUpdateAt: string | null;
 };
+
+// Agent-reported breakdown — only populated on desktops/laptops, and
+// only once scripts/Get-InventoryAgent.ps1 has reported at least once.
+type InstalledSoftwareItem = { name: string; version: string | null; publisher: string | null; install_date: string | null };
+type MissingUpdateItem = { title: string; kb: string | null; severity: string | null };
+type UsbHistoryItem = { name: string | null; serial: string; last_seen_utc: string | null };
+type NetworkAdapterItem = { description: string | null; mac_address: string | null; ip_address: string | null; dhcp_enabled: boolean; gateway: string | null };
+type PrinterItem = { name: string; driver_name: string | null; port_name: string | null };
+type HotfixItem = { id: string; description: string | null; installed_on: string | null };
+
+type DeviceReport = UnifiedDevice & {
+  raw: {
+    os?: string | null;
+    cpu_brand?: string | null;
+    cpu_cores?: number | null;
+    gb_ram?: number | null;
+    mac_address?: string | null;
+    ip_address?: string | null;
+    no_of_installed_anti_virus?: number | null;
+    last_agent_report_at?: string | null;
+    installed_software?: InstalledSoftwareItem[] | null;
+    missing_updates?: MissingUpdateItem[] | null;
+    usb_history?: UsbHistoryItem[] | null;
+    network_adapters?: NetworkAdapterItem[] | null;
+    printers_detected?: PrinterItem[] | null;
+    hotfixes?: HotfixItem[] | null;
+  };
+};
+
+const AGENT_REPORTABLE_TYPES = new Set(["desktops", "laptops"]);
+
+// Agent-reported fields are loosely-typed, best-effort data straight from
+// PowerShell/WMI/the registry on an arbitrary managed machine — render
+// defensively so an unexpected shape (e.g. an empty object where a
+// string was expected) shows as text instead of crashing the page.
+function safeText(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "object") {
+    const keys = Object.keys(value as object);
+    return keys.length > 0 ? JSON.stringify(value) : "—";
+  }
+  return String(value);
+}
 
 type InventoryPersonnel = {
   id: number;
@@ -113,6 +156,83 @@ export default function InventoryDashboard() {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [detailModal, setDetailModal] = useState<DetailModal>(null);
+
+  // Full agent-report breakdown for one device ("View Full Report").
+  const [reportDevice, setReportDevice] = useState<DeviceReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
+
+  const openDeviceReport = async (device: UnifiedDevice) => {
+    setReportDevice(null);
+    setReportError("");
+    setReportLoading(true);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `${API_BASE_URL}/inventory/devices/${device.deviceType}/${device.id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: DeviceReport = await response.json();
+      setReportDevice(data);
+    } catch (err) {
+      setReportError(
+        err instanceof Error ? err.message : "Unable to load this device's report."
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const closeDeviceReport = () => {
+    setReportDevice(null);
+    setReportError("");
+    setReportLoading(false);
+  };
+
+  // The only other place a device can be deleted from is a specific
+  // person's "Devices" modal on the Personnel page — which auto-
+  // registered (unassigned) devices can never be reached from, since
+  // there's no owner to click through to. This is the direct path.
+  const [deletingDeviceKey, setDeletingDeviceKey] = useState<string | null>(null);
+
+  const deleteDevice = async (device: UnifiedDevice) => {
+    if (!window.confirm(`Delete "${device.label}" (serial ${device.serialNo ?? "—"})? This cannot be undone.`)) {
+      return;
+    }
+
+    const key = `${device.deviceType}-${device.id}`;
+    setDeletingDeviceKey(key);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `${API_BASE_URL}/inventory/devices/${device.deviceType}/${device.id}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      setDevices((prev) =>
+        prev.filter((d) => !(d.deviceType === device.deviceType && d.id === device.id))
+      );
+
+      if (reportDevice && reportDevice.deviceType === device.deviceType && reportDevice.id === device.id) {
+        closeDeviceReport();
+      }
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Failed to delete this device.");
+    } finally {
+      setDeletingDeviceKey(null);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -365,6 +485,7 @@ export default function InventoryDashboard() {
                       <th>OWNER</th>
                       <th>DIVISION</th>
                       <th>ISSUE</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -384,6 +505,25 @@ export default function InventoryDashboard() {
                               </span>
                             ))}
                           </div>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => deleteDevice(device)}
+                            disabled={deletingDeviceKey === `${device.deviceType}-${device.id}`}
+                            style={{
+                              border: "1px solid #fecaca",
+                              background: "#fef2f2",
+                              color: "#b91c1c",
+                              borderRadius: "6px",
+                              padding: "5px 10px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {deletingDeviceKey === `${device.deviceType}-${device.id}` ? "..." : "Delete"}
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -567,13 +707,15 @@ export default function InventoryDashboard() {
                         <th>DIVISION</th>
                         <th>STATUS</th>
                         <th>ADDED</th>
+                        <th>REPORT</th>
+                        <th></th>
                       </tr>
                     </thead>
 
                     <tbody>
                       {paginatedDevices.length === 0 ? (
                         <tr>
-                          <td colSpan={7} style={{ textAlign: "center", padding: "2rem" }}>
+                          <td colSpan={9} style={{ textAlign: "center", padding: "2rem" }}>
                             No devices found.
                           </td>
                         </tr>
@@ -592,6 +734,47 @@ export default function InventoryDashboard() {
                               </span>
                             </td>
                             <td>{formatDate(device.createdDate)}</td>
+                            <td>
+                              {AGENT_REPORTABLE_TYPES.has(device.deviceType) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openDeviceReport(device)}
+                                  style={{
+                                    border: "1px solid #dbeafe",
+                                    background: "#eff6ff",
+                                    color: "#1d4ed8",
+                                    borderRadius: "6px",
+                                    padding: "5px 10px",
+                                    fontSize: "12px",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  View
+                                </button>
+                              ) : (
+                                <span style={{ color: "#9ca3af" }}>—</span>
+                              )}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() => deleteDevice(device)}
+                                disabled={deletingDeviceKey === `${device.deviceType}-${device.id}`}
+                                style={{
+                                  border: "1px solid #fecaca",
+                                  background: "#fef2f2",
+                                  color: "#b91c1c",
+                                  borderRadius: "6px",
+                                  padding: "5px 10px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {deletingDeviceKey === `${device.deviceType}-${device.id}` ? "..." : "Delete"}
+                              </button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -827,6 +1010,259 @@ export default function InventoryDashboard() {
           </div>
         </div>
       )}
+
+      {/* FULL AGENT-REPORT MODAL (per-device Belarc-style breakdown) */}
+      {(reportLoading || reportDevice || reportError) && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "20px" }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeDeviceReport(); }}
+        >
+          <div style={{ width: "100%", maxWidth: "820px", maxHeight: "85vh", overflowY: "auto", background: "#fff", borderRadius: "16px", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <div style={{ padding: "24px 28px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>
+                  {reportDevice ? reportDevice.label : "Device Report"}
+                </h2>
+                <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "14px" }}>
+                  {reportDevice
+                    ? `Reported by scripts/Get-InventoryAgent.ps1 — last agent check-in ${
+                        reportDevice.raw.last_agent_report_at
+                          ? new Date(reportDevice.raw.last_agent_report_at).toLocaleString()
+                          : "never"
+                      }`
+                    : "Full hardware/software inventory from the local agent"}
+                </p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {reportDevice && (
+                  <button
+                    type="button"
+                    onClick={() => deleteDevice(reportDevice)}
+                    disabled={deletingDeviceKey === `${reportDevice.deviceType}-${reportDevice.id}`}
+                    style={{ border: "1px solid #fecaca", background: "#fef2f2", color: "#b91c1c", borderRadius: "8px", padding: "9px 14px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    {deletingDeviceKey === `${reportDevice.deviceType}-${reportDevice.id}` ? "Deleting..." : "Delete Device"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeDeviceReport}
+                  style={{ border: "none", background: "#f3f4f6", width: "38px", height: "38px", borderRadius: "50%", fontSize: "22px", cursor: "pointer" }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: "8px 28px 28px" }}>
+              {reportLoading && (
+                <div style={{ padding: "3rem", textAlign: "center", color: "#6b7280" }}>Loading report...</div>
+              )}
+
+              {reportError && (
+                <div style={{ padding: "1rem", color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px" }}>
+                  {reportError}
+                </div>
+              )}
+
+              {reportDevice && !reportLoading && (
+                <>
+                  {!reportDevice.raw.last_agent_report_at && (
+                    <div style={{ padding: "12px 14px", marginTop: "8px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", color: "#92400e", fontSize: "13px" }}>
+                      This device hasn't reported yet. Run <code>Get-InventoryAgent.ps1</code> on it (serial must match "{reportDevice.serialNo}") to populate this report.
+                    </div>
+                  )}
+
+                  {/* SUMMARY */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px", margin: "16px 0 24px" }}>
+                    {[
+                      ["Operating System", reportDevice.raw.os],
+                      ["Processor", reportDevice.raw.cpu_brand],
+                      ["CPU Cores", reportDevice.raw.cpu_cores],
+                      ["Memory", reportDevice.raw.gb_ram ? `${reportDevice.raw.gb_ram} GB` : null],
+                      ["MAC Address", reportDevice.raw.mac_address],
+                      ["IP Address", reportDevice.raw.ip_address],
+                      ["Antivirus Products", reportDevice.raw.no_of_installed_anti_virus],
+                    ].map(([label, value]) => (
+                      <div key={label as string} style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: "8px" }}>
+                        <div style={{ fontSize: "11px", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</div>
+                        <div style={{ fontSize: "14px", fontWeight: 700, color: "#111827", marginTop: "2px" }}>{safeText(value)}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* MISSING UPDATES */}
+                  <ReportSection title="Missing Security Updates" count={reportDevice.raw.missing_updates?.length}>
+                    {reportDevice.raw.missing_updates && reportDevice.raw.missing_updates.length > 0 ? (
+                      <div className="table-container">
+                        <table>
+                          <thead><tr><th>UPDATE</th><th>KB</th><th>SEVERITY</th></tr></thead>
+                          <tbody>
+                            {reportDevice.raw.missing_updates.map((u, i) => (
+                              <tr key={i}>
+                                <td>{u.title}</td>
+                                <td>{u.kb ?? "—"}</td>
+                                <td>{u.severity ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptySection text="No missing updates reported — either fully patched, or the agent was run with -SkipUpdateCheck." />
+                    )}
+                  </ReportSection>
+
+                  {/* INSTALLED SOFTWARE */}
+                  <ReportSection title="Installed Software" count={reportDevice.raw.installed_software?.length}>
+                    {reportDevice.raw.installed_software && reportDevice.raw.installed_software.length > 0 ? (
+                      <div className="table-container" style={{ maxHeight: "280px", overflowY: "auto" }}>
+                        <table>
+                          <thead><tr><th>NAME</th><th>VERSION</th><th>PUBLISHER</th><th>INSTALLED</th></tr></thead>
+                          <tbody>
+                            {reportDevice.raw.installed_software.map((s, i) => (
+                              <tr key={i}>
+                                <td>{s.name}</td>
+                                <td>{s.version ?? "—"}</td>
+                                <td>{s.publisher ?? "—"}</td>
+                                <td>{formatDate(s.install_date)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptySection text="No installed-software data reported yet." />
+                    )}
+                  </ReportSection>
+
+                  {/* NETWORK ADAPTERS */}
+                  <ReportSection title="Network Adapters" count={reportDevice.raw.network_adapters?.length}>
+                    {reportDevice.raw.network_adapters && reportDevice.raw.network_adapters.length > 0 ? (
+                      <div className="table-container">
+                        <table>
+                          <thead><tr><th>ADAPTER</th><th>MAC</th><th>IP</th><th>DHCP</th><th>GATEWAY</th></tr></thead>
+                          <tbody>
+                            {reportDevice.raw.network_adapters.map((n, i) => (
+                              <tr key={i}>
+                                <td>{safeText(n.description)}</td>
+                                <td>{safeText(n.mac_address)}</td>
+                                <td>{safeText(n.ip_address)}</td>
+                                <td>{n.dhcp_enabled ? "Yes" : "No"}</td>
+                                <td>{safeText(n.gateway)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptySection text="No network adapter data reported yet." />
+                    )}
+                  </ReportSection>
+
+                  {/* USB HISTORY */}
+                  <ReportSection title="USB Storage History" count={reportDevice.raw.usb_history?.length}>
+                    {reportDevice.raw.usb_history && reportDevice.raw.usb_history.length > 0 ? (
+                      <div className="table-container">
+                        <table>
+                          <thead><tr><th>DEVICE</th><th>SERIAL</th><th>LAST CONNECTED</th></tr></thead>
+                          <tbody>
+                            {reportDevice.raw.usb_history.map((u, i) => (
+                              <tr key={i}>
+                                <td>{u.name ?? "—"}</td>
+                                <td>{u.serial}</td>
+                                <td>{u.last_seen_utc ? new Date(u.last_seen_utc).toLocaleString() : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptySection text="No USB storage devices detected." />
+                    )}
+                  </ReportSection>
+
+                  {/* PRINTERS */}
+                  <ReportSection title="Printers" count={reportDevice.raw.printers_detected?.length}>
+                    {reportDevice.raw.printers_detected && reportDevice.raw.printers_detected.length > 0 ? (
+                      <div className="table-container">
+                        <table>
+                          <thead><tr><th>PRINTER</th><th>DRIVER</th><th>PORT</th></tr></thead>
+                          <tbody>
+                            {reportDevice.raw.printers_detected.map((p, i) => (
+                              <tr key={i}>
+                                <td>{p.name}</td>
+                                <td>{p.driver_name ?? "—"}</td>
+                                <td>{p.port_name ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptySection text="No printers detected." />
+                    )}
+                  </ReportSection>
+
+                  {/* HOTFIXES */}
+                  <ReportSection title="Installed Hotfixes" count={reportDevice.raw.hotfixes?.length}>
+                    {reportDevice.raw.hotfixes && reportDevice.raw.hotfixes.length > 0 ? (
+                      <div className="table-container" style={{ maxHeight: "220px", overflowY: "auto" }}>
+                        <table>
+                          <thead><tr><th>HOTFIX</th><th>DESCRIPTION</th><th>INSTALLED</th></tr></thead>
+                          <tbody>
+                            {reportDevice.raw.hotfixes.map((h, i) => (
+                              <tr key={i}>
+                                <td>{h.id}</td>
+                                <td>{h.description ?? "—"}</td>
+                                <td>{formatDate(h.installed_on)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <EmptySection text="No hotfix data reported yet." />
+                    )}
+                  </ReportSection>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReportSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number | undefined;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ marginBottom: "22px" }}>
+      <h3 style={{ margin: "0 0 10px", fontSize: "15px", fontWeight: 700, color: "#111827" }}>
+        {title}
+        {typeof count === "number" && (
+          <span style={{ marginLeft: "8px", fontSize: "12px", fontWeight: 600, color: "#6b7280" }}>
+            ({count})
+          </span>
+        )}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+function EmptySection({ text }: { text: string }) {
+  return (
+    <div style={{ padding: "14px", background: "#f9fafb", border: "1px dashed #e5e7eb", borderRadius: "8px", color: "#9ca3af", fontSize: "13px" }}>
+      {text}
     </div>
   );
 }

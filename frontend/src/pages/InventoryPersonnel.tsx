@@ -343,6 +343,16 @@ export default function InventoryPersonnel() {
       setShowAddModal(false);
       setShowEditModal(false);
       await loadPersonnel();
+
+      // Serial numbers live on a device record, not the personnel record
+      // itself — so right after adding a new person, immediately offer
+      // to add their device (where "Serial No." actually lives) instead
+      // of leaving them to hunt for the separate "Devices" button.
+      if (mode === "add") {
+        const created = await res.json();
+        await openDevicesModal(created);
+        openAddDevice();
+      }
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "Failed to save personnel.");
     } finally {

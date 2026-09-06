@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { X } from "lucide-react";
 import "./MyRecords.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -23,9 +24,12 @@ export default function MyRecords() {
   const [error, setError] = useState("");
   const [previewId, setPreviewId] = useState<number | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   useEffect(() => {
     const fetchRecords = async () => {
-      const token = localStorage.getItem("authToken");
+      const token = localStorage.getItem("personnelAuthToken");
 
       try {
         const response = await fetch(
@@ -40,8 +44,8 @@ export default function MyRecords() {
         );
 
         if (response.status === 401) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("userRole");
+          localStorage.removeItem("personnelAuthToken");
+          localStorage.removeItem("personnelUserRole");
           localStorage.removeItem("personnelName");
           navigate("/login");
           return;
@@ -67,6 +71,19 @@ export default function MyRecords() {
     fetchRecords();
   }, [navigate]);
 
+  const totalPages = Math.ceil(records.length / itemsPerPage) || 1;
+
+  const paginatedRecords = records.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
   const downloadPdf = (assessmentId: number) => {
     /*
      * Navigate directly to the file (Content-Disposition:
@@ -76,8 +93,9 @@ export default function MyRecords() {
      * correctly by both iOS Safari (Share/Save to Files) and
      * Android Chrome (saves to Downloads).
      */
+    const token = localStorage.getItem("authToken") ?? "";
     window.open(
-      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf?download=true`,
+      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf?download=true&token=${encodeURIComponent(token)}`,
       "_blank"
     );
   };
@@ -117,7 +135,7 @@ export default function MyRecords() {
             </thead>
 
             <tbody>
-              {records.map((record) => (
+              {paginatedRecords.map((record) => (
                 <tr key={record.assessment_id}>
                   <td>
                     {new Date(record.assessment_date).toLocaleDateString()}
@@ -154,6 +172,98 @@ export default function MyRecords() {
         </div>
       )}
 
+      {!loading && !error && records.length > itemsPerPage && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Showing{" "}
+            <strong>{(currentPage - 1) * itemsPerPage + 1}</strong> to{" "}
+            <strong>
+              {Math.min(currentPage * itemsPerPage, records.length)}
+            </strong>{" "}
+            of <strong>{records.length}</strong> entries
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="btn-modern-nav"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              aria-label="Previous Page"
+            >
+              <svg
+                className="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              <span>Previous</span>
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(
+                (page) =>
+                  page === 1 ||
+                  page === totalPages ||
+                  Math.abs(page - currentPage) <= 1
+              )
+              .reduce<(number | string)[]>((acc, page, idx, src) => {
+                if (idx > 0 && page - (src[idx - 1] as number) > 1) {
+                  acc.push("...");
+                }
+                acc.push(page);
+                return acc;
+              }, [])
+              .map((item, index) =>
+                typeof item === "number" ? (
+                  <button
+                    key={item}
+                    className={`pagination-btn ${
+                      currentPage === item ? "active" : ""
+                    }`}
+                    onClick={() => handlePageChange(item)}
+                  >
+                    {item}
+                  </button>
+                ) : (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="pagination-ellipsis"
+                  >
+                    •••
+                  </span>
+                )
+              )}
+
+            <button
+              className="btn-modern-nav btn-next"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Next Page"
+            >
+              <span>Next</span>
+              <svg
+                className="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {previewId && (
         <div
           className="my-records-preview-overlay"
@@ -171,12 +281,12 @@ export default function MyRecords() {
                 className="my-records-preview-close"
                 onClick={() => setPreviewId(null)}
               >
-                ✕
+                <X size={16} strokeWidth={2} />
               </button>
             </div>
 
             <iframe
-              src={`${API_BASE_URL}/health-reports/bmi/${previewId}/pdf`}
+              src={`${API_BASE_URL}/health-reports/bmi/${previewId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`}
               title="BMI Assessment Form"
               className="my-records-preview-frame"
             />

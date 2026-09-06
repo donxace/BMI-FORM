@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -9,7 +9,11 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { CheckCircle2 } from "lucide-react";
 import "./Analytics.css";
+import StatDrilldownModal, {
+  type DrilldownRow,
+} from "../components/StatDrilldownModal";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
 
@@ -79,6 +83,17 @@ function getFullName(personnel?: Personnel) {
     .join(" ");
 }
 
+function getInitials(personnel?: Personnel) {
+  if (!personnel) {
+    return "NA";
+  }
+
+  const first = personnel.first_name?.charAt(0) ?? "";
+  const last = personnel.surname?.charAt(0) ?? "";
+
+  return `${first}${last}`.toUpperCase();
+}
+
 function getClassificationClass(classification: string) {
   return classification
     .toLowerCase()
@@ -114,6 +129,11 @@ const OFFICE_COLORS = [
   "#d97706", // Amber
 ];
 
+// Shared chart palette — matches the Smoke & Temperature trend cards
+const CHART_GRID = "#e1e0d9";
+const CHART_MUTED = "#898781";
+const CHART_SURFACE = "#fcfcfb";
+
 /*
  * ============================================================
  * ANALYTICS PAGE
@@ -129,6 +149,17 @@ export default function Analytics() {
 
   const [error, setError] =
     useState("");
+
+  // Stat card drill-down modal ("who are these numbers")
+  const [activeStat, setActiveStat] = useState<
+    | "assessments"
+    | "personnel"
+    | "bmi"
+    | "normal"
+    | "elevated"
+    | "weight"
+    | null
+  >(null);
 
   /*
    * ==========================================================
@@ -546,6 +577,126 @@ export default function Analytics() {
           totalAssessments) *
         100
       : 0;
+
+  /*
+   * ==========================================================
+   * STAT CARD DRILL-DOWN LISTS ("who are these numbers")
+   *
+   * Rows are built lazily (only for the currently open modal,
+   * inside useMemo) instead of eagerly for all six categories
+   * on every render -- otherwise every keystroke in a filter
+   * field would re-map the entire filtered assessment list six
+   * times over.
+   * ==========================================================
+   */
+
+  const statMeta = {
+    assessments: {
+      title: "Assessments",
+      subtitle: `${totalAssessments} filtered records`,
+    },
+    personnel: {
+      title: "Personnel",
+      subtitle: `${uniquePersonnel} unique personnel in this filter`,
+    },
+    bmi: {
+      title: "Average BMI",
+      subtitle: `Based on ${totalAssessments} records, sorted highest to lowest`,
+    },
+    normal: {
+      title: "Normal",
+      subtitle: `${normalCount} personnel within normal BMI range`,
+    },
+    elevated: {
+      title: "Elevated",
+      subtitle: `${
+        overweightCount + obeseCount
+      } personnel overweight or obese`,
+    },
+    weight: {
+      title: "Average Weight",
+      subtitle: `Based on ${totalAssessments} records, sorted highest to lowest`,
+    },
+  } as const;
+
+  const activeStatRows = useMemo((): DrilldownRow[] => {
+    if (!activeStat) {
+      return [];
+    }
+
+    const toRow = (a: Assessment): DrilldownRow => ({
+      id: a.assessment_id,
+      initials: getInitials(a.personnel),
+      title: getFullName(a.personnel),
+      subtitle: `${a.personnel?.office || "No office"} · ${formatDate(
+        a.assessment_date
+      )}`,
+      value: a.bmi > 0 ? a.bmi.toFixed(1) : "N/A",
+      valueUnit: "kg/m²",
+      badgeLabel: a.who_classification,
+      badgeClass: getClassificationClass(a.who_classification),
+    });
+
+    switch (activeStat) {
+      case "assessments":
+        return filteredAssessments.map(toRow);
+
+      case "personnel": {
+        const seen = new Map<number, Assessment>();
+
+        filteredAssessments.forEach((a) => {
+          if (!seen.has(a.personnel_id)) {
+            seen.set(a.personnel_id, a);
+          }
+        });
+
+        return Array.from(seen.values()).map(
+          (a): DrilldownRow => ({
+            id: a.personnel_id,
+            initials: getInitials(a.personnel),
+            title: `${a.personnel?.rank ?? ""} ${getFullName(
+              a.personnel
+            )}`.trim(),
+            subtitle: a.personnel?.office || "No office assigned",
+            metaText: `ID #${String(a.personnel_id).padStart(4, "0")}`,
+          })
+        );
+      }
+
+      case "bmi":
+        return [...filteredAssessments]
+          .sort((a, b) => b.bmi - a.bmi)
+          .map(toRow);
+
+      case "normal":
+        return filteredAssessments
+          .filter((a) => a.who_classification === "Normal")
+          .map(toRow);
+
+      case "elevated":
+        return filteredAssessments
+          .filter(
+            (a) =>
+              a.who_classification === "Overweight" ||
+              a.who_classification === "Obese"
+          )
+          .map(toRow);
+
+      case "weight":
+        return [...filteredAssessments]
+          .sort((a, b) => b.weight - a.weight)
+          .map(
+            (a): DrilldownRow => ({
+              ...toRow(a),
+              value: a.weight > 0 ? a.weight.toFixed(1) : "N/A",
+              valueUnit: "kg",
+            })
+          );
+
+      default:
+        return [];
+    }
+  }, [activeStat, filteredAssessments]);
 
   /*
    * ==========================================================
@@ -1064,7 +1215,11 @@ export default function Analytics() {
 
       <section className="analytics-summary">
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("assessments")}
+        >
 
           <div className="analytics-icon blue">
             #
@@ -1084,11 +1239,17 @@ export default function Analytics() {
               Filtered records
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("personnel")}
+        >
 
           <div className="analytics-icon green">
             P
@@ -1108,11 +1269,17 @@ export default function Analytics() {
               Unique personnel
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("bmi")}
+        >
 
           <div className="analytics-icon teal">
             BMI
@@ -1134,14 +1301,20 @@ export default function Analytics() {
               Population average
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("normal")}
+        >
 
           <div className="analytics-icon green">
-            ✓
+            <CheckCircle2 size={18} strokeWidth={2} />
           </div>
 
           <div>
@@ -1161,11 +1334,17 @@ export default function Analytics() {
               % of assessments
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("elevated")}
+        >
 
           <div className="analytics-icon orange">
             !
@@ -1189,11 +1368,17 @@ export default function Analytics() {
               % overweight/obese
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
-        <div className="analytics-summary-card">
+        <button
+          type="button"
+          className="analytics-summary-card sdm-card-trigger"
+          onClick={() => setActiveStat("weight")}
+        >
 
           <div className="analytics-icon purple">
             KG
@@ -1217,11 +1402,23 @@ export default function Analytics() {
               Average kilograms
             </small>
 
+            <span className="sdm-view-hint">View list →</span>
+
           </div>
 
-        </div>
+        </button>
 
       </section>
+
+      {activeStat && (
+        <StatDrilldownModal
+          title={statMeta[activeStat].title}
+          subtitle={statMeta[activeStat].subtitle}
+          rows={activeStatRows}
+          emptyMessage="No records found."
+          onClose={() => setActiveStat(null)}
+        />
+      )}
 
       {/* OFFICE BMI TREND LINE CHART */}
       <section className="analytics-card">
@@ -1242,52 +1439,105 @@ export default function Analytics() {
         ) : (
           <div style={{ width: "100%", height: 350, marginTop: "1rem" }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
+              <AreaChart
                 data={officeTrendData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+                margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <defs>
+                  {officeOptions.map((officeName, index) => (
+                    <linearGradient
+                      key={officeName}
+                      id={`fill-office-${index}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={OFFICE_COLORS[index % OFFICE_COLORS.length]}
+                        stopOpacity={0.18}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={OFFICE_COLORS[index % OFFICE_COLORS.length]}
+                        stopOpacity={0.02}
+                      />
+                    </linearGradient>
+                  ))}
+                </defs>
+
+                <CartesianGrid
+                  stroke={CHART_GRID}
+                  strokeDasharray="0"
+                  vertical={false}
+                />
+
                 <XAxis
                   dataKey="month"
-                  stroke="#64748b"
-                  style={{ fontSize: "0.85rem" }}
+                  stroke={CHART_MUTED}
+                  tickLine={false}
+                  axisLine={{ stroke: CHART_GRID }}
+                  style={{ fontSize: "10px" }}
+                  minTickGap={24}
                 />
+
                 <YAxis
                   domain={["dataMin - 1", "dataMax + 1"]}
-                  stroke="#64748b"
-                  style={{ fontSize: "0.85rem" }}
+                  stroke={CHART_MUTED}
+                  tickLine={false}
+                  axisLine={false}
+                  tickCount={4}
+                  style={{ fontSize: "10px" }}
+                  width={40}
                   unit=" BMI"
                 />
+
                 <Tooltip
+                  cursor={{ stroke: CHART_GRID, strokeWidth: 1 }}
                   contentStyle={{
-                    backgroundColor: "#1e293b",
-                    borderColor: "#334155",
+                    background: "#172033",
+                    border: "none",
                     borderRadius: "8px",
-                    color: "#fff",
-                    fontSize: "0.85rem",
+                    fontSize: "11px",
+                    padding: "8px 10px",
                   }}
-                  itemStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#94a3b8" }}
+                  itemStyle={{ color: "#ffffff" }}
                 />
+
                 <Legend
                   wrapperStyle={{
                     paddingTop: "15px",
-                    fontSize: "0.85rem",
+                    fontSize: "11px",
                   }}
                 />
+
                 {officeOptions.map((officeName, index) => (
-                  <Line
+                  <Area
                     key={officeName}
                     type="monotone"
                     dataKey={officeName}
                     name={officeName}
                     stroke={OFFICE_COLORS[index % OFFICE_COLORS.length]}
-                    strokeWidth={3}
-                    dot={{ r: 5 }}
-                    activeDot={{ r: 8 }}
+                    strokeWidth={2}
+                    fill={`url(#fill-office-${index})`}
+                    dot={{
+                      r: 4,
+                      fill: OFFICE_COLORS[index % OFFICE_COLORS.length],
+                      stroke: CHART_SURFACE,
+                      strokeWidth: 2,
+                    }}
+                    activeDot={{
+                      r: 5,
+                      fill: OFFICE_COLORS[index % OFFICE_COLORS.length],
+                      stroke: CHART_SURFACE,
+                      strokeWidth: 2,
+                    }}
                     connectNulls
                   />
                 ))}
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -1810,7 +2060,7 @@ export default function Analytics() {
             <div className="insight-item">
 
               <span className="insight-icon green">
-                ✓
+                <CheckCircle2 size={16} strokeWidth={2} />
               </span>
 
               <div>

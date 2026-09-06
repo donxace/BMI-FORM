@@ -8,8 +8,8 @@ export default function PersonnelLayout() {
     localStorage.getItem("personnelName") || "Personnel";
 
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userRole");
+    localStorage.removeItem("personnelAuthToken");
+    localStorage.removeItem("personnelUserRole");
     localStorage.removeItem("personnelName");
 
     navigate("/login");
@@ -20,7 +20,7 @@ export default function PersonnelLayout() {
       <header className="personnel-topbar">
         <div className="personnel-branding">
           <img
-            src="/PNP-ITMS-BMI-LOGO.png"
+            src="/PNP-ITMS-LOGO.png"
             alt="PNP ITMS BMI Logo"
             className="personnel-logo"
           />

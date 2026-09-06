@@ -155,7 +155,7 @@ export default function MyMeasurement() {
       return;
     }
 
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("personnelAuthToken");
 
     try {
       setSubmitting(true);
@@ -176,8 +176,8 @@ export default function MyMeasurement() {
       });
 
       if (response.status === 401) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userRole");
+        localStorage.removeItem("personnelAuthToken");
+        localStorage.removeItem("personnelUserRole");
         localStorage.removeItem("personnelName");
         navigate("/login");
         return;
@@ -343,7 +343,7 @@ export default function MyMeasurement() {
                 className="my-measurement-pdf-open"
                 onClick={() =>
                   window.open(
-                    `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`,
+                    `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`,
                     "_blank"
                   )
                 }
@@ -356,7 +356,7 @@ export default function MyMeasurement() {
           {savedAssessmentId ? (
             <div className="pdf-preview-container">
               <iframe
-                src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`}
+                src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`}
                 title="BMI Assessment Form"
                 className="pdf-preview"
               />

@@ -1,0 +1,7 @@
+/* =========================================================
+   SECURITY DOMAIN
+
+   Reuses the base sidebar/topbar chrome and royal-blue theme defined
+   in MainLayout.css (imported alongside this file in SecurityLayout.tsx)
+   — no domain-specific overrides needed here right now.
+========================================================= */

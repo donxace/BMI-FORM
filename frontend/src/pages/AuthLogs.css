@@ -1,0 +1,520 @@
+/* =========================================================
+   GLOBAL / PAGE
+   Same page shell (padding, background, min-height) as every other
+   admin page (Assessment.css, Personnel.css, etc.) for consistency.
+========================================================= */
+
+.auth-logs-page {
+  min-height: calc(100vh - 82px);
+  width: 100%;
+  background: #f5f7fb;
+  padding: 32px 38px 50px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  color: #273247;
+}
+
+.auth-logs-page *,
+.auth-logs-page *::before,
+.auth-logs-page *::after {
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.auth-logs-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+  min-width: 0;
+  text-align: left;
+}
+
+.auth-logs-header .breadcrumb {
+  color: #8a95a5;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.auth-logs-header h1 {
+  margin: 0 0 6px;
+  color: #172033;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.auth-logs-header p {
+  margin: 0;
+  color: #7d8999;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.auth-logs-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.auth-logs-date span {
+  color: #8a95a5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.auth-logs-date strong {
+  color: #273247;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* =========================================================
+   STAT GRID
+========================================================= */
+
+.auth-logs-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.auth-logs-stat {
+  min-width: 0;
+  width: 100%;
+  padding: 18px 19px;
+  background: #ffffff;
+  border: 1px solid #e5e9ef;
+  border-radius: 11px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.025);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.auth-logs-stat:hover {
+  border-color: #c7d2e0;
+}
+
+.auth-logs-stat:active {
+  transform: scale(0.99);
+}
+
+.auth-logs-stat.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.auth-logs-stat .stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.auth-logs-stat .stat-top > span {
+  color: #687589;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-logs-stat .stat-icon {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.auth-logs-stat .stat-icon.blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.auth-logs-stat .stat-icon.green {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.auth-logs-stat .stat-icon.red {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.auth-logs-stat .stat-icon.purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.auth-logs-stat h2 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.auth-logs-stat .stat-change {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.auth-logs-stat .stat-change span {
+  color: #8994a5;
+}
+
+.auth-logs-stat .stat-change.positive {
+  color: #16a34a;
+}
+
+.auth-logs-stat .stat-change.negative {
+  color: #dc2626;
+}
+
+.auth-logs-stat .stat-change.neutral {
+  color: #657184;
+}
+
+/* =========================================================
+   MAIN CARD
+========================================================= */
+
+.auth-logs-card {
+  width: 100%;
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e5e9ef;
+  border-radius: 11px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.025);
+}
+
+/* =========================================================
+   SECTION HEADER
+========================================================= */
+
+.auth-logs-card .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid #edf0f4;
+  min-width: 0;
+}
+
+.auth-logs-card .section-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.auth-logs-card .section-number {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.auth-logs-card .section-header h2 {
+  margin: 0 0 5px;
+  color: #172033;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.auth-logs-card .section-header p {
+  margin: 0;
+  color: #8994a5;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.auth-logs-card .record-count {
+  padding: 7px 11px;
+  background: #f8fafc;
+  border: 1px solid #e5e9ef;
+  border-radius: 20px;
+  color: #657184;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
+.auth-logs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 18px 24px;
+  background: #fafbfc;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.auth-logs-toolbar button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 7px;
+  border: 1px solid #dce2ea;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #536071;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.auth-logs-toolbar button:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.auth-logs-toolbar button.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.auth-logs-toolbar .refresh-button {
+  margin-left: auto;
+}
+
+/* =========================================================
+   STATES — ERROR / LOADING / EMPTY
+========================================================= */
+
+.auth-logs-error {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 18px 24px;
+  padding: 13px 15px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.auth-logs-loading {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #8994a5;
+}
+
+.auth-logs-loading p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.loading-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: auth-logs-spin 0.8s linear infinite;
+}
+
+@keyframes auth-logs-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.auth-logs-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: #8994a5;
+  font-size: 13px;
+}
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+.auth-logs-card .table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.auth-logs-card .table-container table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.auth-logs-card .table-container thead {
+  background: #f8fafc;
+}
+
+.auth-logs-card .table-container th {
+  padding: 13px 15px;
+  border-bottom: 1px solid #e5e9ef;
+  color: #7d8999;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.auth-logs-card .table-container td {
+  padding: 14px 15px;
+  border-bottom: 1px solid #f0f2f5;
+  color: #536071;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.auth-logs-card .table-container tbody tr {
+  transition: background 0.12s ease;
+}
+
+.auth-logs-card .table-container tbody tr:hover {
+  background: #fafcff;
+}
+
+.auth-logs-card .table-container tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.auth-logs-mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 10px;
+  color: #657184;
+  white-space: nowrap;
+}
+
+.auth-logs-reason {
+  color: #b91c1c;
+  font-size: 11px;
+}
+
+.auth-type-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+/* Status pill reuses the same visual language as the BMI classification
+   badges elsewhere (soft pill + dot) instead of its own one-off style. */
+.classification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.classification-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.classification-badge.success {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.classification-badge.success .classification-dot {
+  background: #22c55e;
+}
+
+.classification-badge.failure {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.classification-badge.failure .classification-dot {
+  background: #ef4444;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1200px) {
+  .auth-logs-page {
+    padding: 26px 28px 40px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .auth-logs-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 750px) {
+  .auth-logs-page {
+    padding: 22px 20px 35px;
+  }
+
+  .auth-logs-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .auth-logs-date {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-logs-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-logs-toolbar .refresh-button {
+    margin-left: 0;
+  }
+}

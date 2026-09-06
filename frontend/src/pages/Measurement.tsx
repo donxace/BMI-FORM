@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import jsQR from "jsqr";
+import { User, Nfc, QrCode, Search, Play, Ruler, Scale, CircleDot, Info } from "lucide-react";
 import "./Measurement.css";
 
 /*
@@ -38,7 +40,7 @@ type Classification =
   | "Overweight"
   | "Obese";
 
-type PersonnelMode = "manual" | "automatic";
+type PersonnelMode = "manual" | "automatic" | "qr";
 
 type RFIDStatus =
   | "Waiting"
@@ -66,6 +68,7 @@ type Personnel = {
 type RFIDResponse = {
   rfid_uid?: string | null;
   personnel?: Personnel | null;
+  scan_id?: number;
 };
 
 type LiveReadingResponse = {
@@ -93,18 +96,40 @@ function getClassification(
 /*
  * ============================================================
  * PNP BMI CLASSIFICATION
+ *
+ * Official "PNP Acceptable BMI Classification" (as of January 2020,
+ * DHRDD). Severely Underweight / Underweight / Normal / Obese Class
+ * 1-2-3 are fixed for every age; only the "Acceptable BMI" buffer
+ * above Normal (and therefore where Overweight starts) widens with
+ * age.
  * ============================================================
  */
 
-function getPNPClassification(
-  bmi: number
-): string {
-  if (bmi < 18.5) return "Underweight";
-  if (bmi < 23) return "Normal";
-  if (bmi < 25) return "Overweight";
-  if (bmi < 30) return "Obese Class I";
+function getPnpAcceptableUpperBound(age: number | null): number {
+  if (age === null) return 24.9; // no age on file — use the strictest (youngest) band
+  if (age <= 29) return 24.9;
+  if (age <= 34) return 25.0;
+  if (age <= 39) return 25.5;
+  if (age <= 44) return 26.0;
+  if (age <= 50) return 26.5;
+  return 27.0; // 51 and above
+}
 
-  return "Obese Class II";
+function getPNPClassification(
+  bmi: number,
+  age: number | null
+): string {
+  if (bmi < 17) return "Severely Underweight";
+  if (bmi < 18.5) return "Underweight";
+  if (bmi <= 24.9) return "Normal";
+
+  if (bmi <= getPnpAcceptableUpperBound(age)) return "Acceptable BMI";
+
+  if (bmi <= 29.9) return "Overweight";
+  if (bmi <= 34.9) return "Obese Class 1";
+  if (bmi <= 39.9) return "Obese Class 2";
+
+  return "Obese Class 3";
 }
 
 /*
@@ -292,6 +317,17 @@ export default function Measurement() {
   const [wrist, setWrist] =
     useState("");
 
+  const [flashHeight, setFlashHeight] =
+    useState(false);
+
+  const [flashWeight, setFlashWeight] =
+    useState(false);
+
+  const flashTimeouts = useRef<{
+    height?: number;
+    weight?: number;
+  }>({});
+
   /*
    * ============================================================
    * SAVED ASSESSMENT
@@ -454,7 +490,7 @@ export default function Measurement() {
    */
 
   useEffect(() => {
-    if (personnelMode !== "automatic") {
+    if (personnelMode !== "automatic" && personnelMode !== "qr") {
       setRfidStatus("Waiting");
       setRfidError("");
       return;
@@ -466,6 +502,12 @@ export default function Measurement() {
     setRfidUid("");
 
     let cancelled = false;
+
+    // Whatever scan_id is already "latest" the moment this mode is
+    // entered is a stale leftover from some earlier tap, not a fresh
+    // scan. Baseline it on the first poll (without acting on it) so
+    // only a scan_id that shows up AFTER that auto-selects someone.
+    let baselineScanId: number | null | undefined = undefined;
 
     const checkRFID =
       async () => {
@@ -496,12 +538,21 @@ export default function Measurement() {
             return;
           }
 
+          if (baselineScanId === undefined) {
+            baselineScanId = data.scan_id ?? null;
+            setRfidStatus("Scanning");
+            setRfidUid("");
+            setSelectedPersonnel(null);
+            return;
+          }
+
           /*
            * No RFID scan has been received
-           * from the ESP32 yet.
+           * from the ESP32 yet, or it's the
+           * same stale scan already baselined.
            */
 
-          if (!data.rfid_uid) {
+          if (!data.rfid_uid || data.scan_id === baselineScanId) {
             setRfidStatus("Scanning");
             setRfidUid("");
             setSelectedPersonnel(null);
@@ -595,6 +646,167 @@ export default function Measurement() {
 
   /*
    * ============================================================
+   * QR CODE PERSONNEL DETECTION
+   *
+   * Scans the device camera for a QR code encoding a personnel's
+   * RFID UID, then posts it to the SAME public endpoint the ESP32
+   * RFID reader uses (POST /personnel/rfid/scan) — the automatic-
+   * detection poll above (which also runs for "qr") picks it up
+   * within ~1s, exactly as if a physical card had been tapped.
+   * ============================================================
+   */
+
+  const qrVideoRef = useRef<HTMLVideoElement | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const qrStreamRef = useRef<MediaStream | null>(null);
+  const qrFrameRef = useRef<number | null>(null);
+  const qrLastSentRef = useRef<{ code: string; at: number } | null>(null);
+
+  const [qrCameraError, setQrCameraError] = useState("");
+  const [qrManualCode, setQrManualCode] = useState("");
+
+  const reportScannedCode = (code: string) => {
+    fetch(`${API_BASE_URL}/personnel/rfid/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rfid_uid: code }),
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (personnelMode !== "qr") {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setQrCameraError(
+        "Camera access isn't available here — it requires HTTPS or localhost. Use the manual code entry below instead."
+      );
+      return;
+    }
+
+    let cancelled = false;
+    setQrCameraError("");
+
+    const scanFrame = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const video = qrVideoRef.current;
+      const canvas = qrCanvasRef.current;
+
+      if (
+        video &&
+        canvas &&
+        video.readyState === video.HAVE_ENOUGH_DATA
+      ) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const context = canvas.getContext("2d");
+
+        if (context) {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const imageData = context.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+          const result = jsQR(
+            imageData.data,
+            imageData.width,
+            imageData.height
+          );
+
+          if (result?.data) {
+            const now = Date.now();
+            const last = qrLastSentRef.current;
+
+            // Debounce so a QR code held up to the camera doesn't
+            // flood the endpoint with a POST on every frame.
+            if (
+              !last ||
+              last.code !== result.data ||
+              now - last.at > 3000
+            ) {
+              qrLastSentRef.current = { code: result.data, at: now };
+              reportScannedCode(result.data);
+            }
+          }
+        }
+      }
+
+      qrFrameRef.current = requestAnimationFrame(scanFrame);
+    };
+
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        qrStreamRef.current = stream;
+
+        if (qrVideoRef.current) {
+          qrVideoRef.current.srcObject = stream;
+          await qrVideoRef.current.play();
+        }
+
+        scanFrame();
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("QR CAMERA ERROR:", error);
+
+        setQrCameraError(
+          error instanceof Error
+            ? error.message
+            : "Unable to access the camera."
+        );
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      cancelled = true;
+
+      if (qrFrameRef.current) {
+        cancelAnimationFrame(qrFrameRef.current);
+        qrFrameRef.current = null;
+      }
+
+      if (qrStreamRef.current) {
+        qrStreamRef.current.getTracks().forEach((track) => track.stop());
+        qrStreamRef.current = null;
+      }
+    };
+  }, [personnelMode]);
+
+  const submitManualQrCode = () => {
+    const code = qrManualCode.trim();
+
+    if (!code) {
+      return;
+    }
+
+    reportScannedCode(code);
+    setQrManualCode("");
+  };
+
+  /*
+   * ============================================================
    * LIVE WEIGHT / HEIGHT READING FROM MICROCONTROLLER
    *
    * Once a session is started (personnel identified via RFID),
@@ -669,10 +881,24 @@ export default function Measurement() {
 
         if (data.height != null) {
           setHeight(String(data.height));
+
+          setFlashHeight(true);
+          window.clearTimeout(flashTimeouts.current.height);
+          flashTimeouts.current.height = window.setTimeout(
+            () => setFlashHeight(false),
+            900
+          );
         }
 
         if (data.weight != null) {
           setWeight(String(data.weight));
+
+          setFlashWeight(true);
+          window.clearTimeout(flashTimeouts.current.weight);
+          flashTimeouts.current.weight = window.setTimeout(
+            () => setFlashWeight(false),
+            900
+          );
         }
       } catch (error) {
         if (!cancelled) {
@@ -691,6 +917,9 @@ export default function Measurement() {
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+
+      window.clearTimeout(flashTimeouts.current.height);
+      window.clearTimeout(flashTimeouts.current.weight);
 
       fetch(`${API_BASE_URL}/bmi-assessments/session/end`, {
         method: "POST",
@@ -742,7 +971,7 @@ export default function Measurement() {
 
   const pnpClassification =
     bmi !== null
-      ? getPNPClassification(bmi)
+      ? getPNPClassification(bmi, selectedPersonnel?.age ?? null)
       : null;
 
   /*
@@ -947,8 +1176,11 @@ export default function Measurement() {
 
       setRfidError("");
 
+      setQrCameraError("");
+      setQrManualCode("");
+
       setRfidStatus(
-        mode === "automatic"
+        mode === "automatic" || mode === "qr"
           ? "Scanning"
           : "Waiting"
       );
@@ -1220,6 +1452,35 @@ export default function Measurement() {
 
   /*
    * ============================================================
+   * MEASUREMENT FIELD ANIMATION STATE
+   *
+   * "pending"  — session is active but the field is still empty
+   * "filled"   — the field has a value (checkmark pop-in)
+   * "flash"    — value just arrived live from the microcontroller
+   * ============================================================
+   */
+
+  const getFieldClass = (
+    value: string,
+    isFlashing = false
+  ) => {
+    const classes = ["measurement-input"];
+
+    if (sessionStarted) {
+      classes.push(
+        value.trim() ? "filled" : "pending"
+      );
+    }
+
+    if (isFlashing) {
+      classes.push("flash");
+    }
+
+    return classes.join(" ");
+  };
+
+  /*
+   * ============================================================
    * CURRENT DATE
    * ============================================================
    */
@@ -1249,8 +1510,11 @@ export default function Measurement() {
       return;
     }
 
+    // window.open can't attach an Authorization header — the token
+    // travels as a query param instead (see HealthReportAccessGuard).
+    const pdfToken = localStorage.getItem("authToken") ?? "";
     window.open(
-      `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`,
+      `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf?token=${encodeURIComponent(pdfToken)}`,
       "_blank"
     );
   };
@@ -1262,9 +1526,13 @@ export default function Measurement() {
    */
 
   const getRFIDStatusText = () => {
+    const isQr = personnelMode === "qr";
+
     switch (rfidStatus) {
       case "Scanning":
-        return "Waiting for RFID card...";
+        return isQr
+          ? "Point the camera at a personnel QR code..."
+          : "Waiting for RFID card...";
 
       case "Found":
         return "Personnel identified successfully.";
@@ -1272,11 +1540,13 @@ export default function Measurement() {
       case "Error":
         return (
           rfidError ||
-          "Unable to identify RFID card."
+          (isQr
+            ? "Unable to identify QR code."
+            : "Unable to identify RFID card.")
         );
 
       default:
-        return "RFID scanner ready.";
+        return isQr ? "QR scanner ready." : "RFID scanner ready.";
     }
   };
 
@@ -1463,8 +1733,9 @@ export default function Measurement() {
                   </h2>
 
                   <p>
-                    Select personnel manually
-                    or identify them using RFID.
+                    Select personnel manually, or
+                    identify them using RFID or a
+                    QR code.
                   </p>
 
                 </div>
@@ -1504,7 +1775,7 @@ export default function Measurement() {
                 >
 
                   <span>
-                    👤
+                    <User size={14} strokeWidth={2} />
                   </span>
 
                   Manual
@@ -1530,10 +1801,36 @@ export default function Measurement() {
                 >
 
                   <span>
-                    📡
+                    <Nfc size={14} strokeWidth={2} />
                   </span>
 
                   RFID Automatic
+
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    personnelMode ===
+                    "qr"
+                      ? "mode-button active"
+                      : "mode-button"
+                  }
+                  disabled={
+                    sessionStarted
+                  }
+                  onClick={() =>
+                    handlePersonnelModeChange(
+                      "qr"
+                    )
+                  }
+                >
+
+                  <span>
+                    <QrCode size={14} strokeWidth={2} />
+                  </span>
+
+                  QR Code
 
                 </button>
 
@@ -1558,6 +1855,10 @@ export default function Measurement() {
                   className="personnel-search"
                   ref={personnelSearchRef}
                 >
+
+                  <span className="personnel-search-icon">
+                    <Search size={14} strokeWidth={2} />
+                  </span>
 
                   <input
                     type="text"
@@ -1722,7 +2023,7 @@ export default function Measurement() {
               <div className="rfid-scanner">
 
                 <div className="rfid-scanner-icon">
-                  RFID
+                  <Nfc size={26} strokeWidth={1.75} />
                 </div>
 
                 <h3>
@@ -1773,6 +2074,116 @@ export default function Measurement() {
                   </div>
 
                 )}
+
+              </div>
+
+            )}
+
+            {/* ==================================================
+                QR CODE MODE
+            =================================================== */}
+
+            {personnelMode === "qr" && (
+
+              <div className="rfid-scanner qr-scanner">
+
+                <div className="qr-video-frame">
+
+                  <video
+                    ref={qrVideoRef}
+                    className="qr-video"
+                    muted
+                    playsInline
+                  />
+
+                  <span className="qr-video-corner tl" />
+                  <span className="qr-video-corner tr" />
+                  <span className="qr-video-corner bl" />
+                  <span className="qr-video-corner br" />
+
+                </div>
+
+                <canvas
+                  ref={qrCanvasRef}
+                  style={{ display: "none" }}
+                />
+
+                <h3>
+                  {rfidStatus === "Found"
+                    ? "Personnel Identified"
+                    : "Scan QR Code"}
+                </h3>
+
+                <p>
+                  {getRFIDStatusText()}
+                </p>
+
+                {qrCameraError && (
+                  <div className="rfid-error">
+                    {qrCameraError}
+                  </div>
+                )}
+
+                {rfidUid && (
+
+                  <div className="rfid-uid">
+
+                    <span>
+                      Scanned Code
+                    </span>
+
+                    <strong>
+                      {rfidUid}
+                    </strong>
+
+                  </div>
+
+                )}
+
+                <div
+                  className={`rfid-status ${rfidStatus.toLowerCase()}`}
+                >
+
+                  <span className="rfid-status-dot" />
+
+                  {rfidStatus}
+
+                </div>
+
+                {rfidStatus === "Error" && rfidError && (
+
+                  <div className="rfid-error">
+                    {rfidError}
+                  </div>
+
+                )}
+
+                <div className="qr-manual-entry">
+
+                  <input
+                    type="text"
+                    placeholder="Or type the code manually"
+                    value={qrManualCode}
+                    onChange={(event) =>
+                      setQrManualCode(event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        submitManualQrCode();
+                      }
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={submitManualQrCode}
+                    disabled={!qrManualCode.trim()}
+                  >
+                    Submit
+                  </button>
+
+                </div>
 
               </div>
 
@@ -1875,7 +2286,7 @@ export default function Measurement() {
               >
 
                 <span>
-                  ▶
+                  <Play size={14} strokeWidth={2} fill="currentColor" />
                 </span>
 
                 Start Measurement Session
@@ -1950,16 +2361,19 @@ export default function Measurement() {
 
             )}
 
-            <div className="measurement-grid">
+            <div
+              className="measurement-grid"
+              key={sessionStarted ? "active" : "idle"}
+            >
 
               {/* HEIGHT */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(height, flashHeight)}>
 
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ↕
+                    <Ruler size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2004,12 +2418,12 @@ export default function Measurement() {
 
               {/* WEIGHT */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(weight, flashWeight)}>
 
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ⚖
+                    <Scale size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2054,12 +2468,12 @@ export default function Measurement() {
 
               {/* WAIST */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(waist)}>
 
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ◉
+                    <CircleDot size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2104,12 +2518,12 @@ export default function Measurement() {
 
               {/* HIP */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(hip)}>
 
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ◉
+                    <CircleDot size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2154,12 +2568,12 @@ export default function Measurement() {
 
               {/* WRIST */}
 
-              <div className="measurement-input">
+              <div className={getFieldClass(wrist)}>
 
                 <div className="input-label">
 
                   <div className="measurement-icon">
-                    ◉
+                    <CircleDot size={16} strokeWidth={2} />
                   </div>
 
                   <div>
@@ -2207,7 +2621,7 @@ export default function Measurement() {
             <div className="measurement-note">
 
               <span>
-                ⓘ
+                <Info size={14} strokeWidth={2} />
               </span>
 
               <p>
@@ -2310,7 +2724,7 @@ export default function Measurement() {
               <div className="pdf-preview-container">
 
                 <iframe
-                  src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`}
+                  src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`}
                   title="BMI Assessment Form"
                   className="pdf-preview"
                 />
@@ -2569,9 +2983,10 @@ export default function Measurement() {
               </span>
 
               <strong>
-                {personnelMode ===
-                "automatic"
+                {personnelMode === "automatic"
                   ? "RFID Automatic"
+                  : personnelMode === "qr"
+                  ? "QR Code"
                   : "Manual"}
               </strong>
 

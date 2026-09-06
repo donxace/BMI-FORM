@@ -17,7 +17,8 @@ export class PersonnelService {
   private latestRfidScan: {
     rfid_uid: string | null;
     personnel: Personnel | null;
-  } = { rfid_uid: null, personnel: null };
+    scan_id: number;
+  } = { rfid_uid: null, personnel: null, scan_id: 0 };
 
   constructor(
     @InjectRepository(Personnel)
@@ -126,6 +127,11 @@ export class PersonnelService {
     this.latestRfidScan = {
       rfid_uid,
       personnel: personnel ?? null,
+      // Bumped on every physical tap, even a repeat tap of the same
+      // card, so pollers (e.g. the Kiosk) can tell "a fresh tap just
+      // happened" apart from "still the same cached scan as before"
+      // — comparing rfid_uid alone can't distinguish those.
+      scan_id: this.latestRfidScan.scan_id + 1,
     };
 
     return this.latestRfidScan;

@@ -127,3 +127,28 @@
 .personnel-content {
     padding: 32px;
 }
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 640px) {
+    .personnel-topbar {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .personnel-branding strong {
+        font-size: 14px;
+    }
+
+    .personnel-tabs {
+        padding: 10px 16px 0;
+        overflow-x: auto;
+    }
+
+    .personnel-content {
+        padding: 20px 16px;
+    }
+}

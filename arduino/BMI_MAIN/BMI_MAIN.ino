@@ -1,1376 +1,298 @@
-#include <Wire.h>
-#include <Adafruit_SHT31.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
 
-// ============================================================
-// ESP32 SERVER ROOM SECURITY SYSTEM
-// ============================================================
-//
-// MQ-2        -> GPIO 34
-// LDR         -> GPIO 35
-// Laser       -> GPIO 26
-// Buzzer      -> GPIO 25
-//
-// SHT3X:
-// SDA         -> GPIO 21
-// SCL         -> GPIO 22
-//
-// SIM800L:
-// TXD         -> ESP32 GPIO 16 (RX2)
-// RXD         -> ESP32 GPIO 17 (TX2)
-// GND         -> Common GND
-// VDD         -> ESP32 3.3V logic reference
-// 5VIN        -> External 5V supply
-//
-// Serial Monitor -> 115200
-// SIM800L UART   -> 9600
-// ============================================================
+const char* ssid = "HUAWEI-3j74";
+const char* password = "dxp2jzb9";
 
+const char* rfidScanUrl =
+  "http://192.168.1.22:3000/personnel/rfid/scan";
 
-// ============================================================
-// PIN DEFINITIONS
-// ============================================================
+const char* readingUrl =
+  "http://192.168.1.22:3000/bmi-assessments/reading";
 
-#define MQ2_PIN       34
-#define LDR_PIN       35
-#define LASER_PIN     26
-#define BUZZER_PIN    25
+const char* sessionStatusUrl =
+  "http://192.168.1.22:3000/bmi-assessments/session/status";
 
-#define SIM800_RX     16
-#define SIM800_TX     17
+// ========================================
+// SEQUENCE
+// ========================================
+// 1. Hold BOOT to fake an RFID tap -> the Measurement page's
+//    Automatic mode identifies the personnel via
+//    /personnel/rfid/latest.
+// 2. Admin presses "Start Measurement" on the website -> the
+//    board polls /bmi-assessments/session/status and only then
+//    starts prompting for input.
+// 3. Type a height value into the Serial Monitor and press
+//    Enter -> it's posted to /bmi-assessments/reading right
+//    away and appears on the Measurement page within ~1s.
+//    Then type a weight value and press Enter -> same thing,
+//    posted the instant it's captured instead of waiting for
+//    both values.
+// ========================================
 
-#define SHT31_SDA     21
-#define SHT31_SCL     22
+// ---- STEP 1: FAKE RFID TAP (NO READER WIRED UP YET) ----
+// Swap FAKE_RFID_UID for any other rfid_uid already seeded in
+// the personnel table to identify a different person.
 
+const int RFID_BUTTON_PIN = 0; // BOOT button on most ESP32 dev boards
+const char* FAKE_RFID_UID = "RFID-125421521"; // Reyes, Carlo D. - PAT
 
-// ============================================================
-// SENSOR THRESHOLDS
-// ============================================================
+const unsigned long RFID_DEBOUNCE_MS = 200;
 
-// MQ-2
-#define SMOKE_THRESHOLD       250
-#define SMOKE_VERY_BAD        500
-#define SMOKE_CRITICAL        800
+unsigned long rfidCandidateSince = 0;
+bool rfidCandidateState = false;
+bool rfidLastSentPressed = false;
 
-// Laser / LDR
-#define LDR_THRESHOLD         100
+// ---- STEP 2: SERIAL HEIGHT/WEIGHT INPUT ----
 
-// Temperature
-#define TEMP_LOW_BAD          18.0
-#define TEMP_GOOD_MAX         27.0
-#define TEMP_BAD_MAX          30.0
-#define TEMP_VERY_BAD_MAX     35.0
-
-// Humidity
-#define HUM_LOW_BAD           30.0
-#define HUM_GOOD_MAX          60.0
-#define HUM_BAD_MAX           70.0
-#define HUM_VERY_BAD_MAX      80.0
-
-
-// ============================================================
-// TIMING
-// ============================================================
-
-#define SMOKE_CONFIRM_TIME    5000UL
-#define SMOKE_ALARM_TIME      30000UL
-
-
-// ============================================================
-// PHONE NUMBERS
-// ============================================================
-
-const char *phoneNumbers[] = {
-  "09974339872",
-  "09760721613"
+enum ReadingInputStage {
+  WAITING_FOR_HEIGHT,
+  WAITING_FOR_WEIGHT,
 };
 
-const int phoneCount = 2;
+ReadingInputStage readingStage = WAITING_FOR_HEIGHT;
+float pendingHeight = 0;
 
+// ---- SESSION STATE (SET BY THE ADMIN ON THE WEBSITE) ----
 
-// ============================================================
-// OBJECTS
-// ============================================================
+bool sessionActive = false;
 
-HardwareSerial SIM800(2);
+const unsigned long SESSION_POLL_INTERVAL_MS = 1000;
+unsigned long lastSessionCheck = 0;
 
-Adafruit_SHT31 sht31 = Adafruit_SHT31();
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
 
+  Serial.print("Connecting to WiFi");
 
-// ============================================================
-// STATES
-// ============================================================
-
-// Smoke
-bool smokeCondition = false;
-bool smokeAlertSent = false;
-bool smokeAlarmActive = false;
-
-unsigned long smokeStartTime = 0;
-unsigned long smokeAlarmStart = 0;
-
-
-// Motion
-bool motionDetected = false;
-
-
-// Temperature
-bool temperatureBad = false;
-bool temperatureAlertSent = false;
-
-
-// Humidity
-bool humidityBad = false;
-bool humidityAlertSent = false;
-
-
-// ============================================================
-// BUZZER
-// ============================================================
-
-void buzzerOn() {
-
-  // ESP32 Arduino Core 3.x LEDC
-  ledcWriteTone(BUZZER_PIN, 2000);
-}
-
-
-void buzzerOff() {
-
-  ledcWriteTone(BUZZER_PIN, 0);
-}
-
-
-// ============================================================
-// SEND AT COMMAND
-// ============================================================
-
-void sendATCommand(String command, unsigned long waitTime = 1000) {
-
-  SIM800.println(command);
-
-  unsigned long start = millis();
-
-  while (millis() - start < waitTime) {
-
-    while (SIM800.available()) {
-
-      Serial.write(SIM800.read());
-    }
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
+
+  Serial.println();
+  Serial.println("WiFi connected!");
+
+  Serial.print("ESP32 IP: ");
+  Serial.println(WiFi.localIP());
 }
 
+void sendFakeRfidScan() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected!");
+    return;
+  }
 
-// ============================================================
-// SEND SMS TO ONE NUMBER
-// ============================================================
+  HTTPClient http;
 
-bool sendSMS(const char *number, String message) {
+  http.begin(rfidScanUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  String json = "{";
+  json += "\"rfid_uid\":\"" + String(FAKE_RFID_UID) + "\"";
+  json += "}";
 
   Serial.println();
   Serial.println("================================");
-  Serial.print("Sending SMS to: ");
-  Serial.println(number);
+  Serial.println("FAKE RFID TAP");
+  Serial.println(json);
+  Serial.println("================================");
 
+  int responseCode = http.POST(json);
 
-  // Set SMS text mode
-  SIM800.println("AT+CMGF=1");
+  Serial.print("HTTP Response: ");
+  Serial.println(responseCode);
+  Serial.println(http.getString());
 
-  delay(500);
+  http.end();
+}
 
+void handleFakeRfidButton() {
+  bool pressedNow = (digitalRead(RFID_BUTTON_PIN) == LOW);
 
-  // Select recipient
-  SIM800.print("AT+CMGS=\"");
-  SIM800.print(number);
-  SIM800.println("\"");
-
-
-  unsigned long start = millis();
-
-  bool promptReceived = false;
-
-
-  // Wait for >
-  while (millis() - start < 5000) {
-
-    if (SIM800.available()) {
-
-      char c = SIM800.read();
-
-      Serial.write(c);
-
-      if (c == '>') {
-
-        promptReceived = true;
-
-        break;
-      }
-    }
+  if (pressedNow != rfidCandidateState) {
+    rfidCandidateState = pressedNow;
+    rfidCandidateSince = millis();
   }
 
+  bool debounced =
+    (millis() - rfidCandidateSince) >= RFID_DEBOUNCE_MS;
 
-  if (!promptReceived) {
+  // Send once per press (rising edge), not repeatedly while held.
+  if (debounced &&
+      rfidCandidateState &&
+      !rfidLastSentPressed) {
 
-    Serial.println();
-    Serial.println("ERROR: SIM800L did not give SMS prompt.");
+    sendFakeRfidScan();
+    rfidLastSentPressed = true;
 
+  } else if (debounced && !rfidCandidateState) {
+
+    rfidLastSentPressed = false;
+  }
+}
+
+bool fetchSessionActive() {
+  if (WiFi.status() != WL_CONNECTED) {
     return false;
   }
 
+  HTTPClient http;
 
-  // Send message
-  SIM800.print(message);
+  http.begin(sessionStatusUrl);
 
-  delay(300);
+  int responseCode = http.GET();
+  bool active = false;
 
-
-  // CTRL + Z
-  SIM800.write(26);
-
-
-  Serial.println();
-  Serial.println("Waiting for SMS confirmation...");
-
-
-  start = millis();
-
-  bool sent = false;
-
-
-  while (millis() - start < 15000) {
-
-    if (SIM800.available()) {
-
-      String response = SIM800.readString();
-
-      Serial.println(response);
-
-
-      if (response.indexOf("+CMGS:") >= 0 ||
-          response.indexOf("OK") >= 0) {
-
-        sent = true;
-
-        break;
-      }
-    }
+  if (responseCode == 200) {
+    String body = http.getString();
+    active = body.indexOf("\"active\":true") >= 0;
   }
 
+  http.end();
 
-  if (sent) {
-
-    Serial.println("Message Sent");
-
-  }
-  else {
-
-    Serial.println("Message Failed");
-  }
-
-
-  return sent;
+  return active;
 }
 
-
-// ============================================================
-// SEND SMS TO ALL NUMBERS
-// ============================================================
-
-void sendSMSAll(String message) {
-
-  for (int i = 0; i < phoneCount; i++) {
-
-    sendSMS(phoneNumbers[i], message);
-
-    delay(1000);
-  }
-}
-
-
-// ============================================================
-// MQ-2 STATUS
-// ============================================================
-
-String getSmokeStatus(int value) {
-
-  if (value < SMOKE_THRESHOLD) {
-
-    return "GOOD";
-  }
-
-
-  if (value < SMOKE_VERY_BAD) {
-
-    return "BAD";
-  }
-
-
-  if (value < SMOKE_CRITICAL) {
-
-    return "VERY BAD";
-  }
-
-
-  return "CRITICAL";
-}
-
-
-// ============================================================
-// TEMPERATURE STATUS
-// ============================================================
-
-String getTemperatureStatus(float temp) {
-
-  if (temp < TEMP_LOW_BAD) {
-
-    return "BAD";
-  }
-
-
-  if (temp <= TEMP_GOOD_MAX) {
-
-    return "GOOD";
-  }
-
-
-  if (temp <= TEMP_BAD_MAX) {
-
-    return "BAD";
-  }
-
-
-  if (temp <= TEMP_VERY_BAD_MAX) {
-
-    return "VERY BAD";
-  }
-
-
-  return "CRITICAL";
-}
-
-
-// ============================================================
-// HUMIDITY STATUS
-// ============================================================
-
-String getHumidityStatus(float humidity) {
-
-  if (humidity < HUM_LOW_BAD) {
-
-    return "BAD";
-  }
-
-
-  if (humidity <= HUM_GOOD_MAX) {
-
-    return "GOOD";
-  }
-
-
-  if (humidity <= HUM_BAD_MAX) {
-
-    return "BAD";
-  }
-
-
-  if (humidity <= HUM_VERY_BAD_MAX) {
-
-    return "VERY BAD";
-  }
-
-
-  return "CRITICAL";
-}
-
-
-// ============================================================
-// LASER STATUS
-// ============================================================
-
-String getLaserStatus(int ldrValue) {
-
-  if (ldrValue >= LDR_THRESHOLD) {
-
-    return "CLEAR";
-  }
-
-
-  return "BLOCKED";
-}
-
-
-// ============================================================
-// OVERALL STATUS
-// ============================================================
-
-String getOverallStatus(
-  int smokeValue,
-  float temperature,
-  float humidity,
-  int ldrValue
-) {
-
-  bool danger = false;
-
-
-  // Smoke
-  if (smokeValue >= SMOKE_THRESHOLD) {
-
-    danger = true;
-  }
-
-
-  // Temperature
-  if (getTemperatureStatus(temperature) != "GOOD") {
-
-    danger = true;
-  }
-
-
-  // Humidity
-  if (getHumidityStatus(humidity) != "GOOD") {
-
-    danger = true;
-  }
-
-
-  // Laser / motion
-  if (ldrValue < LDR_THRESHOLD) {
-
-    danger = true;
-  }
-
-
-  if (danger) {
-
-    return "ALERT";
-  }
-
-
-  return "NORMAL";
-}
-
-
-// ============================================================
-// SEND SMOKE ALERT
-// ============================================================
-
-void sendSmokeAlert(int smokeValue) {
-
-  String severity = getSmokeStatus(smokeValue);
-
-
-  String message = "";
-
-  message += "SMOKE/GAS ALERT\n";
-
-  message += "MQ-2 Value: ";
-  message += String(smokeValue);
-
-  message += "\nThreshold: ";
-  message += String(SMOKE_THRESHOLD);
-
-  message += "\nStatus: ";
-  message += severity;
-
-
-  if (smokeValue >= SMOKE_CRITICAL) {
-
-    message += "\nLevel: CRITICAL";
-
-  }
-  else if (smokeValue >= SMOKE_VERY_BAD) {
-
-    message += "\nLevel: VERY BAD";
-
-  }
-  else {
-
-    message += "\nLevel: BAD";
-  }
-
-
-  sendSMSAll(message);
-}
-
-
-// ============================================================
-// SEND TEMPERATURE ALERT
-// ============================================================
-
-void sendTemperatureAlert(float temperature) {
-
-  String status = getTemperatureStatus(temperature);
-
-
-  String message = "";
-
-  message += "TEMPERATURE ALERT\n";
-
-  message += "Temperature: ";
-  message += String(temperature, 1);
-  message += " C\n";
-
-  message += "Status: ";
-  message += status;
-
-  message += "\nSafe Range: 18-27 C";
-
-
-  sendSMSAll(message);
-}
-
-
-// ============================================================
-// SEND HUMIDITY ALERT
-// ============================================================
-
-void sendHumidityAlert(float humidity) {
-
-  String status = getHumidityStatus(humidity);
-
-
-  String message = "";
-
-  message += "HUMIDITY ALERT\n";
-
-  message += "Humidity: ";
-  message += String(humidity, 1);
-  message += " %\n";
-
-  message += "Status: ";
-  message += status;
-
-  message += "\nSafe Range: 30-60 %";
-
-
-  sendSMSAll(message);
-}
-
-
-// ============================================================
-// CHECK INCOMING SMS
-// ============================================================
-
-void checkIncomingSMS() {
-
-  if (!SIM800.available()) {
-
+void handleSessionPolling() {
+  if (millis() - lastSessionCheck < SESSION_POLL_INTERVAL_MS) {
     return;
   }
 
+  lastSessionCheck = millis();
 
-  String incoming = "";
+  bool active = fetchSessionActive();
 
+  if (active && !sessionActive) {
 
-  while (SIM800.available()) {
-
-    incoming += (char)SIM800.read();
-
-    delay(2);
-  }
-
-
-  if (incoming.length() == 0) {
-
-    return;
-  }
-
-
-  Serial.println();
-  Serial.println("================================");
-  Serial.println("SIM800L DATA:");
-  Serial.println(incoming);
-  Serial.println("================================");
-
-
-  // ==========================================================
-  // STATUS COMMAND
-  // ==========================================================
-
-  if (incoming.indexOf("STATUS") >= 0 ||
-      incoming.indexOf("status") >= 0) {
-
-
-    // Read current values
-    int smokeValue = analogRead(MQ2_PIN);
-
-    int ldrValue = analogRead(LDR_PIN);
-
-
-    float temperature = sht31.readTemperature();
-
-    float humidity = sht31.readHumidity();
-
-
-    String laserStatus = getLaserStatus(ldrValue);
-
-    String smokeStatus = getSmokeStatus(smokeValue);
-
-    String tempStatus = getTemperatureStatus(temperature);
-
-    String humStatus = getHumidityStatus(temperature);
-
-
-    // Correct humidity status
-    humStatus = getHumidityStatus(humidity);
-
-
-    String overall;
-
-
-    if (!isnan(temperature) && !isnan(humidity)) {
-
-      overall = getOverallStatus(
-        smokeValue,
-        temperature,
-        humidity,
-        ldrValue
-      );
-
-    }
-    else {
-
-      overall = "SENSOR ERROR";
-    }
-
-
-    String message = "";
-
-
-    message += "SERVER ROOM STATUS\n\n";
-
-
-    // MQ2
-    message += "MQ-2: ";
-    message += String(smokeValue);
-
-    message += " (";
-    message += smokeStatus;
-    message += ")\n";
-
-
-    message += "Smoke Threshold: ";
-    message += String(SMOKE_THRESHOLD);
-
-    message += "\n\n";
-
-
-    // Temperature
-    if (!isnan(temperature)) {
-
-      message += "Temperature: ";
-      message += String(temperature, 1);
-      message += " C (";
-      message += tempStatus;
-      message += ")\n";
-
-    }
-    else {
-
-      message += "Temperature: SENSOR ERROR\n";
-    }
-
-
-    // Humidity
-    if (!isnan(humidity)) {
-
-      message += "Humidity: ";
-      message += String(humidity, 1);
-      message += " % (";
-      message += humStatus;
-      message += ")\n";
-
-    }
-    else {
-
-      message += "Humidity: SENSOR ERROR\n";
-    }
-
-
-    message += "\n";
-
-
-    // LDR
-    message += "LDR: ";
-    message += String(ldrValue);
-    message += "\n";
-
-
-    // Laser
-    message += "Laser: ";
-    message += laserStatus;
-    message += "\n";
-
-
-    // Motion
-    message += "Motion: ";
-
-    if (motionDetected) {
-
-      message += "DETECTED";
-
-    }
-    else {
-
-      message += "CLEAR";
-    }
-
-
-    message += "\n\n";
-
-
-    // Smoke alarm
-    message += "Smoke Alarm: ";
-
-    if (smokeAlarmActive) {
-
-      message += "ACTIVE";
-
-    }
-    else {
-
-      message += "OFF";
-    }
-
-
-    message += "\n";
-
-
-    // Overall
-    message += "Overall: ";
-    message += overall;
-
-
-    // ========================================================
-    // FIND SMS SENDER
-    // ========================================================
-
-    int cmtPosition = incoming.indexOf("+CMT:");
-
-    String sender = "";
-
-
-    if (cmtPosition >= 0) {
-
-      int firstQuote =
-        incoming.indexOf("\"", cmtPosition);
-
-
-      if (firstQuote >= 0) {
-
-        int secondQuote =
-          incoming.indexOf(
-            "\"",
-            firstQuote + 1
-          );
-
-
-        if (secondQuote >= 0) {
-
-          sender = incoming.substring(
-            firstQuote + 1,
-            secondQuote
-          );
-        }
-      }
-    }
-
-
-    // ========================================================
-    // REPLY TO SENDER
-    // ========================================================
-
-    if (sender.length() > 0) {
-
-      sendSMS(
-        sender.c_str(),
-        message
-      );
-
-    }
-    else {
-
-      Serial.println(
-        "Could not determine SMS sender."
-      );
-    }
-  }
-}
-
-
-// ============================================================
-// SETUP
-// ============================================================
-
-void setup() {
-
-  Serial.begin(115200);
-
-  delay(1000);
-
-
-  Serial.println();
-  Serial.println("========================================");
-  Serial.println("ESP32 SERVER ROOM SECURITY SYSTEM");
-  Serial.println("========================================");
-
-
-  // ==========================================================
-  // SENSOR PINS
-  // ==========================================================
-
-  pinMode(MQ2_PIN, INPUT);
-
-  pinMode(LDR_PIN, INPUT);
-
-
-  // Laser
-  pinMode(LASER_PIN, OUTPUT);
-
-  digitalWrite(
-    LASER_PIN,
-    HIGH
-  );
-
-
-  // ==========================================================
-  // BUZZER
-  // ==========================================================
-
-  pinMode(
-    BUZZER_PIN,
-    OUTPUT
-  );
-
-
-  // ESP32 Arduino Core 3.x
-  ledcAttach(
-    BUZZER_PIN,
-    2000,
-    8
-  );
-
-
-  // Start with buzzer OFF
-  buzzerOff();
-
-
-  // ==========================================================
-  // SHT3X
-  // ==========================================================
-
-  Wire.begin(
-    SHT31_SDA,
-    SHT31_SCL
-  );
-
-
-  if (!sht31.begin(0x44)) {
-
-    Serial.println(
-      "ERROR: SHT3X NOT FOUND!"
-    );
-
-  }
-  else {
-
-    Serial.println(
-      "SHT3X OK"
-    );
-  }
-
-
-  // ==========================================================
-  // SIM800L
-  // ==========================================================
-
-  SIM800.begin(
-    9600,
-    SERIAL_8N1,
-    SIM800_RX,
-    SIM800_TX
-  );
-
-
-  delay(2000);
-
-
-  Serial.println(
-    "Initializing SIM800L..."
-  );
-
-
-  sendATCommand(
-    "AT",
-    1000
-  );
-
-
-  sendATCommand(
-    "ATE0",
-    1000
-  );
-
-
-  sendATCommand(
-    "AT+CMGF=1",
-    1000
-  );
-
-
-  // Incoming SMS directly to ESP32
-  sendATCommand(
-    "AT+CNMI=2,2,0,0,0",
-    1000
-  );
-
-
-  Serial.println();
-  Serial.println(
-    "System Ready."
-  );
-
-  Serial.println(
-    "========================================"
-  );
-}
-
-
-// ============================================================
-// MAIN LOOP
-// ============================================================
-
-void loop() {
-
-  unsigned long currentMillis = millis();
-
-
-  // ==========================================================
-  // READ SENSORS
-  // ==========================================================
-
-  int smokeValue =
-    analogRead(MQ2_PIN);
-
-
-  int ldrValue =
-    analogRead(LDR_PIN);
-
-
-  float temperature =
-    sht31.readTemperature();
-
-
-  float humidity =
-    sht31.readHumidity();
-
-
-  // ==========================================================
-  // LASER / MOTION DETECTION
-  // ==========================================================
-
-  motionDetected =
-    (ldrValue < LDR_THRESHOLD);
-
-
-  // ==========================================================
-  // SERIAL MONITOR
-  // ==========================================================
-
-  Serial.println();
-  Serial.println("----------------------------------------");
-
-
-  // MQ2
-  Serial.print("MQ-2: ");
-  Serial.print(smokeValue);
-
-  Serial.print(" | Status: ");
-
-  Serial.println(
-    getSmokeStatus(smokeValue)
-  );
-
-
-  // LDR
-  Serial.print("LDR: ");
-  Serial.print(ldrValue);
-
-  Serial.print(" | Threshold: ");
-  Serial.print(LDR_THRESHOLD);
-
-  Serial.print(" | Laser: ");
-
-
-  if (motionDetected) {
-
-    Serial.println(
-      "BLOCKED / MOTION"
-    );
-
-  }
-  else {
-
-    Serial.println(
-      "CLEAR"
-    );
-  }
-
-
-  // ==========================================================
-  // TEMPERATURE
-  // ==========================================================
-
-  if (!isnan(temperature)) {
-
-    Serial.print(
-      "Temperature: "
-    );
-
-    Serial.print(
-      temperature,
-      1
-    );
-
-    Serial.print(
-      " C | Status: "
-    );
-
-    Serial.println(
-      getTemperatureStatus(
-        temperature
-      )
-    );
-
-  }
-  else {
-
-    Serial.println(
-      "Temperature: SENSOR ERROR"
-    );
-  }
-
-
-  // ==========================================================
-  // HUMIDITY
-  // ==========================================================
-
-  if (!isnan(humidity)) {
-
-    Serial.print(
-      "Humidity: "
-    );
-
-    Serial.print(
-      humidity,
-      1
-    );
-
-    Serial.print(
-      " % | Status: "
-    );
-
-    Serial.println(
-      getHumidityStatus(
-        humidity
-      )
-    );
-
-  }
-  else {
-
-    Serial.println(
-      "Humidity: SENSOR ERROR"
-    );
-  }
-
-
-  // ==========================================================
-  // MOTION SERIAL CONFIRMATION
-  // ==========================================================
-  //
-  // NO SMS IS SENT HERE.
-  //
-  // Every time the beam is blocked, the Serial Monitor
-  // confirms the motion detection.
-  // ==========================================================
-
-  if (motionDetected) {
+    sessionActive = true;
+    readingStage = WAITING_FOR_HEIGHT;
 
     Serial.println();
-    Serial.println(
-      "!!! MOTION DETECTED !!!"
-    );
+    Serial.println("================================");
+    Serial.println("Measurement session started by admin.");
+    Serial.println("================================");
 
-    Serial.print(
-      "LDR Value: "
-    );
+    promptForHeight();
 
-    Serial.println(
-      ldrValue
-    );
+  } else if (!active && sessionActive) {
 
-    Serial.print(
-      "Threshold: "
-    );
+    sessionActive = false;
+    readingStage = WAITING_FOR_HEIGHT;
 
-    Serial.println(
-      LDR_THRESHOLD
-    );
+    Serial.println();
+    Serial.println("================================");
+    Serial.println("Measurement session ended.");
+    Serial.println("Waiting for admin to start a new session...");
+    Serial.println("================================");
+  }
+}
 
-    Serial.println(
-      "Laser: BLOCKED"
-    );
+void promptForHeight() {
+  Serial.println();
+  Serial.println("Enter HEIGHT in cm, then press Enter:");
+}
 
-    Serial.println(
-      "BUZZER: ON"
-    );
+void promptForWeight() {
+  Serial.println("Enter WEIGHT in kg, then press Enter:");
+}
+
+// Posts a single field (height or weight) as soon as it's
+// captured, so the Measurement page's 1s poll can display it
+// live instead of waiting for the full height+weight cycle.
+void sendReading(const char* fieldName, float value) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected!");
+    return;
   }
 
+  HTTPClient http;
 
-  // ==========================================================
-  // SMOKE DETECTION
-  // ==========================================================
+  http.begin(readingUrl);
+  http.addHeader("Content-Type", "application/json");
 
-  if (smokeValue >= SMOKE_THRESHOLD) {
+  String json = "{\"";
+  json += fieldName;
+  json += "\":";
+  json += String(value, 1);
+  json += "}";
 
+  Serial.println();
+  Serial.println("================================");
+  Serial.print("Sending live reading (");
+  Serial.print(fieldName);
+  Serial.println(")...");
+  Serial.println(json);
 
-    if (!smokeCondition) {
+  int responseCode = http.POST(json);
 
-      smokeCondition = true;
+  Serial.print("HTTP Response: ");
+  Serial.println(responseCode);
+  Serial.println(http.getString());
+  Serial.println("================================");
 
-      smokeStartTime =
-        currentMillis;
+  http.end();
+}
 
-
-      Serial.println();
-
-      Serial.println(
-        "Smoke/Gas detected."
-      );
-
-      Serial.println(
-        "Starting confirmation timer..."
-      );
-    }
-
-
-    // Confirm smoke for 5 seconds
-    if (
-      (currentMillis - smokeStartTime >=
-       SMOKE_CONFIRM_TIME)
-      &&
-      !smokeAlertSent
-    ) {
-
-
-      Serial.println();
-
-      Serial.println(
-        "!!! SMOKE/GAS CONFIRMED !!!"
-      );
-
-
-      sendSmokeAlert(
-        smokeValue
-      );
-
-
-      smokeAlertSent = true;
-
-
-      smokeAlarmActive = true;
-
-
-      smokeAlarmStart =
-        currentMillis;
-    }
-
-  }
-  else {
-
-    // Smoke returned to normal
-
-    smokeCondition = false;
-
-    smokeStartTime = 0;
-
-    smokeAlertSent = false;
+void handleSerialInput() {
+  if (!Serial.available()) {
+    return;
   }
 
+  String line = Serial.readStringUntil('\n');
+  line.trim();
 
-  // ==========================================================
-  // SMOKE ALARM TIMER
-  // ==========================================================
-
-  if (smokeAlarmActive) {
-
-
-    if (
-      currentMillis -
-      smokeAlarmStart >=
-      SMOKE_ALARM_TIME
-    ) {
-
-      smokeAlarmActive = false;
-
-
-      Serial.println(
-        "Smoke alarm timer finished."
-      );
-    }
+  if (line.length() == 0) {
+    return;
   }
 
+  if (readingStage == WAITING_FOR_HEIGHT) {
+    pendingHeight = line.toFloat();
 
-  // ==========================================================
-  // TEMPERATURE ALERT
-  // ==========================================================
+    Serial.print("Height set to: ");
+    Serial.println(pendingHeight, 1);
 
-  if (!isnan(temperature)) {
+    sendReading("height", pendingHeight);
 
+    readingStage = WAITING_FOR_WEIGHT;
+    promptForWeight();
 
-    String tempStatus =
-      getTemperatureStatus(
-        temperature
-      );
+  } else {
+    float pendingWeight = line.toFloat();
 
+    Serial.print("Weight set to: ");
+    Serial.println(pendingWeight, 1);
 
-    bool currentTemperatureBad =
-      (tempStatus != "GOOD");
+    sendReading("weight", pendingWeight);
 
+    readingStage = WAITING_FOR_HEIGHT;
+    promptForHeight();
+  }
+}
 
-    if (currentTemperatureBad) {
+void setup() {
+  Serial.begin(115200);
 
+  pinMode(RFID_BUTTON_PIN, INPUT_PULLUP);
 
-      if (!temperatureBad) {
+  connectToWiFi();
 
-        temperatureBad = true;
+  Serial.println();
+  Serial.println(
+    "Hold BOOT to fake an RFID tap (" +
+    String(FAKE_RFID_UID) + ")."
+  );
 
+  Serial.println("Waiting for admin to start a measurement session...");
+}
 
-        if (!temperatureAlertSent) {
+void loop() {
+  handleFakeRfidButton();
+  handleSessionPolling();
 
-
-          Serial.println();
-
-          Serial.println(
-            "!!! TEMPERATURE ALERT !!!"
-          );
-
-
-          sendTemperatureAlert(
-            temperature
-          );
-
-
-          temperatureAlertSent = true;
-        }
-      }
-
-    }
-    else {
-
-      temperatureBad = false;
-
-      temperatureAlertSent = false;
-    }
+  if (sessionActive) {
+    handleSerialInput();
   }
 
-
-  // ==========================================================
-  // HUMIDITY ALERT
-  // ==========================================================
-
-  if (!isnan(humidity)) {
-
-
-    String humidityStatus =
-      getHumidityStatus(
-        humidity
-      );
-
-
-    bool currentHumidityBad =
-      (humidityStatus != "GOOD");
-
-
-    if (currentHumidityBad) {
-
-
-      if (!humidityBad) {
-
-        humidityBad = true;
-
-
-        if (!humidityAlertSent) {
-
-
-          Serial.println();
-
-          Serial.println(
-            "!!! HUMIDITY ALERT !!!"
-          );
-
-
-          sendHumidityAlert(
-            humidity
-          );
-
-
-          humidityAlertSent = true;
-        }
-      }
-
-    }
-    else {
-
-      humidityBad = false;
-
-      humidityAlertSent = false;
-    }
-  }
-
-
-  // ==========================================================
-  // BUZZER CONTROL
-  // ==========================================================
-  //
-  // MOTION:
-  //     Laser blocked -> BUZZER ON
-  //
-  // SMOKE:
-  //     Confirmed smoke -> BUZZER ON
-  //     For 30 seconds
-  //
-  // NORMAL:
-  //     BUZZER OFF
-  //
-  // Motion does NOT send SMS.
-  // ==========================================================
-
-  if (
-    smokeAlarmActive ||
-    motionDetected
-  ) {
-
-    buzzerOn();
-
-  }
-  else {
-
-    buzzerOff();
-  }
-
-
-  // ==========================================================
-  // CHECK INCOMING SMS
-  // ==========================================================
-
-  checkIncomingSMS();
-
-
-  // ==========================================================
-  // LOOP DELAY
-  // ==========================================================
-
-  delay(500);
+  delay(20);
 }

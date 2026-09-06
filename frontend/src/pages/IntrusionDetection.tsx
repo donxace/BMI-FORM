@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ShieldAlert, ShieldCheck } from "lucide-react";
 import "./IntrusionDetection.css";
 
 /*
@@ -154,7 +155,7 @@ export default function IntrusionDetection() {
                 body: `Laser sensor ${
                   data.sensor_id || "unknown"
                 } was triggered at ${new Date().toLocaleTimeString()}.`,
-                icon: "/PNP-ITMS-BMI-LOGO.png",
+                icon: "/PNP-ITMS-LOGO.png",
                 tag: "intrusion-detection",
               }
             );
@@ -212,7 +213,7 @@ export default function IntrusionDetection() {
             method: "GET",
             headers: {
               Accept: "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              Authorization: `Bearer ${localStorage.getItem("intrusionAuthToken")}`,
             },
             cache: "no-store",
           }
@@ -299,7 +300,11 @@ export default function IntrusionDetection() {
       >
 
         <div className="intrusion-status-icon">
-          {sensorStatus === "triggered" ? "⚠" : "⚡"}
+          {sensorStatus === "triggered" ? (
+            <ShieldAlert size={24} strokeWidth={2} />
+          ) : (
+            <ShieldCheck size={24} strokeWidth={2} />
+          )}
         </div>
 
         <div className="intrusion-status-body">
@@ -364,6 +369,7 @@ export default function IntrusionDetection() {
 
         ) : (
 
+          <div className="intrusion-log-table-wrapper">
           <table className="intrusion-log-table">
 
             <thead>
@@ -405,6 +411,7 @@ export default function IntrusionDetection() {
             </tbody>
 
           </table>
+          </div>
 
         )}
 

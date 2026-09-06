@@ -2,13 +2,27 @@ import {
   BrowserRouter,
   Routes,
   Route,
+  Navigate,
 } from "react-router-dom";
 
 import MainLayout from "./components/MainLayout";
+import SecurityLayout from "./components/SecurityLayout";
 import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import ProtectedRoute
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
+import SuperAdminRoute from "./components/SuperAdminRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
+import Home from "./pages/Home";
+import InventoryDashboard from "./pages/InventoryDashboard";
+import InventoryPersonnel from "./pages/InventoryPersonnel";
+import InventoryReport from "./pages/InventoryReport";
+import InventoryAnalytics from "./pages/InventoryAnalytics";
+import PcInfoDashboard from "./pages/PcInfoDashboard";
+import PcInfoAssessmentDetail from "./pages/PcInfoAssessmentDetail";
+import PcInfoCategory from "./pages/PcInfoCategory";
+import PcInfoConnections from "./pages/PcInfoConnections";
+import PcInfoComponentStatus from "./pages/PcInfoComponentStatus";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
@@ -18,19 +32,102 @@ import Analytics from "./pages/Analytics";
 import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
+import AuthLogs from "./pages/AuthLogs";
 import Login from "./pages/Login";
+import DomainLogin from "./pages/DomainLogin";
 import MyRecords from "./pages/MyRecords";
 import MyMeasurement from "./pages/MyMeasurement";
+import Kiosk from "./pages/Kiosk";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
+        {/* Public landing page — choose a domain to sign in to */}
+        <Route
+          path="/"
+          element={<Home />}
+        />
+
         {/* Public Route */}
         <Route
           path="/login"
           element={<Login />}
+        />
+
+        {/* Domain-specific logins for the other 4 landing-page systems.
+            Each stores its session under its own keys — see
+            RoleProtectedRoute — so signing into one never signs you
+            into another. */}
+        <Route
+          path="/inventory/login"
+          element={
+            <DomainLogin
+              badgeText="HARDWARE INVENTORY SYSTEM"
+              heading="Inventory sign-in"
+              subtitle="Sign in to access the Computer Hardware Inventory system"
+              tokenKey="inventoryAuthToken"
+              roleKey="inventoryUserRole"
+              redirectPath="/inventory"
+              expectedRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
+              system="inventory"
+            />
+          }
+        />
+
+        <Route
+          path="/pc-info/login"
+          element={
+            <DomainLogin
+              badgeText="PC INFORMATION SYSTEM"
+              heading="PC Info sign-in"
+              subtitle="Sign in to access per-machine hardware and security reports"
+              tokenKey="pcInfoAuthToken"
+              roleKey="pcInfoUserRole"
+              redirectPath="/pc-info"
+              expectedRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
+              system="pcinfo"
+            />
+          }
+        />
+
+        <Route
+          path="/security/intrusion-login"
+          element={
+            <DomainLogin
+              badgeText="INTRUSION DETECTION"
+              heading="Intrusion Detection sign-in"
+              subtitle="Sign in to access facility security monitoring and alerts"
+              tokenKey="intrusionAuthToken"
+              roleKey="intrusionUserRole"
+              redirectPath="/security/intrusion-detection"
+              expectedRole={["intrusion_admin", "intrusion_editor", "intrusion_viewer"]}
+              system="intrusion"
+            />
+          }
+        />
+
+        <Route
+          path="/security/environment-login"
+          element={
+            <DomainLogin
+              badgeText="ENVIRONMENT MONITORING"
+              heading="Environment Monitoring sign-in"
+              subtitle="Sign in to access smoke and temperature sensor readings"
+              tokenKey="environmentAuthToken"
+              roleKey="environmentUserRole"
+              redirectPath="/security/environment-monitoring"
+              expectedRole={["environment_admin", "environment_editor", "environment_viewer"]}
+              system="environment"
+            />
+          }
+        />
+
+        {/* Public, unattended touch kiosk — tap RFID to measure */}
+        <Route
+          path="/kiosk"
+          element={<Kiosk />}
         />
 
         {/* =====================================================
@@ -40,7 +137,7 @@ function App() {
           <Route element={<MainLayout />}>
 
             <Route
-              path="/"
+              path="/dashboard"
               element={<Dashboard />}
             />
 
@@ -70,18 +167,202 @@ function App() {
             />
 
             <Route
-              path="/intrusion-detection"
+              path="/settings"
+              element={<SettingsPage />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            AUTH LOGS — reachable by the literal 'admin' super-role
+            (sees all 5 systems) or by a domain's own "_admin" role
+            (sees just its own — the backend enforces that scoping).
+            SuperAdminRoute checks all 5 domains' session keys, since
+            'admin' can sign in through any one of them.
+
+            Each domain gets its own path (not a single shared
+            /auth-logs) purely so MainLayout/SecurityLayout's
+            path-prefix domain detection renders the right sidebar
+            chrome — landing on a bare /auth-logs from, say, Inventory
+            would otherwise fall through to BMI's default nav, even
+            though the log data itself was already scoped correctly.
+        ====================================================== */}
+        <Route element={<SuperAdminRoute />}>
+          <Route element={<MainLayout />}>
+
+            <Route
+              path="/auth-logs"
+              element={<AuthLogs />}
+            />
+
+            <Route
+              path="/inventory/auth-logs"
+              element={<AuthLogs />}
+            />
+
+            <Route
+              path="/pc-info/auth-logs"
+              element={<AuthLogs />}
+            />
+
+          </Route>
+
+          <Route element={<SecurityLayout />}>
+
+            <Route
+              path="/security/auth-logs"
+              element={<AuthLogs />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            HARDWARE INVENTORY DOMAIN
+            Own role (inventory_admin), own login, own session — no
+            longer shares the BMI admin's session even though it
+            reuses MainLayout's chrome.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
+              tokenKey="inventoryAuthToken"
+              roleKey="inventoryUserRole"
+              loginPath="/inventory/login"
+            />
+          }
+        >
+          <Route element={<MainLayout />}>
+
+            <Route
+              path="/inventory"
+              element={<Navigate to="/inventory/dashboard" replace />}
+            />
+
+            <Route
+              path="/inventory/dashboard"
+              element={<InventoryDashboard />}
+            />
+
+            <Route
+              path="/inventory/personnel"
+              element={<InventoryPersonnel />}
+            />
+
+            <Route
+              path="/inventory/report"
+              element={<InventoryReport />}
+            />
+
+            <Route
+              path="/inventory/analytics"
+              element={<InventoryAnalytics />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            PC INFORMATION SYSTEM DOMAIN
+            Own role (pcinfo_admin), own login, own session.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
+              tokenKey="pcInfoAuthToken"
+              roleKey="pcInfoUserRole"
+              loginPath="/pc-info/login"
+            />
+          }
+        >
+          <Route element={<MainLayout />}>
+
+            <Route
+              path="/pc-info"
+              element={<Navigate to="/pc-info/dashboard" replace />}
+            />
+
+            <Route
+              path="/pc-info/dashboard"
+              element={<PcInfoDashboard />}
+            />
+
+            <Route
+              path="/pc-info/assessment/:id"
+              element={<PcInfoAssessmentDetail />}
+            />
+
+            <Route
+              path="/pc-info/category/:category"
+              element={<PcInfoCategory />}
+            />
+
+            <Route
+              path="/pc-info/connections"
+              element={<PcInfoConnections />}
+            />
+
+            <Route
+              path="/pc-info/component-status"
+              element={<PcInfoComponentStatus />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            INTRUSION DETECTION DOMAIN
+            Own role (intrusion_admin), own login, own session — no
+            longer shares a session with Environment Monitoring even
+            though both still use SecurityLayout's chrome.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["intrusion_admin", "intrusion_editor", "intrusion_viewer"]}
+              tokenKey="intrusionAuthToken"
+              roleKey="intrusionUserRole"
+              loginPath="/security/intrusion-login"
+            />
+          }
+        >
+          <Route element={<SecurityLayout />}>
+
+            <Route
+              path="/security"
+              element={<Navigate to="/security/intrusion-detection" replace />}
+            />
+
+            <Route
+              path="/security/intrusion-detection"
               element={<IntrusionDetection />}
             />
 
-            <Route
-              path="/environment-monitoring"
-              element={<EnvironmentMonitoring />}
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            ENVIRONMENT MONITORING DOMAIN
+            Own role (environment_admin), own login, own session.
+        ====================================================== */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole={["environment_admin", "environment_editor", "environment_viewer"]}
+              tokenKey="environmentAuthToken"
+              roleKey="environmentUserRole"
+              loginPath="/security/environment-login"
             />
+          }
+        >
+          <Route element={<SecurityLayout />}>
 
             <Route
-              path="/settings"
-              element={<SettingsPage />}
+              path="/security/environment-monitoring"
+              element={<EnvironmentMonitoring />}
             />
 
           </Route>

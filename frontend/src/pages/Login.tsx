@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   AlertTriangle,
 } from "lucide-react";
+import { getHardwareIdentity } from "../utils/machineId";
 import "./Login.css";
 
 // Dynamically resolves to 'localhost' or your LAN IP (e.g. 192.168.x.x)
@@ -79,12 +80,20 @@ export default function Login() {
     try {
       setLoading(true);
 
+      const identity = await getHardwareIdentity();
+
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password, system: "bmi" }),
+        body: JSON.stringify({
+          username,
+          password,
+          system: "bmi",
+          computer_name: identity.computer_name,
+          windows_user: identity.windows_user,
+        }),
       });
 
       if (!response.ok) {

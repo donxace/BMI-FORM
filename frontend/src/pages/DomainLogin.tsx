@@ -7,6 +7,7 @@ import {
   ArrowRight,
   AlertTriangle,
 } from "lucide-react";
+import { getHardwareIdentity } from "../utils/machineId";
 import "./Login.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -74,12 +75,20 @@ export default function DomainLogin({
     try {
       setLoading(true);
 
+      const identity = await getHardwareIdentity();
+
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password, system }),
+        body: JSON.stringify({
+          username,
+          password,
+          system,
+          computer_name: identity.computer_name,
+          windows_user: identity.windows_user,
+        }),
       });
 
       if (!response.ok) {

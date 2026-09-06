@@ -15,4 +15,16 @@ export class LoginDto {
   @IsString()
   @IsOptional()
   system?: string;
+
+  // Best-effort, from the local ITMS Machine Identity Helper
+  // (frontend/src/utils/machineId.ts / backend/scripts/Get-MachineIdentityHelper.ps1).
+  // Recorded on authentication_audit_logs purely for visibility into which
+  // machine/Windows user a login came from — never used to gate login.
+  @IsString()
+  @IsOptional()
+  computer_name?: string;
+
+  @IsString()
+  @IsOptional()
+  windows_user?: string;
 }

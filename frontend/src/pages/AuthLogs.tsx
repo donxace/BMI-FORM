@@ -34,16 +34,34 @@ function describeSystems(systems: string[]): string {
 
 type AuthLog = {
   id: number;
-  login_type: "admin" | "personnel";
+  user_id: number | null;
+  username: string | null;
   system: string | null;
-  identifier: string;
-  role: string | null;
-  success: boolean;
-  failure_reason: string | null;
+  event: string;
+  result: string | null;
+  computer_name: string | null;
+  windows_user: string | null;
+  granted_role: string | null;
   ip_address: string | null;
-  user_agent: string | null;
   created_at: string;
 };
+
+function isSuccessEvent(event: string): boolean {
+  return event.endsWith("_success");
+}
+
+// "admin_account_locked" -> "Account Locked", "admin_login_success" -> "Login".
+// The leading admin_/personnel_ prefix is redundant with the Type pill
+// this replaced, and the trailing _success/_failed is redundant with the
+// Status badge, so both are dropped here to keep the column scannable.
+function formatEvent(event: string): string {
+  return event
+    .replace(/^(admin|personnel)_/, "")
+    .replace(/_(success|failed)$/, "")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 type StatusFilter = "all" | "success" | "failure";
 
@@ -58,15 +76,6 @@ function formatDateTime(value: string) {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-// Trims a long browser User-Agent string down to just the part that's
-// actually useful to scan at a glance (browser + OS), rather than the
-// full string.
-function summarizeUserAgent(ua: string | null) {
-  if (!ua) return "—";
-  if (ua.length <= 60) return ua;
-  return `${ua.slice(0, 57)}…`;
 }
 
 /*
@@ -140,16 +149,16 @@ export default function AuthLogs() {
     logs === null
       ? null
       : logs.filter((log) => {
-          if (statusFilter === "success") return log.success;
-          if (statusFilter === "failure") return !log.success;
+          if (statusFilter === "success") return isSuccessEvent(log.event);
+          if (statusFilter === "failure") return !isSuccessEvent(log.event);
           return true;
         });
 
   const totalCount = logs?.length ?? 0;
-  const successCount = logs?.filter((l) => l.success).length ?? 0;
+  const successCount = logs?.filter((l) => isSuccessEvent(l.event)).length ?? 0;
   const failureCount = totalCount - successCount;
   const uniqueIdentifiers = logs
-    ? new Set(logs.map((l) => l.identifier)).size
+    ? new Set(logs.map((l) => l.username ?? "(empty)")).size
     : 0;
 
   return (
@@ -343,13 +352,14 @@ export default function AuthLogs() {
                 <tr>
                   <th>Time</th>
                   {showSystemColumn && <th>System</th>}
-                  <th>Type</th>
-                  <th>Identifier</th>
+                  <th>Event</th>
+                  <th>Username</th>
+                  <th>Computer Name</th>
+                  <th>Windows User</th>
                   <th>Role Granted</th>
                   <th>Status</th>
-                  <th>Reason</th>
+                  <th>Result</th>
                   <th>IP Address</th>
-                  <th>User Agent</th>
                 </tr>
               </thead>
               <tbody>
@@ -364,31 +374,27 @@ export default function AuthLogs() {
                       </td>
                     )}
                     <td>
-                      <span className="auth-type-pill">{log.login_type}</span>
+                      <span className="auth-type-pill">{formatEvent(log.event)}</span>
                     </td>
-                    <td>{log.identifier}</td>
-                    <td>{log.role ?? "—"}</td>
+                    <td>{log.username ?? "—"}</td>
+                    <td>{log.computer_name ?? "—"}</td>
+                    <td>{log.windows_user ?? "—"}</td>
+                    <td>{log.granted_role ?? "—"}</td>
                     <td>
                       <span
                         className={`classification-badge ${
-                          log.success ? "success" : "failure"
+                          isSuccessEvent(log.event) ? "success" : "failure"
                         }`}
                       >
                         <span className="classification-dot" />
-                        {log.success ? "Success" : "Failed"}
+                        {isSuccessEvent(log.event) ? "Success" : "Failed"}
                       </span>
                     </td>
                     <td className="auth-logs-reason">
-                      {log.failure_reason ?? "—"}
+                      {log.result ?? "—"}
                     </td>
                     <td className="auth-logs-mono">
                       {log.ip_address ?? "—"}
-                    </td>
-                    <td
-                      className="auth-logs-mono"
-                      title={log.user_agent ?? undefined}
-                    >
-                      {summarizeUserAgent(log.user_agent)}
                     </td>
                   </tr>
                 ))}

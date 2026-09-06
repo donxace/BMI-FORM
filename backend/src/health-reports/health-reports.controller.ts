@@ -5,11 +5,13 @@ import {
   ParseIntPipe,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 
 import type { Response } from 'express';
 
 import { HealthReportsService } from './health-reports.service';
+import { HealthReportAccessGuard } from '../auth/guards/health-report-access.guard';
 
 @Controller('health-reports')
 export class HealthReportsController {
@@ -18,14 +20,17 @@ export class HealthReportsController {
     private readonly healthReportsService: HealthReportsService,
   ) {}
 
+  // Used to have no guard at all — any assessment's PDF (someone's BMI
+  // health report) was downloadable by anyone who could increment :id.
+  // Verified live against the running backend before this fix. See
+  // HealthReportAccessGuard and docs/SECURITY_AND_PERFORMANCE.md.
+  @UseGuards(HealthReportAccessGuard)
   @Get('bmi/:id/pdf')
   async generateBmiPdf(
     @Param('id', ParseIntPipe) id: number,
     @Query('download') download: string | undefined,
     @Res() res: Response,
   ) {
-    console.log('PDF REQUEST ID:', id);
-
     const pdf =
       await this.healthReportsService.generateBmiPdf(id);
 

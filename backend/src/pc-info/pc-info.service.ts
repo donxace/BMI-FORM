@@ -8,6 +8,11 @@ import { Desktop } from '../inventory-devices/entities/desktop.entity';
 import { Laptop } from '../inventory-devices/entities/laptop.entity';
 import { buildAssessmentSummary, buildHostIdentity, parseForenCsv, toFindingRows } from './foren-csv.util';
 
+// Hard safety cap, not real pagination — see the identical note in
+// inventory-devices.service.ts. security_assessment_findings already has
+// 1000+ rows, so this one is not just a future-proofing measure.
+const MAX_FINDING_ROWS = 5000;
+
 @Injectable()
 export class PcInfoService {
   constructor(
@@ -149,6 +154,7 @@ export class PcInfoService {
       .where('f.table_no = 1 AND f.category = :category', { category })
       .orderBy('a.assessed_at', 'DESC')
       .addOrderBy('f.id', 'ASC')
+      .limit(MAX_FINDING_ROWS)
       .getRawMany();
   }
 
@@ -163,6 +169,7 @@ export class PcInfoService {
       .where('f.table_no = 2')
       .orderBy('a.assessed_at', 'DESC')
       .addOrderBy('f.id', 'ASC')
+      .limit(MAX_FINDING_ROWS)
       .getRawMany();
   }
 
@@ -176,6 +183,7 @@ export class PcInfoService {
       .where('f.table_no = 3')
       .orderBy('a.assessed_at', 'DESC')
       .addOrderBy('f.id', 'ASC')
+      .limit(MAX_FINDING_ROWS)
       .getRawMany();
   }
 

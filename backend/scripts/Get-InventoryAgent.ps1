@@ -38,21 +38,32 @@
     network, since it calls the real Windows Update Agent. Useful for
     a quick re-run when you only care about software/USB/network.
 
-.EXAMPLE
-    powershell -ExecutionPolicy Bypass -File Get-InventoryAgent.ps1
+.PARAMETER AgentKey
+    Must match the backend's AGENT_SHARED_SECRET (backend/.env) — sent as
+    the x-agent-key header. Falls back to the AGENT_SHARED_SECRET
+    environment variable if not passed. The server rejects the report
+    without a matching key.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File Get-InventoryAgent.ps1 -Server http://192.168.1.15:3000 -SkipUpdateCheck
+    powershell -ExecutionPolicy Bypass -File Get-InventoryAgent.ps1 -AgentKey <secret>
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File Get-InventoryAgent.ps1 -Server http://192.168.1.15:3000 -AgentKey <secret> -SkipUpdateCheck
 #>
 
 [CmdletBinding()]
 param(
     [string]$Server = "http://localhost:3000",
-    [switch]$SkipUpdateCheck
+    [switch]$SkipUpdateCheck,
+    [string]$AgentKey = $env:AGENT_SHARED_SECRET
 )
 
 $ErrorActionPreference = "Stop"
 $Server = $Server.TrimEnd("/")
+
+if ([string]::IsNullOrWhiteSpace($AgentKey)) {
+    throw "No agent key provided - pass -AgentKey <value> or set the AGENT_SHARED_SECRET environment variable (must match the backend's .env)."
+}
 
 function Write-Step {
     param([string]$Message)
@@ -465,6 +476,7 @@ try {
         -Uri "$Server/inventory/devices/agent-report" `
         -Method Post `
         -ContentType "application/json; charset=utf-8" `
+        -Headers @{ "x-agent-key" = $AgentKey } `
         -Body ([System.Text.Encoding]::UTF8.GetBytes($json))
 
     Write-Host "Updated `"$($response.label)`" ($($response.deviceType), serial $serialNo)." -ForegroundColor Green

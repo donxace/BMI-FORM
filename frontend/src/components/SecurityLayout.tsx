@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   NavLink,
   Outlet,
@@ -10,6 +10,8 @@ import {
   Thermometer,
   ChevronDown,
   LogOut,
+  ScrollText,
+  Menu,
 } from "lucide-react";
 
 // Same shared stroke width as the BMI sidebar, so switching between
@@ -17,19 +19,22 @@ import {
 const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
 import "./SecurityLayout.css";
+import { findAuthLogsSession } from "../utils/adminSession";
 
 /*
  * Layout for the Security & Environment domain (Intrusion Detection,
- * Smoke & Temperature) — kept visually and structurally separate from
- * MainLayout (the BMI domain). Same shared backend/auth, same base
- * sidebar/topbar chrome (reuses MainLayout.css), but its own nav, its
- * own branding, and a distinct accent color (SecurityLayout.css) so
- * it reads as its own section rather than another BMI page.
+ * Smoke & Temperature) — kept structurally separate from MainLayout
+ * (its own nav, its own branding), but shares the same base
+ * sidebar/topbar chrome and royal-blue theme (both from MainLayout.css)
+ * so every system in the app reads consistently.
  */
 export default function SecurityLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  // Same off-canvas mobile drawer as MainLayout — see MainLayout.css,
+  // which this component already imports.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Intrusion Detection and Environment Monitoring are separate roles
@@ -38,6 +43,11 @@ export default function SecurityLayout() {
   const isEnvironmentDomain = location.pathname.startsWith(
     "/security/environment-monitoring"
   );
+
+  // Same cross-domain check as MainLayout — 'admin' can sign in through
+  // any of the 5 domain logins (including this one), and this domain's
+  // own "_admin" role can now also reach Auth Logs, scoped to itself.
+  const canViewAuthLogs = findAuthLogsSession() !== null;
 
   const handleLogout = () => {
     if (isEnvironmentDomain) {
@@ -80,10 +90,24 @@ export default function SecurityLayout() {
     sidebar.style.setProperty("--nav-indicator-opacity", "1");
   }, [location.pathname]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
-    <div className="app-layout security-domain">
+    <div className="app-layout security-domain theme-blue">
+      {sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar security-sidebar" ref={sidebarRef}>
+      <aside
+        className={`sidebar security-sidebar ${sidebarOpen ? "sidebar-open" : ""}`}
+        ref={sidebarRef}
+      >
         <nav className="navigation">
           <p className="nav-title">SECURITY &amp; ENVIRONMENT</p>
 
@@ -106,6 +130,22 @@ export default function SecurityLayout() {
             <span><Thermometer {...NAV_ICON_PROPS} /></span>
             <span className="nav-label">Smoke &amp; Temperature</span>
           </NavLink>
+
+          {canViewAuthLogs && (
+            <>
+              <p className="nav-title second">ADMIN</p>
+
+              <NavLink
+                to="/security/auth-logs"
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><ScrollText {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Auth Logs</span>
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -124,6 +164,17 @@ export default function SecurityLayout() {
       <div className="app-main">
         <header className="topbar">
           <div className="topbar-actions">
+
+            {/* Mobile sidebar toggle — hidden above the collapse
+                breakpoint, see MainLayout.css */}
+            <button
+              type="button"
+              className="menu-toggle-button"
+              aria-label="Toggle navigation menu"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+            >
+              <Menu size={22} strokeWidth={1.75} />
+            </button>
 
             {/* System Branding Section */}
             <div className="topbar-branding">

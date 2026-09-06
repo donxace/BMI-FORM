@@ -30,6 +30,34 @@ const AGENT_JSON_FIELDS = [
   'hotfixes',
 ] as const;
 
+// create()/update() take a plain Record<string, any> instead of a typed
+// DTO — the 12 device tables span 3 incompatible column shapes with
+// 15-38 fields each, and guessing the "legitimate" field set per type
+// risks silently breaking real device forms. Denylisting the columns
+// that must never come from client input (the primary key, every
+// audit/timestamp column, and the agent-report-only telemetry fields)
+// closes the actual mass-assignment hole without that risk: an
+// inventory_editor can no longer overwrite `id`, forge `created_date`,
+// or inject fake agent-reported data through the regular edit form.
+const PROTECTED_DEVICE_FIELDS = [
+  'id',
+  'created_date',
+  'last_updated_at',
+  'last_update_at',
+  'last_agent_report_at',
+  ...AGENT_JSON_FIELDS,
+] as const;
+
+const MAX_ROWS_PER_TYPE = 2000;
+
+function stripProtectedFields(dto: Record<string, any>): Record<string, any> {
+  const clean = { ...dto };
+  for (const field of PROTECTED_DEVICE_FIELDS) {
+    delete clean[field];
+  }
+  return clean;
+}
+
 @Injectable()
 export class InventoryDevicesService {
   private readonly repositories: Record<DeviceTypeSlug, Repository<any>>;
@@ -75,7 +103,14 @@ export class InventoryDevicesService {
   async findAll(): Promise<UnifiedDevice[]> {
     const perType = await Promise.all(
       DEVICE_TYPE_SLUGS.map(async (deviceType) => {
-        const rows = await this.repositories[deviceType].find();
+        // Hard safety cap, not real pagination — this still returns
+        // "everything" for the dashboard's current dataset sizes (tens of
+        // rows per type), it just stops an unbounded full-table load from
+        // becoming an outage once real inventory data accumulates. A
+        // proper paged list view (page/limit + a frontend rework of the
+        // pages that currently filter this client-side) is a separate,
+        // larger follow-up — see docs/SECURITY_AND_PERFORMANCE.md.
+        const rows = await this.repositories[deviceType].find({ take: MAX_ROWS_PER_TYPE });
         return rows.map((row: Record<string, any>) => normalizeDevice(deviceType, row));
       }),
     );
@@ -98,7 +133,7 @@ export class InventoryDevicesService {
 
   async create(deviceType: string, dto: Record<string, any>): Promise<UnifiedDevice> {
     const repo = this.repoFor(deviceType);
-    const created = repo.create(dto);
+    const created = repo.create(stripProtectedFields(dto));
     const saved = await repo.save(created);
     return normalizeDevice(deviceType as DeviceTypeSlug, saved as Record<string, any>);
   }
@@ -111,7 +146,7 @@ export class InventoryDevicesService {
       throw new NotFoundException(`${deviceType} device with ID ${id} not found.`);
     }
 
-    Object.assign(existing, dto);
+    Object.assign(existing, stripProtectedFields(dto));
     const saved = await repo.save(existing);
     return normalizeDevice(deviceType as DeviceTypeSlug, saved as Record<string, any>);
   }

@@ -789,8 +789,12 @@ export default function Assessment() {
   const handlePreview = (
     assessmentId: number,
   ) => {
+    // window.open is a direct browser navigation — it can't attach an
+    // Authorization header, so the token has to travel as a query param
+    // here (the endpoint now requires one; see HealthReportAccessGuard).
+    const token = localStorage.getItem("authToken") ?? "";
     window.open(
-      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf`,
+      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf?token=${encodeURIComponent(token)}`,
       "_blank",
     );
   };

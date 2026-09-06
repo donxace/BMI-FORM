@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { HealthReportsModule } from './health-reports/health-reports.module';
 import { PersonnelModule } from './personnel/personnel.module';
@@ -14,6 +16,20 @@ import { PcInfoModule } from './pc-info/pc-info.module';
 
 @Module({
   imports: [
+    // App-wide default: 600 requests / minute per IP (10/s) — generous
+    // enough to cover the app's several 1-second polling loops (Kiosk's
+    // RFID/reading checks, Environment Monitoring's sensor checks) from
+    // one machine with headroom, while still being a real ceiling against
+    // abuse. The login routes (see auth.controller.ts) override this with
+    // a much stricter limit via @Throttle() — that's the one that
+    // actually matters for brute-force protection.
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 600,
+      },
+    ]),
+
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DB_HOST || 'localhost',
@@ -59,6 +75,12 @@ import { PcInfoModule } from './pc-info/pc-info.module';
     InventoryModule,
 
     PcInfoModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

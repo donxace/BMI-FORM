@@ -32,6 +32,11 @@
 .PARAMETER Server
     Base URL of the ITMS backend, e.g. http://192.168.1.11:3000
 
+.PARAMETER AgentKey
+    Must match the backend's AGENT_SHARED_SECRET (backend/.env) — passed
+    through to every scheduled run of Get-InventoryAgent.ps1. The server
+    rejects agent reports without a matching key.
+
 .PARAMETER DailyTime
     Time of day for the daily run, 24-hour HH:mm format. Defaults to 08:00.
 
@@ -50,16 +55,19 @@
 
 .EXAMPLE
     From an elevated PowerShell prompt, once per machine:
-    powershell -ExecutionPolicy Bypass -File Install-InventoryAgentTask.ps1 -Server http://192.168.1.11:3000
+    powershell -ExecutionPolicy Bypass -File Install-InventoryAgentTask.ps1 -Server http://192.168.1.11:3000 -AgentKey <secret>
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File Install-InventoryAgentTask.ps1 -Server http://192.168.1.11:3000 -DailyTime 09:30 -SkipUpdateCheck
+    powershell -ExecutionPolicy Bypass -File Install-InventoryAgentTask.ps1 -Server http://192.168.1.11:3000 -AgentKey <secret> -DailyTime 09:30 -SkipUpdateCheck
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
     [string]$Server,
+
+    [Parameter(Mandatory)]
+    [string]$AgentKey,
 
     [string]$DailyTime = "08:00",
 
@@ -116,7 +124,7 @@ Copy-Item -Path $SourceScript -Destination $installedScript -Force
 # REGISTER THE SCHEDULED TASK
 # ==============================================================
 
-$argumentList = "-NoProfile -ExecutionPolicy Bypass -File `"$installedScript`" -Server `"$Server`""
+$argumentList = "-NoProfile -ExecutionPolicy Bypass -File `"$installedScript`" -Server `"$Server`" -AgentKey `"$AgentKey`""
 if ($SkipUpdateCheck) {
     $argumentList += " -SkipUpdateCheck"
 }

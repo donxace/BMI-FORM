@@ -1510,8 +1510,11 @@ export default function Measurement() {
       return;
     }
 
+    // window.open can't attach an Authorization header — the token
+    // travels as a query param instead (see HealthReportAccessGuard).
+    const pdfToken = localStorage.getItem("authToken") ?? "";
     window.open(
-      `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`,
+      `${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf?token=${encodeURIComponent(pdfToken)}`,
       "_blank"
     );
   };
@@ -2721,7 +2724,7 @@ export default function Measurement() {
               <div className="pdf-preview-container">
 
                 <iframe
-                  src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf`}
+                  src={`${API_BASE_URL}/health-reports/bmi/${savedAssessmentId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`}
                   title="BMI Assessment Form"
                   className="pdf-preview"
                 />

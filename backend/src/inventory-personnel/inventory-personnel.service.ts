@@ -5,6 +5,10 @@ import { InventoryPersonnel } from './inventory-personnel.entity';
 import { CreateInventoryPersonnelDto } from './dto/create-inventory-personnel.dto';
 import { UpdateInventoryPersonnelDto } from './dto/update-inventory-personnel.dto';
 
+// Hard safety cap, not real pagination — see the identical note in
+// inventory-devices.service.ts.
+const MAX_ROWS = 2000;
+
 @Injectable()
 export class InventoryPersonnelService {
   constructor(
@@ -33,6 +37,7 @@ export class InventoryPersonnelService {
         last_name: 'ASC',
         first_name: 'ASC',
       },
+      take: MAX_ROWS,
     });
   }
 

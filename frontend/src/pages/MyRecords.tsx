@@ -93,8 +93,9 @@ export default function MyRecords() {
      * correctly by both iOS Safari (Share/Save to Files) and
      * Android Chrome (saves to Downloads).
      */
+    const token = localStorage.getItem("authToken") ?? "";
     window.open(
-      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf?download=true`,
+      `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf?download=true&token=${encodeURIComponent(token)}`,
       "_blank"
     );
   };
@@ -285,7 +286,7 @@ export default function MyRecords() {
             </div>
 
             <iframe
-              src={`${API_BASE_URL}/health-reports/bmi/${previewId}/pdf`}
+              src={`${API_BASE_URL}/health-reports/bmi/${previewId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`}
               title="BMI Assessment Form"
               className="my-records-preview-frame"
             />

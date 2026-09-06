@@ -9,6 +9,7 @@ import MainLayout from "./components/MainLayout";
 import SecurityLayout from "./components/SecurityLayout";
 import ProtectedRoute from "./components/ProtectedRoute"; // <-- Import ProtectedRoute
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
+import SuperAdminRoute from "./components/SuperAdminRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
 
@@ -31,6 +32,7 @@ import Analytics from "./pages/Analytics";
 import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
 import SettingsPage from "./pages/SettingsPage";
+import AuthLogs from "./pages/AuthLogs";
 import Login from "./pages/Login";
 import DomainLogin from "./pages/DomainLogin";
 import MyRecords from "./pages/MyRecords";
@@ -69,6 +71,7 @@ function App() {
               roleKey="inventoryUserRole"
               redirectPath="/inventory"
               expectedRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
+              system="inventory"
             />
           }
         />
@@ -84,6 +87,7 @@ function App() {
               roleKey="pcInfoUserRole"
               redirectPath="/pc-info"
               expectedRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
+              system="pcinfo"
             />
           }
         />
@@ -99,6 +103,7 @@ function App() {
               roleKey="intrusionUserRole"
               redirectPath="/security/intrusion-detection"
               expectedRole={["intrusion_admin", "intrusion_editor", "intrusion_viewer"]}
+              system="intrusion"
             />
           }
         />
@@ -114,6 +119,7 @@ function App() {
               roleKey="environmentUserRole"
               redirectPath="/security/environment-monitoring"
               expectedRole={["environment_admin", "environment_editor", "environment_viewer"]}
+              system="environment"
             />
           }
         />
@@ -163,6 +169,50 @@ function App() {
             <Route
               path="/settings"
               element={<SettingsPage />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            AUTH LOGS — reachable by the literal 'admin' super-role
+            (sees all 5 systems) or by a domain's own "_admin" role
+            (sees just its own — the backend enforces that scoping).
+            SuperAdminRoute checks all 5 domains' session keys, since
+            'admin' can sign in through any one of them.
+
+            Each domain gets its own path (not a single shared
+            /auth-logs) purely so MainLayout/SecurityLayout's
+            path-prefix domain detection renders the right sidebar
+            chrome — landing on a bare /auth-logs from, say, Inventory
+            would otherwise fall through to BMI's default nav, even
+            though the log data itself was already scoped correctly.
+        ====================================================== */}
+        <Route element={<SuperAdminRoute />}>
+          <Route element={<MainLayout />}>
+
+            <Route
+              path="/auth-logs"
+              element={<AuthLogs />}
+            />
+
+            <Route
+              path="/inventory/auth-logs"
+              element={<AuthLogs />}
+            />
+
+            <Route
+              path="/pc-info/auth-logs"
+              element={<AuthLogs />}
+            />
+
+          </Route>
+
+          <Route element={<SecurityLayout />}>
+
+            <Route
+              path="/security/auth-logs"
+              element={<AuthLogs />}
             />
 
           </Route>

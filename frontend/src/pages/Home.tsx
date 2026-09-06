@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Scale,
@@ -14,7 +15,7 @@ type SystemOption = {
   title: string;
   description: string;
   icon: typeof Scale;
-  accent: "blue" | "red" | "green" | "purple" | "teal";
+  accent: "blue";
   path: string;
 };
 
@@ -32,7 +33,7 @@ const OPTIONS: SystemOption[] = [
     title: "Intrusion Detection",
     description: "Facility security monitoring and alerts.",
     icon: ShieldAlert,
-    accent: "red",
+    accent: "blue",
     path: "/security/intrusion-login",
   },
   {
@@ -40,7 +41,7 @@ const OPTIONS: SystemOption[] = [
     title: "Environment Monitoring",
     description: "Smoke and temperature sensor readings.",
     icon: Thermometer,
-    accent: "green",
+    accent: "blue",
     path: "/security/environment-login",
   },
   {
@@ -48,7 +49,7 @@ const OPTIONS: SystemOption[] = [
     title: "Hardware Inventory",
     description: "Computer hardware inventory system.",
     icon: HardDrive,
-    accent: "purple",
+    accent: "blue",
     path: "/inventory/login",
   },
   {
@@ -56,65 +57,95 @@ const OPTIONS: SystemOption[] = [
     title: "PC Information System",
     description: "Per-machine hardware and security assessment reports.",
     icon: Cpu,
-    accent: "teal",
+    accent: "blue",
     path: "/pc-info/login",
   },
 ];
 
+// How long the leaving-fade plays before the route actually changes —
+// keep in sync with the .home-leaving transition duration in Home.css.
+const LEAVE_TRANSITION_MS = 220;
+
 export default function Home() {
   const navigate = useNavigate();
+  const [selectedKey, setSelectedKey] = useState(OPTIONS[0].key);
+  const [leaving, setLeaving] = useState(false);
+
+  const selected =
+    OPTIONS.find((option) => option.key === selectedKey) ?? OPTIONS[0];
+  const SelectedIcon = selected.icon;
+
+  const handleSignIn = () => {
+    if (leaving) return;
+    setLeaving(true);
+    setTimeout(() => navigate(selected.path), LEAVE_TRANSITION_MS);
+  };
 
   return (
-    <div className="home-container">
-      <div className="home-content">
-        <div className="home-brand-header">
-          <img
-            src="/PNPC-LOGO.png"
-            alt="Philippine National Police"
-            className="home-logo"
-          />
+    <div className={`home-container ${leaving ? "home-leaving" : ""}`}>
+      <header className="home-topbar">
+        <img
+          src="/PNPC-LOGO.png"
+          alt="Philippine National Police"
+          className="home-topbar-logo"
+        />
 
-          <div className="home-brand-text">
-            <span className="home-brand-eyebrow">Philippine National Police</span>
-            <h2 className="home-brand-title">ITMS Department</h2>
-            <span className="home-brand-subtitle">
-              Information Technology Management Service
-            </span>
-          </div>
-
-          <img
-            src="/PNP-ITMS-LOGO.png"
-            alt="PNP ITMS"
-            className="home-logo"
-          />
+        <div className="home-topbar-text">
+          <span className="home-topbar-eyebrow">
+            Philippine National Police
+          </span>
+          <span className="home-topbar-title">ITMS Department</span>
         </div>
 
-        <div className="home-header">
-          <h1>Choose a system</h1>
-          <p>Select where you'd like to sign in</p>
-        </div>
+        <img
+          src="/PNP-ITMS-LOGO.png"
+          alt="PNP ITMS"
+          className="home-topbar-logo"
+        />
+      </header>
 
-        <div className="home-grid">
-          {OPTIONS.map(({ key, title, description, icon: Icon, accent, path }) => (
+      <div className="home-chooser">
+        <nav className="home-list" aria-label="Choose a system">
+          <p className="home-list-heading">Choose a system</p>
+
+          {OPTIONS.map(({ key, title, icon: Icon, accent }) => (
             <button
               key={key}
               type="button"
-              className={`home-card home-card-${accent}`}
-              onClick={() => navigate(path)}
+              className={`home-list-item home-list-item-${accent} ${
+                key === selectedKey ? "active" : ""
+              }`}
+              aria-pressed={key === selectedKey}
+              onClick={() => setSelectedKey(key)}
             >
-              <span className="home-card-icon">
-                <Icon size={26} strokeWidth={1.75} />
+              <span className="home-list-icon">
+                <Icon size={20} strokeWidth={1.75} />
               </span>
-
-              <span className="home-card-title">{title}</span>
-              <span className="home-card-desc">{description}</span>
-
-              <span className="home-card-arrow">
-                <ArrowRight size={20} strokeWidth={1.75} />
-              </span>
+              <span className="home-list-label">{title}</span>
             </button>
           ))}
-        </div>
+        </nav>
+
+        <section
+          className={`home-preview home-preview-${selected.accent}`}
+          key={selected.key}
+        >
+          <span className="home-preview-icon">
+            <SelectedIcon size={40} strokeWidth={1.5} />
+          </span>
+
+          <h1 className="home-preview-title">{selected.title}</h1>
+          <p className="home-preview-desc">{selected.description}</p>
+
+          <button
+            type="button"
+            className="home-preview-cta"
+            onClick={handleSignIn}
+          >
+            Sign In
+            <ArrowRight size={18} strokeWidth={2} />
+          </button>
+        </section>
       </div>
     </div>
   );

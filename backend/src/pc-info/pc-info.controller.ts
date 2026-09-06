@@ -25,10 +25,24 @@ export class PcInfoController {
   constructor(private readonly pcInfoService: PcInfoService) {}
 
   // Backs the "Import CSV" button on the PC Information System dashboard —
-  // accepts a single FOREN-format security assessment export.
+  // accepts a single FOREN-format security assessment export. Capped at
+  // 5MB (a FOREN export is plain text, this is generous) and restricted
+  // to CSV-shaped uploads — previously unbounded, so any authenticated
+  // pcinfo_editor could push an arbitrarily large file straight into
+  // memory before the CSV parser ever got a chance to reject it.
   @Roles(...PCINFO_WRITE_ROLES)
   @Post('import')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_req, file, callback) => {
+        const isCsv =
+          /\.csv$/i.test(file.originalname) ||
+          /^(text\/csv|application\/vnd\.ms-excel|text\/plain)$/i.test(file.mimetype);
+        callback(isCsv ? null : new BadRequestException('Only .csv files are accepted.'), isCsv);
+      },
+    }),
+  )
   async importAssessment(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No CSV file uploaded.');

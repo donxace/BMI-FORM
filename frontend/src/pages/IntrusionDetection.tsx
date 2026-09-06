@@ -369,6 +369,7 @@ export default function IntrusionDetection() {
 
         ) : (
 
+          <div className="intrusion-log-table-wrapper">
           <table className="intrusion-log-table">
 
             <thead>
@@ -410,6 +411,7 @@ export default function IntrusionDetection() {
             </tbody>
 
           </table>
+          </div>
 
         )}
 

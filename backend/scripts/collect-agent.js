@@ -6,8 +6,11 @@
 // machine's system serial) before this can update it.
 //
 // Usage:
-//   node backend/scripts/collect-agent.js
-//   node backend/scripts/collect-agent.js --server http://192.168.1.15:3000
+//   node backend/scripts/collect-agent.js --key <AGENT_SHARED_SECRET>
+//   node backend/scripts/collect-agent.js --server http://192.168.1.15:3000 --key <secret>
+// ...or set the AGENT_SHARED_SECRET environment variable instead of --key.
+// The key must match the backend's own AGENT_SHARED_SECRET (backend/.env)
+// — the server rejects agent-report requests without it.
 //
 // Requires: npm install (adds the systeminformation dependency used here).
 const si = require('systeminformation');
@@ -46,13 +49,25 @@ async function countAntivirusProducts() {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const opts = { server: 'http://localhost:3000' };
+  // Falls back to the AGENT_SHARED_SECRET env var so a scheduled task
+  // (Install-InventoryAgentTask.ps1) can set it once instead of baking
+  // the key into a command-line argument every machine shares.
+  const opts = { server: 'http://localhost:3000', key: process.env.AGENT_SHARED_SECRET };
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--server' && args[i + 1]) {
       opts.server = args[i + 1].replace(/\/+$/, '');
       i++;
+    } else if (args[i] === '--key' && args[i + 1]) {
+      opts.key = args[i + 1];
+      i++;
     }
+  }
+
+  if (!opts.key) {
+    throw new Error(
+      'No agent key provided — pass --key <value> or set the AGENT_SHARED_SECRET environment variable (must match the backend\'s .env).',
+    );
   }
 
   return opts;
@@ -125,10 +140,10 @@ async function collect() {
   return Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined && v !== ''));
 }
 
-async function report(server, payload) {
+async function report(server, key, payload) {
   const res = await fetch(`${server}/inventory/devices/agent-report`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-agent-key': key },
     body: JSON.stringify(payload),
   });
 
@@ -143,14 +158,14 @@ async function report(server, payload) {
 }
 
 async function main() {
-  const { server } = parseArgs();
+  const { server, key } = parseArgs();
 
   console.log('Collecting system info...');
   const payload = await collect();
   console.log(payload);
 
   console.log(`Reporting to ${server}/inventory/devices/agent-report ...`);
-  const updated = await report(server, payload);
+  const updated = await report(server, key, payload);
 
   console.log(`Updated "${updated.label}" (${updated.deviceType}, serial ${payload.serial_no}).`);
 }

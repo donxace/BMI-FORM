@@ -32,6 +32,10 @@ type DomainLoginProps = {
    *  error right away instead of silently bouncing at the next protected
    *  route. */
   expectedRole: string | string[];
+  /** Which domain this login belongs to (e.g. "inventory") — tagged onto
+   *  every auth-log row from this form, so each system's logs stay
+   *  attributable even for a failed attempt with no resolved role yet. */
+  system: string;
 };
 
 /*
@@ -49,6 +53,7 @@ export default function DomainLogin({
   roleKey,
   redirectPath,
   expectedRole,
+  system,
 }: DomainLoginProps) {
   const navigate = useNavigate();
 
@@ -74,7 +79,7 @@ export default function DomainLogin({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, system }),
       });
 
       if (!response.ok) {

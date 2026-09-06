@@ -1,16 +1,27 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { corsOriginCallback } from './common/cors-origin';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
 async function bootstrap() {
+  if (!process.env.JWT_SECRET) {
+    throw new Error(
+      'JWT_SECRET is not set. Copy backend/.env.example to backend/.env and fill it in.',
+    );
+  }
+
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for LAN access
+  // LAN-only CORS — see cors-origin.ts for exactly what's allowed and why
+  // this isn't just `origin: true` any more.
   app.enableCors({
-    origin: true, // Allows all origins, or specify: ['http://localhost:5173', 'http://192.168.1.15:5173']
+    origin: corsOriginCallback,
     credentials: true,
   });
 
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true, // Strips properties not defined in the DTO

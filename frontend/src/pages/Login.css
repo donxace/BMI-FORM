@@ -12,7 +12,16 @@
 
     padding: 30px 20px;
 
-    background: #f5f7fb;
+    /* Same treatment as the Home landing page — a light blue wash (the
+       department's blue accent) over the Camp Crame photo, kept light
+       enough that contrast against --home-bg-equivalent text stays the
+       same as it was against the old flat #f5f7fb. */
+    background-image:
+        linear-gradient(rgba(219, 234, 254, 0.82), rgba(219, 234, 254, 0.82)),
+        url("../assets/pnp-crame-background.png");
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
 }
 
 .login-container *,

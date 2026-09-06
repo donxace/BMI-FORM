@@ -1,18 +1,43 @@
 /* =========================================================
-   PAGE
+   TOKENS (page-local — not inherited from the app's leftover
+   default stylesheet, so this page's type/color are deliberate
+   rather than accidental)
 ========================================================= */
 
 .home-container {
+    --home-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+        Arial, sans-serif;
+
+    --home-ink: #172033;
+    --home-muted: #475569; /* 7.6:1 on white — passes WCAG AA at any size */
+    --home-bg: #f5f7fb;
+    --home-border: #e7ebf1;
+    --home-surface: #ffffff;
+
     min-height: 100vh;
     width: 100%;
 
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
 
-    padding: 30px 20px;
+    gap: 40px;
 
-    background: #f5f7fb;
+    padding: 32px 24px;
+
+    /* A light blue wash (matching the department's blue accent, e.g. the
+       BMI System card's #2453d8) over the photo — still light enough
+       that every contrast ratio computed against --home-bg stays valid,
+       while giving the page a deliberate brand tint instead of neutral
+       grey. */
+    background-image:
+        linear-gradient(rgba(219, 234, 254, 0.82), rgba(219, 234, 254, 0.82)),
+        url("../assets/pnp-crame-background.png");
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    font-family: var(--home-font);
 }
 
 .home-container *,
@@ -21,39 +46,72 @@
     box-sizing: border-box;
 }
 
-.home-content {
-    width: 100%;
-    max-width: 1320px;
+/* ---- ENTER / LEAVE TRANSITIONS ----
+   Entrance plays once on mount. Leaving fires when Sign In is clicked —
+   Home.tsx delays the actual navigate() by LEAVE_TRANSITION_MS so this
+   is visible instead of the page just vanishing mid-frame. */
+
+.home-topbar,
+.home-chooser {
+    animation: home-enter 0.4s ease both;
+}
+
+.home-chooser {
+    animation-delay: 0.06s;
+}
+
+@keyframes home-enter {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.home-container.home-leaving .home-topbar,
+.home-container.home-leaving .home-chooser {
+    animation: home-leave 0.22s ease forwards;
+}
+
+@keyframes home-leave {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-topbar,
+    .home-chooser,
+    .home-container.home-leaving .home-topbar,
+    .home-container.home-leaving .home-chooser {
+        animation: none;
+    }
 }
 
 /* =========================================================
-   BRAND HEADER
+   TOP BAR — a small identity strip, not a masthead. The
+   actual task ("choose a system") carries the page, not the
+   department branding.
 ========================================================= */
 
-.home-brand-header {
+.home-topbar {
+    width: 100%;
+    max-width: 1140px;
+
     display: flex;
     align-items: center;
     justify-content: center;
 
-    gap: 40px;
+    gap: 24px;
 
-    margin-bottom: 52px;
-    padding-bottom: 36px;
-
-    border-bottom: 1px solid #e7ebf1;
+    flex-wrap: wrap;
 }
 
-.home-logo {
-    width: 140px;
-    height: 140px;
+.home-topbar-logo {
+    width: 76px;
+    height: 76px;
     flex-shrink: 0;
 
     object-fit: contain;
-
-    filter: drop-shadow(0 6px 14px rgba(15, 23, 42, 0.18));
 }
 
-.home-brand-text {
+.home-topbar-text {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -61,217 +119,306 @@
     text-align: center;
 }
 
-.home-brand-eyebrow {
-    margin-bottom: 6px;
-
-    color: #2453d8;
+.home-topbar-eyebrow {
+    color: var(--home-muted);
 
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
 
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-.home-brand-title {
-    margin: 0 0 8px;
+.home-topbar-title {
+    color: var(--home-ink);
 
-    color: #172033;
-
-    font-size: 44px;
+    font-size: 26px;
     font-weight: 800;
-    letter-spacing: 0.01em;
-    line-height: 1.15;
-}
-
-.home-brand-subtitle {
-    color: #7d8999;
-
-    font-size: 17px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-}
-
-@media (max-width: 560px) {
-    .home-brand-header {
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .home-brand-text {
-        align-items: center;
-        text-align: center;
-    }
 }
 
 /* =========================================================
-   HEADER
+   CHOOSER — two-pane layout: a compact system list on the
+   left, a live preview + sign-in call to action on the right.
 ========================================================= */
 
-.home-header {
-    margin-bottom: 44px;
+.home-chooser {
+    width: 100%;
+    max-width: 1140px;
 
+    display: flex;
+    align-items: stretch;
+
+    gap: 28px;
+}
+
+@media (max-width: 720px) {
+    .home-chooser {
+        flex-direction: column;
+    }
+}
+
+/* ---- LIST ---- */
+
+.home-list {
+    width: 340px;
+    flex-shrink: 0;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+
+    padding: 16px;
+
+    background: var(--home-surface);
+    border: 1px solid var(--home-border);
+    border-radius: 20px;
+}
+
+@media (max-width: 720px) {
+    .home-list {
+        width: 100%;
+    }
+}
+
+.home-list-heading {
+    margin: 8px 8px 8px;
+
+    color: var(--home-ink);
+
+    font-size: 19px;
+    font-weight: 700;
     text-align: center;
 }
 
-.home-header h1 {
-    margin: 0 0 8px;
+.home-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
 
-    color: #172033;
+    padding: 16px;
 
-    font-size: 34px;
+    border: none;
+    border-left: 3px solid transparent;
+    border-radius: 12px;
+
+    background: transparent;
+    color: var(--home-muted);
+
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.home-list-item:hover {
+    background: var(--home-bg);
+    transform: translateX(2px);
+}
+
+.home-list-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 40px;
+    height: 40px;
+
+    border-radius: 10px;
+
+    background: var(--home-bg);
+    color: var(--home-muted);
+}
+
+.home-list-item.active {
+    color: var(--home-ink);
+}
+
+.home-list-item-blue.active { border-left-color: #2453d8; background: #eff6ff; }
+.home-list-item-blue.active .home-list-icon { background: #dbeafe; color: #2453d8; }
+
+/* ---- PREVIEW ---- */
+
+.home-preview {
+    flex: 1;
+    min-width: 0;
+    min-height: 420px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 56px;
+    text-align: center;
+
+    background: var(--home-surface);
+    border: 1px solid var(--home-border);
+    border-radius: 20px;
+
+    animation: home-preview-in 0.22s ease;
+}
+
+@keyframes home-preview-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.home-preview-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 84px;
+    height: 84px;
+
+    margin-bottom: 28px;
+
+    border-radius: 20px;
+}
+
+.home-preview-title {
+    margin: 0 0 12px;
+
+    color: var(--home-ink);
+
+    font-size: 36px;
     font-weight: 800;
     line-height: 1.2;
 }
 
-.home-header p {
-    margin: 0;
+.home-preview-desc {
+    margin: 0 0 36px;
+    max-width: 52ch;
 
-    color: #7d8999;
+    color: var(--home-muted);
 
+    font-size: 17px;
+    line-height: 1.6;
+}
+
+.home-preview-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 15px 32px;
+
+    border: none;
+    border-radius: 12px;
+
+    color: #ffffff;
+
+    font-family: inherit;
     font-size: 16px;
-    line-height: 1.5;
-}
-
-/* =========================================================
-   CARD GRID
-========================================================= */
-
-.home-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 26px;
-}
-
-@media (max-width: 900px) {
-    .home-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 480px) {
-    .home-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.home-card {
-    position: relative;
-
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-
-    padding: 32px 28px;
-
-    border: 1px solid #e7ebf1;
-    border-radius: 16px;
-
-    background: #ffffff;
-    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+    font-weight: 700;
 
     cursor: pointer;
-    text-align: left;
 
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
-.home-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
+.home-preview-cta:active {
+    transform: translateY(0) scale(0.97);
 }
 
-.home-card-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    width: 56px;
-    height: 56px;
-
-    margin-bottom: 20px;
-
-    border-radius: 12px;
+.home-preview-cta:hover {
+    transform: translateY(-1px);
 }
 
-.home-card-icon svg {
-    width: 30px;
-    height: 30px;
-}
+.home-preview-blue .home-preview-icon { background: #dbeafe; color: #2453d8; }
+.home-preview-blue .home-preview-cta { background: #2453d8; box-shadow: 0 8px 20px rgba(36, 83, 216, 0.28); }
 
-.home-card-title {
-    margin-bottom: 8px;
-
-    color: #172033;
-
-    font-size: 19px;
-    font-weight: 800;
-}
-
-.home-card-desc {
-    color: #7d8999;
-
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.home-card-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    position: absolute;
-    top: 26px;
-    right: 26px;
-
-    color: #b7c0cd;
+@media (prefers-reduced-motion: reduce) {
+    .home-preview {
+        animation: none;
+    }
+    .home-preview-cta:hover {
+        transform: none;
+    }
 }
 
 /* =========================================================
-   ACCENTS
+   MOBILE (<=560px) — the sizes above are tuned for desktop;
+   without this, 76px logos and 56px preview padding leave
+   almost nothing for content on a 375px-wide phone.
 ========================================================= */
 
-.home-card-blue .home-card-icon {
-    background: #eff6ff;
-    color: #2453d8;
-}
+@media (max-width: 560px) {
+    .home-container {
+        gap: 24px;
+        padding: 20px 16px;
+    }
 
-.home-card-blue:hover {
-    border-color: #bfd3fb;
-}
+    .home-topbar {
+        gap: 12px;
+    }
 
-.home-card-red .home-card-icon {
-    background: #fef2f2;
-    color: #b91c1c;
-}
+    .home-topbar-logo {
+        width: 44px;
+        height: 44px;
+    }
 
-.home-card-red:hover {
-    border-color: #f3bcbc;
-}
+    .home-topbar-eyebrow {
+        font-size: 11px;
+    }
 
-.home-card-green .home-card-icon {
-    background: #f0fdf4;
-    color: #15803d;
-}
+    .home-topbar-title {
+        font-size: 18px;
+    }
 
-.home-card-green:hover {
-    border-color: #bbe8cc;
-}
+    .home-chooser {
+        gap: 16px;
+    }
 
-.home-card-purple .home-card-icon {
-    background: #faf5ff;
-    color: #7e22ce;
-}
+    .home-list {
+        padding: 10px;
+    }
 
-.home-card-purple:hover {
-    border-color: #e3c9fb;
-}
+    .home-list-heading {
+        font-size: 16px;
+    }
 
-.home-card-teal .home-card-icon {
-    background: #ecfeff;
-    color: #0e7490;
-}
+    .home-list-item {
+        padding: 12px;
+        font-size: 14px;
+    }
 
-.home-card-teal:hover {
-    border-color: #a5f3fc;
+    .home-list-icon {
+        width: 34px;
+        height: 34px;
+    }
+
+    .home-preview {
+        min-height: 0;
+        padding: 28px 20px;
+    }
+
+    .home-preview-icon {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 18px;
+    }
+
+    .home-preview-title {
+        font-size: 24px;
+    }
+
+    .home-preview-desc {
+        font-size: 15px;
+        margin-bottom: 24px;
+    }
+
+    .home-preview-cta {
+        width: 100%;
+        justify-content: center;
+        padding: 14px 20px;
+    }
 }

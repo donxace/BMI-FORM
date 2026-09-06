@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   NavLink,
   Outlet,
@@ -17,6 +17,8 @@ import {
   LogOut,
   Radar,
   Gauge,
+  ScrollText,
+  Menu,
 } from "lucide-react";
 
 // A single shared stroke width keeps every sidebar icon reading as
@@ -25,6 +27,7 @@ import {
 const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
 import { PC_INFO_CATEGORIES } from "../pcInfoCategories";
+import { findAuthLogsSession } from "../utils/adminSession";
 
 // Topbar subtitle swaps to name whichever system the current page
 // belongs to, rather than always reading "BMI SYSTEM" once other
@@ -45,10 +48,19 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  // Below the sidebar's collapse breakpoint (see MainLayout.css), the
+  // 240px fixed sidebar becomes an off-canvas drawer toggled by this —
+  // without it, a 240px sidebar would eat most of a 375px phone screen.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const systemLabel = getSystemLabel(location.pathname);
   const isInventoryDomain = location.pathname.startsWith("/inventory");
   const isPcInfoDomain = location.pathname.startsWith("/pc-info");
+  // Auth Logs is reachable by the literal 'admin' super-role (sees every
+  // domain) or by this domain's own "_admin" role (sees just its own
+  // domain) — findAuthLogsSession checks all 5 session-key pairs, since
+  // 'admin' specifically can be signed in through any one of them.
+  const canViewAuthLogs = findAuthLogsSession() !== null;
 
   const handleLogout = () => {
     // Each domain sharing this layout keeps its own session keys and
@@ -109,10 +121,26 @@ export default function MainLayout() {
     sidebar.style.setProperty("--nav-indicator-opacity", "1");
   }, [location.pathname]);
 
+  // Close the mobile drawer automatically after navigating, so it
+  // doesn't stay open covering the new page.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   return (
-    <div className="app-layout">
+    <div className="app-layout theme-blue">
+      {sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar" ref={sidebarRef}>
+      <aside
+        className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}
+        ref={sidebarRef}
+      >
         <nav className="navigation">
           {!isInventoryDomain && !isPcInfoDomain && (
             <>
@@ -294,6 +322,31 @@ export default function MainLayout() {
               </NavLink>
             </>
           )}
+
+          {/* Shown in every domain that uses this layout (BMI, Inventory,
+              PC Info) — not just BMI — since the super-admin can land in
+              any of them, and each domain's own admin sees it here too. */}
+          {canViewAuthLogs && (
+            <>
+              <p className="nav-title second">ADMIN</p>
+
+              <NavLink
+                to={
+                  isInventoryDomain
+                    ? "/inventory/auth-logs"
+                    : isPcInfoDomain
+                    ? "/pc-info/auth-logs"
+                    : "/auth-logs"
+                }
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "active" : ""}`
+                }
+              >
+                <span><ScrollText {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Auth Logs</span>
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -312,6 +365,17 @@ export default function MainLayout() {
       <div className="app-main">
         <header className="topbar">
           <div className="topbar-actions">
+
+            {/* Mobile sidebar toggle — hidden above the collapse
+                breakpoint, see MainLayout.css */}
+            <button
+              type="button"
+              className="menu-toggle-button"
+              aria-label="Toggle navigation menu"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+            >
+              <Menu size={22} strokeWidth={1.75} />
+            </button>
 
             {/* System Branding Section */}
             <div className="topbar-branding">

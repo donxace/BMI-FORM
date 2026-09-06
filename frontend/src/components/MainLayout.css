@@ -31,6 +31,82 @@ body,
   min-width: 240px;
   flex-shrink: 0;
   position: relative;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- MOBILE / TABLET: off-canvas drawer ----
+   A 240px sidebar taking up permanent layout width would eat most of
+   a phone screen (e.g. 64% of a 375px viewport), so below this
+   breakpoint it becomes a fixed drawer toggled by .menu-toggle-button,
+   instead of shrinking layout space. */
+
+.menu-toggle-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+
+  margin-right: 14px;
+
+  border: none;
+  background: transparent;
+  color: #172033;
+
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.menu-toggle-button:hover {
+  background: #f1f5f9;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .menu-toggle-button {
+    display: inline-flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 210;
+
+    background: #ffffff;
+    box-shadow: 4px 0 24px rgba(15, 23, 42, 0.15);
+
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+
+    overflow-y: auto;
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .app-main {
+    width: 100%;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+
+    position: fixed;
+    inset: 0;
+
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 200;
+  }
 }
 
 
@@ -78,6 +154,24 @@ body,
 .navigation {
   position: relative;
   z-index: 1;
+
+  padding: 25px 14px;
+}
+
+.nav-title {
+  margin: 0 10px 10px;
+
+  color: #8a95a5;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav-title.second {
+  margin-top: 28px;
 }
 
 
@@ -89,12 +183,55 @@ body,
   position: relative;
   z-index: 2;
 
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  gap: 13px;
+
+  margin-bottom: 4px;
+  padding: 0 13px;
+
+  border-radius: 8px;
+
+  color: #55606f;
+  text-decoration: none;
+
+  font-size: 13px;
+
   cursor: pointer;
 
-  background: transparent !important;
+  background: transparent;
 
   transition:
-    color 0.2s ease;
+    color 0.2s ease,
+    background 0.15s ease;
+}
+
+.nav-item span:first-child {
+  width: 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  text-align: center;
+
+  font-size: 17px;
+}
+
+.nav-label {
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nav-item:hover {
+  background: #f1f5f9;
+  color: #172033;
 }
 
 
@@ -103,7 +240,7 @@ body,
 */
 
 .nav-item.active {
-  background: transparent !important;
+  background: transparent;
   color: #ffffff;
 }
 
@@ -117,6 +254,61 @@ body,
 .nav-item i {
   position: relative;
   z-index: 3;
+}
+
+
+/* =========================================================
+   SIDEBAR FOOTER
+========================================================= */
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 18px;
+}
+
+.health-status {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 12px;
+
+  border-radius: 8px;
+
+  background: #f8fafc;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #22c55e;
+
+  box-shadow:
+    0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+
+.health-status strong {
+  display: block;
+
+  color: #172033;
+
+  font-size: 11px;
+}
+
+.health-status small {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #8a95a5;
+
+  font-size: 9px;
 }
 
 
@@ -161,6 +353,51 @@ body,
 
 .profile:hover {
   background: #f1f5f9;
+}
+
+.profile-avatar {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #dbeafe;
+  color: #1d4ed8;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.profile-info {
+  min-width: 0;
+}
+
+.profile-info strong {
+  display: block;
+
+  color: #273247;
+
+  font-size: 12px;
+
+  white-space: nowrap;
+}
+
+.profile-info small {
+  display: block;
+
+  margin-top: 2px;
+
+  color: #6b7280;
+
+  font-size: 10px;
+
+  white-space: nowrap;
 }
 
 
@@ -246,7 +483,7 @@ body,
 ========================================================= */
 
 .topbar {
-  height: 100px !important;
+  height: 100px;
   width: 100%;
 
   background: #ffffff;
@@ -278,8 +515,7 @@ body,
   gap: 12px;
 
   flex-shrink: 0;
-
-  margin-left: 250px;
+  min-width: 0;
 }
 
 .topbar-logo {
@@ -317,16 +553,141 @@ body,
   line-height: 1.2;
 }
 
-.brand {
-  text-align: left;
-  padding: 16px;
+/* ---- RESPONSIVE TOPBAR ----
+   The 100px-tall topbar with an 80px logo and 30px heading is sized
+   for desktop; unscaled, it crowds out actual page content on tablet
+   and leaves almost no room next to the menu button on phones. */
+
+@media (max-width: 960px) {
+  .topbar {
+    height: 76px;
+    padding: 0 18px;
+  }
+
+  .topbar-logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .branding-text strong {
+    font-size: 18px;
+  }
+
+  .branding-text small {
+    font-size: 10px;
+  }
 }
 
-.brand h2 {
-  font-size: 20px !important;
-  margin: 0;
+@media (max-width: 560px) {
+  .topbar {
+    height: 64px;
+    padding: 0 12px;
+  }
+
+  .topbar-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .branding-text strong {
+    font-size: 15px;
+  }
+
+  /* The subtitle line is the first thing to go on very small screens —
+     the logo + short title still identify the system without it. */
+  .branding-text small {
+    display: none;
+  }
+
+  .profile-info {
+    display: none;
+  }
 }
 
-.brand span {
-  font-size: 12px;
+
+/* =========================================================
+   ROYAL BLUE THEME
+   Scoped to .theme-blue, set on .app-layout by every layout that
+   shares this stylesheet (MainLayout, SecurityLayout) — one
+   consistent sidebar/topbar color across all 5 systems.
+========================================================= */
+
+.theme-blue .sidebar {
+  background: #1e3a8a; /* deep royal blue */
 }
+
+.theme-blue .sidebar::before {
+  background: #3b82f6; /* brighter blue pill so it reads against the deep sidebar */
+}
+
+.theme-blue .nav-title {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.theme-blue .nav-item {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.theme-blue .nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.theme-blue .health-status {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.theme-blue .health-status strong {
+  color: #ffffff;
+}
+
+.theme-blue .health-status small {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.theme-blue .status-dot {
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+}
+
+.theme-blue .topbar {
+  background: #2453d8; /* medium royal blue — a distinct shade from the sidebar's deeper one */
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+.theme-blue .branding-text strong {
+  color: #ffffff;
+}
+
+.theme-blue .branding-text small {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.theme-blue .menu-toggle-button {
+  color: #ffffff;
+}
+
+.theme-blue .menu-toggle-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.theme-blue .profile:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.theme-blue .profile-avatar {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.theme-blue .profile-info strong {
+  color: #ffffff;
+}
+
+.theme-blue .profile-info small {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.theme-blue .profile-arrow {
+  color: rgba(255, 255, 255, 0.75);
+}
+

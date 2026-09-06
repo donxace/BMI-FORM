@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { InventoryDevicesService } from './inventory-devices.service';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
+import { AgentSecretGuard } from '../auth/guards/agent-secret.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AgentReportDto } from './dto/agent-report.dto';
 
@@ -43,10 +44,11 @@ export class InventoryDevicesController {
     return this.inventoryDevicesService.findOne(deviceType, id);
   }
 
-  // Unauthenticated on purpose, same trust model as POST /personnel/rfid/scan:
-  // the local collector script has no admin session, and this can only ever
-  // patch a device that was already registered through the UI (matched by
-  // serial number), never create or delete one.
+  // No admin session (the local collector script has none to use), but
+  // gated by AgentSecretGuard's shared-secret header instead of being
+  // wide open — a serial number alone (often printed on the physical
+  // device) is not enough to authorize a write.
+  @UseGuards(AgentSecretGuard)
   @Post('agent-report')
   async agentReport(@Body() dto: AgentReportDto) {
     return this.inventoryDevicesService.reportFromAgent(dto);

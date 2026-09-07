@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Hash, CheckCircle2, XCircle, Users } from "lucide-react";
-import { findAuthLogsSession } from "../utils/adminSession";
+import { findAuthLogsSession, getPageSystems } from "../utils/adminSession";
 import "./AuthLogs.css";
 
 const API_BASE_URL = `http://${window.location.hostname}:3000`;
@@ -13,18 +13,6 @@ const SYSTEM_LABELS: Record<string, string> = {
   intrusion: "Intrusion Detection",
   environment: "Environment Monitoring",
 };
-
-// There's no cross-domain "everything at once" view any more — every
-// visit to this page is scoped to whichever domain(s) its own path
-// belongs to, regardless of who's viewing it (the literal super-admin
-// included). App.tsx registers this same component at 4 different
-// paths for exactly this reason.
-function getPageSystems(pathname: string): string[] {
-  if (pathname.startsWith("/inventory")) return ["inventory"];
-  if (pathname.startsWith("/pc-info")) return ["pcinfo"];
-  if (pathname.startsWith("/security")) return ["intrusion", "environment"];
-  return ["bmi"];
-}
 
 function describeSystems(systems: string[]): string {
   const labels = systems.map((s) => SYSTEM_LABELS[s] ?? s);
@@ -98,9 +86,9 @@ export default function AuthLogs() {
   const load = async () => {
     setError("");
     try {
-      // The session could be sitting under any of the 5 domains' token
-      // keys, depending on which login was actually used to get here.
-      const session = findAuthLogsSession();
+      // Prefer this page's own domain session — a lingering login to a
+      // different domain must never hijack which token gets used here.
+      const session = findAuthLogsSession(pageSystems);
       if (!session) {
         throw new Error(
           "Your session can't view auth logs — sign in with an admin account."

@@ -22,12 +22,37 @@ export type AuthLogsSession = {
   system: string;
 };
 
+// Which domain(s)' Auth Logs page a given path belongs to — shared by
+// AuthLogs.tsx (to scope the data it requests) and findAuthLogsSession
+// below (to pick the matching session first, see its own comment for why
+// that matters). Kept in one place so the two can never drift apart.
+export function getPageSystems(pathname: string): string[] {
+  if (pathname.startsWith("/inventory")) return ["inventory"];
+  if (pathname.startsWith("/pc-info")) return ["pcinfo"];
+  if (pathname.startsWith("/security")) return ["intrusion", "environment"];
+  return ["bmi"];
+}
+
 // The literal super-admin sees every domain's logs; each domain's own
-// "_admin" role sees just its own. Checked across all 5 session pairs,
-// since whichever domain the user actually signed into is the one
-// carrying the valid token.
-export function findAuthLogsSession(): AuthLogsSession | null {
-  for (const { tokenKey, roleKey, system, domainAdminRole } of DOMAIN_SESSION_KEYS) {
+// "_admin" role sees just its own. A browser can easily be carrying more
+// than one domain's session at once (nothing forces logging out of one
+// domain before signing into another), so scanning all 5 in a fixed
+// order would silently return the wrong one whenever an unrelated
+// domain's token happens to rank first - e.g. still being signed into
+// Inventory would hijack a visit to PC Info's Auth Logs page. Passing
+// the current page's own system(s) makes it check those pairs first;
+// only falls through to the other domains if none of the preferred ones
+// have a valid session (e.g. the bare /auth-logs route has no single
+// preferred domain).
+export function findAuthLogsSession(preferredSystems?: string[]): AuthLogsSession | null {
+  const orderedKeys = preferredSystems?.length
+    ? [
+        ...DOMAIN_SESSION_KEYS.filter((k) => preferredSystems.includes(k.system)),
+        ...DOMAIN_SESSION_KEYS.filter((k) => !preferredSystems.includes(k.system)),
+      ]
+    : DOMAIN_SESSION_KEYS;
+
+  for (const { tokenKey, roleKey, system, domainAdminRole } of orderedKeys) {
     const token = localStorage.getItem(tokenKey);
     const role = localStorage.getItem(roleKey);
     if (token && (role === "admin" || role === domainAdminRole)) {

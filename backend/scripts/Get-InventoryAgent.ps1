@@ -30,7 +30,8 @@
 
 .PARAMETER Server
     Base URL of the backend, e.g. http://192.168.1.15:3000
-    Defaults to http://localhost:3000.
+    If omitted, you'll be prompted for it (defaults to http://localhost:3000
+    if left blank at the prompt).
 
 .PARAMETER SkipUpdateCheck
     Skip the missing-Windows-updates scan. That scan can take anywhere
@@ -53,12 +54,23 @@
 
 [CmdletBinding()]
 param(
-    [string]$Server = "http://localhost:3000",
+    [string]$Server,
     [switch]$SkipUpdateCheck,
     [string]$AgentKey = $env:AGENT_SHARED_SECRET
 )
 
 $ErrorActionPreference = "Stop"
+
+# -Server is left unset by default so a manual double-click/interactive run
+# prompts for it; automation (Install-InventoryAgentTask.ps1) always passes
+# -Server explicitly, so it never hits this prompt.
+if ([string]::IsNullOrWhiteSpace($Server)) {
+    $Server = Read-Host "Backend server URL (e.g. http://192.168.1.15:3000) [default: http://localhost:3000]"
+    if ([string]::IsNullOrWhiteSpace($Server)) {
+        $Server = "http://localhost:3000"
+    }
+}
+
 $Server = $Server.TrimEnd("/")
 
 if ([string]::IsNullOrWhiteSpace($AgentKey)) {
@@ -68,6 +80,56 @@ if ([string]::IsNullOrWhiteSpace($AgentKey)) {
 function Write-Step {
     param([string]$Message)
     Write-Host $Message -ForegroundColor Cyan
+}
+
+# Prints everything available about a terminating error - exception type,
+# full inner-exception chain, the exact line that failed, the PowerShell
+# call stack, and (for a failed Invoke-RestMethod) the HTTP status and
+# response body - instead of PowerShell's default one-line summary.
+function Write-DebugError {
+    param(
+        [Parameter(Mandatory)][System.Management.Automation.ErrorRecord]$ErrorRecord,
+        [string]$Context
+    )
+
+    Write-Host ""
+    Write-Host "================ AGENT ERROR ================" -ForegroundColor Red
+    Write-Host "Time      : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Red
+    if ($Context) { Write-Host "Context   : $Context" -ForegroundColor Red }
+    Write-Host "Exception : $($ErrorRecord.Exception.GetType().FullName)" -ForegroundColor Red
+    Write-Host "Message   : $($ErrorRecord.Exception.Message)" -ForegroundColor Red
+
+    $inner = $ErrorRecord.Exception.InnerException
+    $depth = 1
+    while ($inner) {
+        Write-Host "Inner($depth)  : $($inner.GetType().FullName): $($inner.Message)" -ForegroundColor Red
+        $inner = $inner.InnerException
+        $depth++
+    }
+
+    if ($ErrorRecord.InvocationInfo) {
+        Write-Host "At        : $($ErrorRecord.InvocationInfo.PositionMessage)" -ForegroundColor DarkRed
+    }
+    if ($ErrorRecord.ScriptStackTrace) {
+        Write-Host "Call stack:" -ForegroundColor DarkRed
+        Write-Host $ErrorRecord.ScriptStackTrace -ForegroundColor DarkRed
+    }
+
+    # Invoke-RestMethod-specific: HTTP status + raw response body, when present.
+    $response = $ErrorRecord.Exception.Response
+    if ($response) {
+        try {
+            $statusCode = [int]$response.StatusCode
+            Write-Host "HTTP status: $statusCode $($response.StatusCode)" -ForegroundColor DarkRed
+        } catch { }
+    }
+    if ($ErrorRecord.ErrorDetails -and $ErrorRecord.ErrorDetails.Message) {
+        Write-Host "Response body:" -ForegroundColor DarkRed
+        Write-Host $ErrorRecord.ErrorDetails.Message -ForegroundColor DarkRed
+    }
+
+    Write-Host "==============================================" -ForegroundColor Red
+    Write-Host ""
 }
 
 # .NET's Microsoft.Win32.RegistryKey doesn't expose a key's last-write
@@ -401,73 +463,78 @@ function Get-AntivirusCount {
 # COLLECT
 # ==============================================================
 
-Write-Step "Collecting system info from $env:COMPUTERNAME ..."
+try {
+    Write-Step "Collecting system info from $env:COMPUTERNAME ..."
 
-$serialNo = Get-SerialNumber
-$deviceType = Get-DeviceType
-$os = Get-OperatingSystemSummary
-$cpu = Get-ProcessorSummary
-$gbRam = Get-TotalMemoryGb
-$adapters = @(Get-NetworkAdapterList)
-$primaryAdapter = Get-PrimaryAdapter $adapters
-$antivirusCount = Get-AntivirusCount
+    $serialNo = Get-SerialNumber
+    $deviceType = Get-DeviceType
+    $os = Get-OperatingSystemSummary
+    $cpu = Get-ProcessorSummary
+    $gbRam = Get-TotalMemoryGb
+    $adapters = @(Get-NetworkAdapterList)
+    $primaryAdapter = Get-PrimaryAdapter $adapters
+    $antivirusCount = Get-AntivirusCount
 
-Write-Step "Reading installed software (registry)..."
-$installedSoftware = @(Get-InstalledSoftwareList)
-Write-Host "  Found $($installedSoftware.Count) installed programs." -ForegroundColor DarkGray
+    Write-Step "Reading installed software (registry)..."
+    $installedSoftware = @(Get-InstalledSoftwareList)
+    Write-Host "  Found $($installedSoftware.Count) installed programs." -ForegroundColor DarkGray
 
-$missingUpdates = @()
-if (-not $SkipUpdateCheck) {
-    Write-Step "Checking for missing Windows updates (this can take a while)..."
-    $missingUpdates = @(Get-MissingUpdatesList)
-    Write-Host "  Found $($missingUpdates.Count) missing updates." -ForegroundColor DarkGray
-} else {
-    Write-Host "Skipping missing-updates scan (-SkipUpdateCheck)." -ForegroundColor DarkGray
-}
-
-Write-Step "Reading USB storage history (registry)..."
-$usbHistory = @(Get-UsbHistoryList)
-Write-Host "  Found $($usbHistory.Count) USB storage devices." -ForegroundColor DarkGray
-
-Write-Step "Reading printers and hotfixes..."
-$printers = @(Get-PrinterList)
-$hotfixes = @(Get-HotfixList)
-
-# ==============================================================
-# BUILD PAYLOAD — field names must match AgentReportDto exactly
-# ==============================================================
-
-$payload = [ordered]@{
-    serial_no                  = $serialNo
-    hostname                   = $env:COMPUTERNAME
-    device_type                = $deviceType
-    os                          = $os
-    cpu_brand                  = $cpu.Brand
-    cpu_cores                  = $cpu.Cores
-    gb_ram                      = $gbRam
-    mac_address                = if ($primaryAdapter) { $primaryAdapter.mac_address } else { $null }
-    ip_address                  = if ($primaryAdapter) { $primaryAdapter.ip_address } else { $null }
-    no_of_installed_anti_virus = $antivirusCount
-    installed_software          = $installedSoftware
-    missing_updates             = $missingUpdates
-    usb_history                 = $usbHistory
-    network_adapters            = $adapters
-    printers_detected           = $printers
-    hotfixes                    = $hotfixes
-}
-
-# Drop null/empty fields rather than send them — the backend DTO only
-# patches the fields actually present in the request body.
-$cleanPayload = [ordered]@{}
-foreach ($key in $payload.Keys) {
-    $value = $payload[$key]
-    $isEmptyArray = ($value -is [array]) -and ($value.Count -eq 0)
-    if ($null -ne $value -and $value -ne "" -and -not $isEmptyArray) {
-        $cleanPayload[$key] = $value
+    $missingUpdates = @()
+    if (-not $SkipUpdateCheck) {
+        Write-Step "Checking for missing Windows updates (this can take a while)..."
+        $missingUpdates = @(Get-MissingUpdatesList)
+        Write-Host "  Found $($missingUpdates.Count) missing updates." -ForegroundColor DarkGray
+    } else {
+        Write-Host "Skipping missing-updates scan (-SkipUpdateCheck)." -ForegroundColor DarkGray
     }
-}
 
-$json = $cleanPayload | ConvertTo-Json -Depth 6 -Compress
+    Write-Step "Reading USB storage history (registry)..."
+    $usbHistory = @(Get-UsbHistoryList)
+    Write-Host "  Found $($usbHistory.Count) USB storage devices." -ForegroundColor DarkGray
+
+    Write-Step "Reading printers and hotfixes..."
+    $printers = @(Get-PrinterList)
+    $hotfixes = @(Get-HotfixList)
+
+    # ==============================================================
+    # BUILD PAYLOAD — field names must match AgentReportDto exactly
+    # ==============================================================
+
+    $payload = [ordered]@{
+        serial_no                  = $serialNo
+        hostname                   = $env:COMPUTERNAME
+        device_type                = $deviceType
+        os                          = $os
+        cpu_brand                  = $cpu.Brand
+        cpu_cores                  = $cpu.Cores
+        gb_ram                      = $gbRam
+        mac_address                = if ($primaryAdapter) { $primaryAdapter.mac_address } else { $null }
+        ip_address                  = if ($primaryAdapter) { $primaryAdapter.ip_address } else { $null }
+        no_of_installed_anti_virus = $antivirusCount
+        installed_software          = $installedSoftware
+        missing_updates             = $missingUpdates
+        usb_history                 = $usbHistory
+        network_adapters            = $adapters
+        printers_detected           = $printers
+        hotfixes                    = $hotfixes
+    }
+
+    # Drop null/empty fields rather than send them — the backend DTO only
+    # patches the fields actually present in the request body.
+    $cleanPayload = [ordered]@{}
+    foreach ($key in $payload.Keys) {
+        $value = $payload[$key]
+        $isEmptyArray = ($value -is [array]) -and ($value.Count -eq 0)
+        if ($null -ne $value -and $value -ne "" -and -not $isEmptyArray) {
+            $cleanPayload[$key] = $value
+        }
+    }
+
+    $json = $cleanPayload | ConvertTo-Json -Depth 6 -Compress
+} catch {
+    Write-DebugError -ErrorRecord $_ -Context "Collecting system info from $env:COMPUTERNAME"
+    exit 1
+}
 
 Write-Step "Reporting to $Server/inventory/devices/agent-report ..."
 
@@ -481,17 +548,6 @@ try {
 
     Write-Host "Updated `"$($response.label)`" ($($response.deviceType), serial $serialNo)." -ForegroundColor Green
 } catch {
-    $errorBody = $null
-    if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
-        try { $errorBody = ($_.ErrorDetails.Message | ConvertFrom-Json).message } catch { }
-    }
-
-    if ($errorBody) {
-        $message = if ($errorBody -is [array]) { $errorBody -join "; " } else { $errorBody }
-        Write-Error "Server rejected the report: $message"
-    } else {
-        Write-Error "Agent failed: $($_.Exception.Message)"
-    }
-
+    Write-DebugError -ErrorRecord $_ -Context "POST $Server/inventory/devices/agent-report"
     exit 1
 }

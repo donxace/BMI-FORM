@@ -1,5 +1,5 @@
-import { Navigate, Outlet } from "react-router-dom";
-import { findAuthLogsSession } from "../utils/adminSession";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { findAuthLogsSession, getPageSystems } from "../utils/adminSession";
 
 /*
  * Gate for the Auth Logs page. Unlike RoleProtectedRoute — which checks
@@ -7,11 +7,15 @@ import { findAuthLogsSession } from "../utils/adminSession";
  * domains' session keys, since either the literal 'admin' account or
  * that domain's own "_admin" role can land here, and the admin account
  * specifically can be signed in through any one of the 5 domain logins.
+ * Prefers whichever domain the current path belongs to (getPageSystems)
+ * so a lingering session in a different domain doesn't cause this gate
+ * and the page's own data fetch to disagree about who's viewing it.
  * The backend still scopes what data comes back based on which role
  * actually made the request — this only gates whether the page loads.
  */
 export default function SuperAdminRoute() {
-  const session = findAuthLogsSession();
+  const location = useLocation();
+  const session = findAuthLogsSession(getPageSystems(location.pathname));
 
   if (!session) {
     return <Navigate to="/login" replace />;

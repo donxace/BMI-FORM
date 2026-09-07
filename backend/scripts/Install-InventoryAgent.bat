@@ -14,7 +14,7 @@ REM  rotated, this file needs updating too, everywhere it's been
 REM  copied.
 REM ============================================================
 
-set "SERVER=http://192.168.1.11:3000"
+set "SERVER=http://192.168.1.32:3000"
 set "AGENT_KEY=9f1e14243971a1f80ff0888366ea182de5c57f977d861627d8f0a61cb101eecf"
 
 REM ---- self-elevate if not already running as admin ----

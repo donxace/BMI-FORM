@@ -23,6 +23,9 @@ import PcInfoAssessmentDetail from "./pages/PcInfoAssessmentDetail";
 import PcInfoCategory from "./pages/PcInfoCategory";
 import PcInfoConnections from "./pages/PcInfoConnections";
 import PcInfoComponentStatus from "./pages/PcInfoComponentStatus";
+import PcInfoRegistrationKeys from "./pages/PcInfoRegistrationKeys";
+import PcInfoAnalytics from "./pages/PcInfoAnalytics";
+import PcInfoReport from "./pages/PcInfoReport";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
@@ -35,6 +38,9 @@ import SettingsPage from "./pages/SettingsPage";
 import AuthLogs from "./pages/AuthLogs";
 import Login from "./pages/Login";
 import DomainLogin from "./pages/DomainLogin";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Register from "./pages/Register";
 import MyRecords from "./pages/MyRecords";
 import MyMeasurement from "./pages/MyMeasurement";
 import Kiosk from "./pages/Kiosk";
@@ -54,6 +60,21 @@ function App() {
         <Route
           path="/login"
           element={<Login />}
+        />
+
+        {/* Shared across all 5 domain logins — `users` isn't
+            domain-scoped, so one forgot/reset flow covers everyone. */}
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
+        />
+        <Route
+          path="/register"
+          element={<Register />}
         />
 
         {/* Domain-specific logins for the other 4 landing-page systems.
@@ -310,6 +331,36 @@ function App() {
               element={<PcInfoComponentStatus />}
             />
 
+            <Route
+              path="/pc-info/analytics"
+              element={<PcInfoAnalytics />}
+            />
+
+            <Route
+              path="/pc-info/report"
+              element={<PcInfoReport />}
+            />
+
+          </Route>
+        </Route>
+
+        {/* pcinfo_admin only — generating/revoking registration keys is a
+            step above the editor/viewer roles the block above allows. */}
+        <Route
+          element={
+            <RoleProtectedRoute
+              requiredRole="pcinfo_admin"
+              tokenKey="pcInfoAuthToken"
+              roleKey="pcInfoUserRole"
+              loginPath="/pc-info/login"
+            />
+          }
+        >
+          <Route element={<MainLayout />}>
+            <Route
+              path="/pc-info/registration-keys"
+              element={<PcInfoRegistrationKeys />}
+            />
           </Route>
         </Route>
 

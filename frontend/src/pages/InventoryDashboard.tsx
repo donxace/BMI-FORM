@@ -397,13 +397,10 @@ export default function InventoryDashboard() {
 
           {/* STAT CARDS */}
           <section className="stat-grid">
-            <div
-              className="stat-card"
-              role="button"
-              tabIndex={0}
-              style={{ cursor: "pointer" }}
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
               onClick={() => setDetailModal("devices")}
-              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("devices"); }}
             >
               <div className="stat-top">
                 <span>Total Devices</span>
@@ -411,15 +408,13 @@ export default function InventoryDashboard() {
               </div>
               <h2>{loading ? "..." : devices.length}</h2>
               <div className="stat-change positive"><span>Across 12 categories</span></div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
 
-            <div
-              className="stat-card"
-              role="button"
-              tabIndex={0}
-              style={{ cursor: "pointer" }}
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
               onClick={() => setDetailModal("personnel")}
-              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("personnel"); }}
             >
               <div className="stat-top">
                 <span>Total Personnel</span>
@@ -427,15 +422,13 @@ export default function InventoryDashboard() {
               </div>
               <h2>{loading ? "..." : personnel.length}</h2>
               <div className="stat-change positive"><span>Registered in system</span></div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
 
-            <div
-              className="stat-card"
-              role="button"
-              tabIndex={0}
-              style={{ cursor: "pointer" }}
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
               onClick={() => setDetailModal("divisions")}
-              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("divisions"); }}
             >
               <div className="stat-top">
                 <span>Divisions</span>
@@ -443,15 +436,13 @@ export default function InventoryDashboard() {
               </div>
               <h2>{loading ? "..." : divisions.length}</h2>
               <div className="stat-change neutral"><span>Tracked divisions</span></div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
 
-            <div
-              className="stat-card"
-              role="button"
-              tabIndex={0}
-              style={{ cursor: "pointer" }}
+            <button
+              type="button"
+              className="stat-card stat-card-clickable"
               onClick={() => setDetailModal("active")}
-              onKeyDown={(e) => { if (e.key === "Enter") setDetailModal("active"); }}
             >
               <div className="stat-top">
                 <span>Active Devices</span>
@@ -459,7 +450,8 @@ export default function InventoryDashboard() {
               </div>
               <h2>{loading ? "..." : activeDevices}</h2>
               <div className="stat-change neutral">{activeRate}%<span> active rate</span></div>
-            </div>
+              <span className="stat-view-hint">View list →</span>
+            </button>
           </section>
 
           {/* SUSPICIOUS DEVICE ALERTS */}

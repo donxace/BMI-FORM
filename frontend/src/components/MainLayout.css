@@ -613,11 +613,12 @@ body,
 ========================================================= */
 
 .theme-blue .sidebar {
-  background: #1e3a8a; /* deep royal blue */
+  background: linear-gradient(180deg, #22429b 0%, #16265e 100%); /* deep royal blue, subtly deepening toward the footer */
 }
 
 .theme-blue .sidebar::before {
-  background: #3b82f6; /* brighter blue pill so it reads against the deep sidebar */
+  background: linear-gradient(135deg, #5b8bf7 0%, #2f5fd8 100%); /* brighter blue pill so it reads against the deep sidebar */
+  box-shadow: 0 4px 10px -3px rgba(20, 40, 100, 0.5);
 }
 
 .theme-blue .nav-title {
@@ -650,7 +651,7 @@ body,
 }
 
 .theme-blue .topbar {
-  background: #2453d8; /* medium royal blue — a distinct shade from the sidebar's deeper one */
+  background: linear-gradient(90deg, #2c5ce0 0%, #1d3fb0 100%); /* medium royal blue — a distinct shade from the sidebar's deeper one */
   border-bottom-color: rgba(255, 255, 255, 0.12);
 }
 

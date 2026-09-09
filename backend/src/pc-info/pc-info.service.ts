@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { SecurityAssessment } from './entities/security-assessment.entity';
 import { SecurityAssessmentFinding } from './entities/security-assessment-finding.entity';
 import { Desktop } from '../inventory-devices/entities/desktop.entity';
 import { Laptop } from '../inventory-devices/entities/laptop.entity';
+import { InventoryPersonnel } from '../inventory-personnel/inventory-personnel.entity';
+import { Division } from '../inventory-divisions/division.entity';
 import { buildAssessmentSummary, buildHostIdentity, parseForenCsv, toFindingRows } from './foren-csv.util';
 
 // Hard safety cap, not real pagination — see the identical note in
@@ -24,6 +26,10 @@ export class PcInfoService {
     private readonly desktopRepo: Repository<Desktop>,
     @InjectRepository(Laptop, 'inventory')
     private readonly laptopRepo: Repository<Laptop>,
+    @InjectRepository(InventoryPersonnel, 'inventory')
+    private readonly personnelRepo: Repository<InventoryPersonnel>,
+    @InjectRepository(Division, 'inventory')
+    private readonly divisionRepo: Repository<Division>,
   ) {}
 
   // Powers the "Import CSV" button on the PC Information System dashboard.
@@ -99,8 +105,67 @@ export class PcInfoService {
     };
   }
 
-  async findAllAssessments(): Promise<SecurityAssessment[]> {
-    return this.assessmentRepo.find({ order: { assessed_at: 'DESC' } });
+  // Powers the "Recent Devices"-style table on the PC Info dashboard —
+  // one row per imported machine, enriched with the OWNER/DIVISION/
+  // STATUS columns that table needs. None of those live on
+  // SecurityAssessment itself (it's purely device/host data, no
+  // personnel or division of its own); they're resolved through
+  // whichever desktops/laptops row the CSV import soft-matched by
+  // serial number (device_type/device_id), which is where an owner and
+  // division can actually be assigned. Unmatched assessments show
+  // "Unassigned" the same way an unmatched inventory device does.
+  async findAllAssessments() {
+    const assessments = await this.assessmentRepo.find({ order: { created_at: 'DESC' } });
+
+    const desktopIds = assessments.filter((a) => a.device_type === 'desktops').map((a) => a.device_id!);
+    const laptopIds = assessments.filter((a) => a.device_type === 'laptops').map((a) => a.device_id!);
+
+    const [desktops, laptops] = await Promise.all([
+      desktopIds.length > 0 ? this.desktopRepo.find({ where: { id: In(desktopIds) } }) : [],
+      laptopIds.length > 0 ? this.laptopRepo.find({ where: { id: In(laptopIds) } }) : [],
+    ]);
+
+    const deviceByKey = new Map<string, { device_name: string; personnel_id: number | null; division_id: number | null; is_active: boolean }>();
+    for (const d of desktops) deviceByKey.set(`desktops:${d.id}`, d);
+    for (const l of laptops) deviceByKey.set(`laptops:${l.id}`, l);
+
+    const personnelIds = [...new Set([...desktops, ...laptops].map((d) => d.personnel_id).filter((id): id is number => id !== null))];
+    const divisionIds = [...new Set([...desktops, ...laptops].map((d) => d.division_id).filter((id): id is number => id !== null))];
+
+    const [personnelRows, divisionRows] = await Promise.all([
+      personnelIds.length > 0 ? this.personnelRepo.find({ where: { id: In(personnelIds) } }) : [],
+      divisionIds.length > 0 ? this.divisionRepo.find({ where: { id: In(divisionIds) } }) : [],
+    ]);
+
+    const personnelNameById = new Map<number, string>(
+      personnelRows.map((p): [number, string] => [p.id, `${p.first_name} ${p.last_name}`]),
+    );
+    const divisionNameById = new Map<number, string>(
+      divisionRows.map((d): [number, string] => [d.id, d.division]),
+    );
+
+    // Additive on top of the full SecurityAssessment row — the dashboard's
+    // stat cards/charts already read risk_score, tpm_present,
+    // defender_enabled, firewall_*, etc. straight off this same list, so
+    // this can't narrow the shape down to just the table's columns.
+    return assessments.map((a) => {
+      const matchedDevice = a.device_type && a.device_id !== null ? deviceByKey.get(`${a.device_type}:${a.device_id}`) : null;
+
+      return {
+        ...a,
+        // Falls back to the matched inventory device's own name, then the
+        // motherboard model, so the row is never blank even when the CSV
+        // export carried no hostname (see foren-csv.util.ts's comment on
+        // the legacy "Table N" export shape).
+        device_name: a.hostname || matchedDevice?.device_name || a.motherboard_product || 'Unknown Device',
+        owner_name: matchedDevice?.personnel_id != null ? personnelNameById.get(matchedDevice.personnel_id) ?? null : null,
+        division_name: matchedDevice?.division_id != null ? divisionNameById.get(matchedDevice.division_id) ?? null : null,
+        // null (not a boolean) when there's no matched device at all —
+        // the frontend renders that as "Unmatched" rather than
+        // Active/Inactive, since there's nothing to be active about yet.
+        device_status: matchedDevice ? matchedDevice.is_active : null,
+      };
+    });
   }
 
   // Powers the "PC Name" detail page — the single computer a person clicks
@@ -112,6 +177,21 @@ export class PcInfoService {
       throw new NotFoundException(`No assessment #${id}.`);
     }
     return assessment;
+  }
+
+  // Deletes one imported machine's assessment and all of its raw finding
+  // rows. There's no FK between the two tables (security_assessment_findings
+  // has no cascade), so the findings have to be removed explicitly first —
+  // otherwise they'd be orphaned, still referencing an assessment_id that
+  // no longer exists.
+  async deleteAssessment(id: number): Promise<void> {
+    const assessment = await this.assessmentRepo.findOne({ where: { id } });
+    if (!assessment) {
+      throw new NotFoundException(`No assessment #${id}.`);
+    }
+
+    await this.findingRepo.delete({ assessment_id: id });
+    await this.assessmentRepo.delete({ id });
   }
 
   // Every raw finding row (all 3 tables) for one specific machine's

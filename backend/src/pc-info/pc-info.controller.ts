@@ -1,8 +1,12 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
+  ParseIntPipe,
   Post,
   UploadedFile,
   UseGuards,
@@ -14,10 +18,12 @@ import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 // Three PC Info roles: viewer (read-only), editor (can import a new
-// assessment CSV), admin (same as editor — there is no delete endpoint
-// in this domain yet, so admin has nothing further to restrict).
+// assessment CSV), admin (full access, including delete — the one
+// irreversible action in this domain, same convention as Inventory's
+// own admin-only delete).
 const PCINFO_READ_ROLES = ['pcinfo_admin', 'pcinfo_editor', 'pcinfo_viewer'];
 const PCINFO_WRITE_ROLES = ['pcinfo_admin', 'pcinfo_editor'];
+const PCINFO_ADMIN_ROLES = ['pcinfo_admin'];
 
 @Controller('pc-info')
 @UseGuards(AdminAuthGuard)
@@ -68,6 +74,13 @@ export class PcInfoController {
   @Get('assessments/:id/findings')
   async findFindingsByAssessment(@Param('id') id: string) {
     return this.pcInfoService.findFindingsByAssessment(Number(id));
+  }
+
+  @Roles(...PCINFO_ADMIN_ROLES)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete('assessments/:id')
+  async deleteAssessment(@Param('id', ParseIntPipe) id: number) {
+    await this.pcInfoService.deleteAssessment(id);
   }
 
   @Roles(...PCINFO_READ_ROLES)

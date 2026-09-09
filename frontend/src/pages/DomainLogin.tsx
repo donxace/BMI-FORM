@@ -192,6 +192,24 @@ export default function DomainLogin({
             </div>
           </div>
 
+          <div className="login-links-row">
+            <button
+              type="button"
+              className="forgot-password-link"
+              onClick={() => navigate("/forgot-password")}
+            >
+              Forgot password?
+            </button>
+
+            <button
+              type="button"
+              className="forgot-password-link"
+              onClick={() => navigate(`/register?system=${system}`)}
+            >
+              Create an account
+            </button>
+          </div>
+
           <button
             type="submit"
             className="login-button"

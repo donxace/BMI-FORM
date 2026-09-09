@@ -15,10 +15,9 @@ import {
   Settings as SettingsIcon,
   ChevronDown,
   LogOut,
-  Radar,
-  Gauge,
   ScrollText,
   Menu,
+  KeyRound,
 } from "lucide-react";
 
 // A single shared stroke width keeps every sidebar icon reading as
@@ -26,7 +25,6 @@ import {
 // to be.
 const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
-import { PC_INFO_CATEGORIES } from "../pcInfoCategories";
 import { findAuthLogsSession } from "../utils/adminSession";
 
 // Topbar subtitle swaps to name whichever system the current page
@@ -268,41 +266,24 @@ export default function MainLayout() {
                 <span className="nav-label">Dashboard</span>
               </NavLink>
 
-              <p className="nav-title second">PC INFORMATION DETAILS</p>
-
-              {PC_INFO_CATEGORIES.map(({ slug, label, icon: Icon }) => (
-                <NavLink
-                  key={slug}
-                  to={`/pc-info/category/${slug}`}
-                  className={({ isActive }) =>
-                    `nav-item ${isActive ? "active" : ""}`
-                  }
-                >
-                  <span><Icon {...NAV_ICON_PROPS} /></span>
-                  <span className="nav-label">{label}</span>
-                </NavLink>
-              ))}
-
-              <p className="nav-title second">REPORTS</p>
-
               <NavLink
-                to="/pc-info/connections"
+                to="/pc-info/analytics"
                 className={({ isActive }) =>
                   `nav-item ${isActive ? "active" : ""}`
                 }
               >
-                <span><Radar {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">PC Connection Status</span>
+                <span><BarChart3 {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Analytics</span>
               </NavLink>
 
               <NavLink
-                to="/pc-info/component-status"
+                to="/pc-info/report"
                 className={({ isActive }) =>
                   `nav-item ${isActive ? "active" : ""}`
                 }
               >
-                <span><Gauge {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Component Status</span>
+                <span><FileText {...NAV_ICON_PROPS} /></span>
+                <span className="nav-label">Reports</span>
               </NavLink>
             </>
           )}
@@ -329,6 +310,20 @@ export default function MainLayout() {
           {canViewAuthLogs && (
             <>
               <p className="nav-title second">ADMIN</p>
+
+              {isPcInfoDomain &&
+                (localStorage.getItem("pcInfoUserRole") === "pcinfo_admin" ||
+                  localStorage.getItem("pcInfoUserRole") === "admin") && (
+                  <NavLink
+                    to="/pc-info/registration-keys"
+                    className={({ isActive }) =>
+                      `nav-item ${isActive ? "active" : ""}`
+                    }
+                  >
+                    <span><KeyRound {...NAV_ICON_PROPS} /></span>
+                    <span className="nav-label">Registration Keys</span>
+                  </NavLink>
+                )}
 
               <NavLink
                 to={

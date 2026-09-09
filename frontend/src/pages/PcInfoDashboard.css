@@ -1,0 +1,339 @@
+/* =========================================================
+   PC INFORMATION SYSTEM — light analytics theme, scoped to
+   .pcinfo-dashboard so it never touches the light sidebar
+   (rendered separately by MainLayout) or the BMI/Inventory
+   dashboards, which share the same base Dashboard.css.
+========================================================= */
+
+.pcinfo-dashboard {
+  --pcinfo-bg: #f7f9fc;
+  --pcinfo-card: #ffffff;
+  --pcinfo-border: #e5e9ef;
+  --pcinfo-text: #172033;
+  --pcinfo-text-muted: #8994a5;
+  --pcinfo-text-label: #657184;
+  --pcinfo-blue: #5b7fee;
+  --pcinfo-teal: #14b892;
+  --pcinfo-orange: #d98a2b;
+  --pcinfo-red: #e2483a;
+  /* Primary theme accent — used for icon badges, buttons, active
+     states, and the trend chart. Reserved status colors (teal/orange/
+     red above) stay separate for anything that means pass/warn/fail
+     or a risk level, so blue never gets overloaded with two meanings. */
+  --pcinfo-grad: linear-gradient(135deg, #6d8cf0 0%, #3d59d6 100%);
+  /* Same treatment as --pcinfo-grad, red instead of blue — for the one
+     destructive action (Delete), so it reads as the same button style
+     with a danger meaning, not a visually different, unstyled leftover. */
+  --pcinfo-red-grad: linear-gradient(135deg, #ef6f61 0%, #c93d2e 100%);
+
+  background: var(--pcinfo-bg);
+  border-radius: 6px;
+  padding: 20px;
+  margin: -20px;
+  min-height: calc(100vh - 40px);
+}
+
+.pcinfo-dashboard .content-header .date-label,
+.pcinfo-dashboard .content-header .current-month {
+  color: var(--pcinfo-text);
+}
+
+.pcinfo-dashboard .content-header .date-label {
+  color: var(--pcinfo-text-muted);
+}
+
+.pcinfo-dashboard .card,
+.pcinfo-dashboard .stat-card {
+  background: var(--pcinfo-card);
+  border: 1px solid var(--pcinfo-border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.pcinfo-dashboard .card-header h3,
+.pcinfo-dashboard .card-header p {
+  color: var(--pcinfo-text);
+}
+
+.pcinfo-dashboard .card-header p {
+  color: var(--pcinfo-text-muted);
+}
+
+.pcinfo-dashboard .chart-empty {
+  color: var(--pcinfo-text-muted);
+}
+
+.pcinfo-dashboard .assessment-error,
+.pcinfo-dashboard .assessment-success {
+  border-radius: 6px;
+}
+
+/* ---------------------------------------------------------
+   STAT CARDS — small icon-badge square, small-caps label,
+   large value. Matches the reference's top stat row.
+--------------------------------------------------------- */
+
+.pcinfo-stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.pcinfo-stat-card {
+  background: var(--pcinfo-card);
+  border: 1px solid var(--pcinfo-border);
+  border-radius: 6px;
+  padding: 18px;
+}
+
+.pcinfo-stat-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.pcinfo-stat-icon {
+  background: var(--pcinfo-grad);
+  color: #ffffff;
+  box-shadow: 0 4px 10px -4px rgba(61, 89, 214, 0.55);
+}
+
+.pcinfo-stat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pcinfo-text-muted);
+  margin: 0 0 6px;
+}
+
+.pcinfo-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--pcinfo-text);
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------
+   PANEL GRID — used for the secondary compact breakdown row
+   (Devices by Division / OS Edition / Component Health).
+--------------------------------------------------------- */
+
+.pcinfo-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--pcinfo-border);
+}
+
+.pcinfo-panel {
+  padding: 16px 20px;
+  background: var(--pcinfo-card);
+}
+
+.pcinfo-panel-title {
+  margin: 0 0 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pcinfo-text-muted);
+}
+
+.pcinfo-bar-row {
+  margin-bottom: 11px;
+}
+
+.pcinfo-bar-row:last-child {
+  margin-bottom: 0;
+}
+
+.pcinfo-bar-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.pcinfo-bar-row-label {
+  color: var(--pcinfo-text);
+  font-weight: 500;
+}
+
+.pcinfo-bar-row-value {
+  color: var(--pcinfo-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pcinfo-bar-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #eef1f5;
+  overflow: hidden;
+}
+
+.pcinfo-bar-fill {
+  height: 100%;
+}
+
+.pcinfo-breakdown-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pcinfo-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--pcinfo-border);
+}
+
+.pcinfo-breakdown-row:last-child {
+  border-bottom: none;
+}
+
+.pcinfo-breakdown-row span:first-child {
+  color: var(--pcinfo-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcinfo-breakdown-row strong {
+  color: var(--pcinfo-text);
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------
+   DONUT LEGEND — used under the Fleet Composition donut.
+--------------------------------------------------------- */
+
+.pcinfo-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--pcinfo-text-muted);
+  margin-top: 6px;
+}
+
+.pcinfo-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pcinfo-legend-row strong {
+  margin-left: auto;
+  color: var(--pcinfo-text);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------
+   REPORT LIST — plain bordered list of report links.
+--------------------------------------------------------- */
+
+.pcinfo-report-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pcinfo-report-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 20px;
+  border: none;
+  border-top: 1px solid var(--pcinfo-border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pcinfo-report-row:hover {
+  background: #f8fafc;
+}
+
+.pcinfo-report-row .pcinfo-report-icon {
+  color: var(--pcinfo-text-muted);
+  flex-shrink: 0;
+}
+
+.pcinfo-report-row strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pcinfo-text);
+}
+
+.pcinfo-report-row small {
+  display: block;
+  font-size: 11px;
+  color: var(--pcinfo-text-muted);
+  margin-top: 1px;
+}
+
+.pcinfo-report-row .pcinfo-report-chevron {
+  margin-left: auto;
+  color: var(--pcinfo-text-muted);
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------
+   RECENT DEVICES TABLE
+--------------------------------------------------------- */
+
+.pcinfo-dashboard .table-container table {
+  color: var(--pcinfo-text);
+}
+
+.pcinfo-dashboard .table-container th {
+  color: var(--pcinfo-text-muted);
+  border-bottom: 1px solid var(--pcinfo-border);
+  background: transparent;
+}
+
+.pcinfo-dashboard .table-container td {
+  border-bottom: 1px solid var(--pcinfo-border);
+  color: var(--pcinfo-text);
+}
+
+.pcinfo-dashboard .table-container tbody tr:hover {
+  background: #f8fafc;
+}
+
+.pcinfo-dashboard .pagination-info {
+  color: var(--pcinfo-text-muted);
+}
+
+.pcinfo-dashboard .pagination-btn,
+.pcinfo-dashboard .btn-modern-nav {
+  background: var(--pcinfo-card);
+  border: 1px solid var(--pcinfo-border);
+  color: var(--pcinfo-text-muted);
+}
+
+.pcinfo-dashboard .pagination-btn.active {
+  background: var(--pcinfo-grad);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.pcinfo-dashboard .primary-button {
+  background: var(--pcinfo-grad);
+  border-color: transparent;
+  box-shadow: 0 4px 10px -4px rgba(61, 89, 214, 0.55);
+}

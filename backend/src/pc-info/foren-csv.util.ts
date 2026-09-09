@@ -65,6 +65,22 @@ const SECTION_TABLE_NO: Record<string, 1 | 2 | 3 | null> = {
   'FUNCTIONAL TESTING': 3,
 };
 
+// Older FOREN exports (seen from the same "v5" tool, just a different
+// export setting/version) use a separate numeric TABLE column instead of
+// a named SECTION label — SECTION is literally the string "Table 1" /
+// "Table 2" / "Table 3" there, and there's no "COMPUTER / NETWORK
+// INFORMATION" section at all (so hostname/computer_name/ip/mac/domain
+// stay null for these — only the motherboard serial number, still
+// present under Table 1, is available to match against inventory).
+// Reversing SECTION_TABLE_NO here normalizes a legacy row's SECTION to
+// the canonical label so every downstream consumer (isSubHeaderRow,
+// the host-info filter, toFindingRows, ...) needs no changes at all.
+const TABLE_NO_TO_SECTION: Record<string, string> = Object.fromEntries(
+  Object.entries(SECTION_TABLE_NO)
+    .filter(([, tableNo]) => tableNo !== null)
+    .map(([section, tableNo]) => [String(tableNo), section]),
+);
+
 // Minimal RFC4180 CSV parser: handles quoted fields, embedded commas, and
 // "" as an escaped quote inside a quoted field. Good enough for this
 // export — not meant as a general CSV library.
@@ -176,6 +192,18 @@ export function parseForenCsv(raw: string): { rows: ForenCsvRow[]; hostInfo: For
     .slice(1)
     .filter((r) => r.some((cell) => cell.trim() !== ''))
     .map((r) => Object.fromEntries(header.map((h, i) => [h, (r[i] ?? '').trim()])));
+
+  // Legacy "Table N" shape (see TABLE_NO_TO_SECTION above) — normalize
+  // SECTION to the canonical label wherever a numeric TABLE column says
+  // which table a row belongs to.
+  if (header.includes('TABLE')) {
+    for (const row of allRows) {
+      const canonicalSection = TABLE_NO_TO_SECTION[row.TABLE];
+      if (canonicalSection) {
+        row.SECTION = canonicalSection;
+      }
+    }
+  }
 
   const dataRows = allRows.filter((r) => !isSubHeaderRow(r));
 

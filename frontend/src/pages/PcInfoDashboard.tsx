@@ -11,6 +11,7 @@ import {
   Radar,
   Gauge,
   Upload,
+  Boxes,
 } from "lucide-react";
 import {
   Area,
@@ -29,7 +30,7 @@ import {
 } from "recharts";
 import { PC_INFO_CATEGORIES } from "../pcInfoCategories";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 // Reference palette for this page — kept in one place, and matching the
 // --pcinfo-* CSS variables in PcInfoDashboard.css, so every chart and
@@ -73,11 +74,34 @@ const DEVICE_TYPE_LABELS: Record<string, string> = {
   laptops: "Laptop",
 };
 
+// Full 12-device-type itms_inventech fleet — the "IT Inventory" section
+// below covers every type, not just the desktops/laptops the assessments
+// table above is limited to. Same labels used on the Inventory pages.
+const INVENTORY_TYPE_LABELS: Record<string, string> = {
+  desktops: "Desktop", laptops: "Laptop", cameras: "Camera", headsets: "Headset",
+  printers: "Printer", splitters: "Splitter", switchers: "Switcher", ups: "UPS Unit",
+  others: "Other Equipment", routers: "Router", firewalls: "Firewall", switches: "Switch",
+};
+
 const ITEMS_PER_PAGE = 10;
 
 type ComponentFinding = {
   id: number;
   status: string | null;
+};
+
+type InventoryItem = {
+  id: number;
+  deviceType: string;
+  label: string;
+  personnelId: number | null;
+  divisionId: number | null;
+  serialNo: string | null;
+  isActive: boolean;
+  createdDate: string | null;
+  lastUpdateAt: string | null;
+  ownerName: string | null;
+  divisionName: string | null;
 };
 
 function authHeaders() {
@@ -109,24 +133,28 @@ export default function PcInfoDashboard() {
   const canDelete = pcInfoRole === "pcinfo_admin" || pcInfoRole === "admin";
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [componentFindings, setComponentFindings] = useState<ComponentFinding[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [inventoryPage, setInventoryPage] = useState(1);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function load() {
     try {
       setLoading(true);
-      const [assessmentsRes, componentRes] = await Promise.all([
+      const [assessmentsRes, componentRes, inventoryRes] = await Promise.all([
         fetch(`${API_BASE_URL}/pc-info/assessments`, { headers: authHeaders() }),
         fetch(`${API_BASE_URL}/pc-info/component-status`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/pc-info/inventory`, { headers: authHeaders() }),
       ]);
       if (!assessmentsRes.ok) throw new Error("Failed to load PC assessments.");
       setAssessments(await assessmentsRes.json());
       setComponentFindings(componentRes.ok ? await componentRes.json() : []);
+      setInventoryItems(inventoryRes.ok ? await inventoryRes.json() : []);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load PC assessments.");
@@ -326,6 +354,31 @@ export default function PcInfoDashboard() {
 
   const deviceTotal = deviceComposition.reduce((sum, d) => sum + d.value, 0);
 
+  // IT Inventory — the full itms_inventech fleet (all 12 device types),
+  // separate from `assessments` above which only covers desktops/laptops
+  // that have had a FOREN security scan imported.
+  const inventoryTotal = inventoryItems.length;
+  const inventoryByType = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const d of inventoryItems) {
+      counts.set(d.deviceType, (counts.get(d.deviceType) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([type, count]) => ({ type, label: INVENTORY_TYPE_LABELS[type] ?? type, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [inventoryItems]);
+
+  const inventoryTotalPages = Math.max(1, Math.ceil(inventoryItems.length / ITEMS_PER_PAGE));
+  const paginatedInventory = inventoryItems.slice(
+    (inventoryPage - 1) * ITEMS_PER_PAGE,
+    inventoryPage * ITEMS_PER_PAGE
+  );
+
+  function handleInventoryPageChange(page: number) {
+    if (page < 1 || page > inventoryTotalPages) return;
+    setInventoryPage(page);
+  }
+
   return (
     <div className="dashboard pcinfo-dashboard">
       <main className="main-content">
@@ -405,6 +458,12 @@ export default function PcInfoDashboard() {
               <div className="pcinfo-stat-icon"><ShieldAlert size={17} strokeWidth={2} /></div>
               <p className="pcinfo-stat-label">Avg. Risk Score</p>
               <div className="pcinfo-stat-value">{loading ? "—" : avgRiskScore === null ? "—" : avgRiskScore}</div>
+            </div>
+
+            <div className="pcinfo-stat-card">
+              <div className="pcinfo-stat-icon"><Boxes size={17} strokeWidth={2} /></div>
+              <p className="pcinfo-stat-label">Total Inventory</p>
+              <div className="pcinfo-stat-value">{loading ? "—" : inventoryTotal}</div>
             </div>
           </div>
 
@@ -638,6 +697,25 @@ export default function PcInfoDashboard() {
                     )}
                   </div>
                 </div>
+
+                <div className="pcinfo-panel">
+                  <p className="pcinfo-panel-title">Inventory by Type</p>
+                  {inventoryByType.length === 0 ? (
+                    <p style={{ fontSize: 12, color: "#838ca0", margin: 0 }}>No inventory records yet.</p>
+                  ) : (
+                    <div className="pcinfo-breakdown-list">
+                      {inventoryByType.slice(0, 7).map((t) => (
+                        <div className="pcinfo-breakdown-row" key={t.type}>
+                          <span>{t.label}</span>
+                          <strong>{t.count}</strong>
+                        </div>
+                      ))}
+                      {inventoryByType.length > 7 && (
+                        <div className="pcinfo-breakdown-row"><span>+{inventoryByType.length - 7} more</span></div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -788,6 +866,116 @@ export default function PcInfoDashboard() {
                           className="btn-modern-nav btn-next"
                           onClick={() => handlePageChange(currentPage + 1)}
                           disabled={currentPage === totalPages}
+                        >
+                          <span>Next</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* IT INVENTORY — the full itms_inventech fleet across all 12
+              device types, not just the desktops/laptops covered by the
+              "Recent Devices" assessments table above. */}
+          <section className="card assessments-card" style={{ marginBottom: 14 }}>
+            <div className="card-header">
+              <div>
+                <h3>IT Inventory</h3>
+                <p>Every device tracked in inventory — desktops, laptops, printers, network gear, and more</p>
+              </div>
+            </div>
+
+            <div className="table-container">
+              {loading ? (
+                <div style={{ padding: "2rem", textAlign: "center", color: "#838ca0" }}>Loading inventory...</div>
+              ) : (
+                <>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>TYPE</th>
+                        <th>DEVICE</th>
+                        <th>SERIAL NO.</th>
+                        <th>OWNER</th>
+                        <th>DIVISION</th>
+                        <th>STATUS</th>
+                        <th>ADDED</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {paginatedInventory.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: "center", padding: "2rem" }}>
+                            No inventory records yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedInventory.map((d) => (
+                          <tr key={`${d.deviceType}-${d.id}`}>
+                            <td>{INVENTORY_TYPE_LABELS[d.deviceType] ?? d.deviceType}</td>
+                            <td><strong>{d.label}</strong></td>
+                            <td>{d.serialNo ?? "—"}</td>
+                            <td>{d.ownerName ?? "Unassigned"}</td>
+                            <td>{d.divisionName ?? "Unassigned"}</td>
+                            <td>
+                              <span className={`badge ${d.isActive ? "normal" : "obese"}`}>
+                                <span className="badge-dot" />
+                                {d.isActive ? "Active" : "Inactive"}
+                              </span>
+                            </td>
+                            <td>{formatDate(d.createdDate)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+
+                  {inventoryItems.length > ITEMS_PER_PAGE && (
+                    <div className="pagination-container">
+                      <div className="pagination-info">
+                        Showing <strong>{(inventoryPage - 1) * ITEMS_PER_PAGE + 1}</strong> to{" "}
+                        <strong>{Math.min(inventoryPage * ITEMS_PER_PAGE, inventoryItems.length)}</strong> of{" "}
+                        <strong>{inventoryItems.length}</strong> entries
+                      </div>
+
+                      <div className="pagination-controls">
+                        <button
+                          className="btn-modern-nav"
+                          onClick={() => handleInventoryPageChange(inventoryPage - 1)}
+                          disabled={inventoryPage === 1}
+                        >
+                          <span>Previous</span>
+                        </button>
+
+                        {Array.from({ length: inventoryTotalPages }, (_, i) => i + 1)
+                          .filter((page) => page === 1 || page === inventoryTotalPages || Math.abs(page - inventoryPage) <= 1)
+                          .reduce<(number | string)[]>((acc, page, idx, src) => {
+                            if (idx > 0 && page - (src[idx - 1] as number) > 1) acc.push("...");
+                            acc.push(page);
+                            return acc;
+                          }, [])
+                          .map((item, index) =>
+                            typeof item === "number" ? (
+                              <button
+                                key={item}
+                                className={`pagination-btn ${inventoryPage === item ? "active" : ""}`}
+                                onClick={() => handleInventoryPageChange(item)}
+                              >
+                                {item}
+                              </button>
+                            ) : (
+                              <span key={`ellipsis-${index}`} className="pagination-ellipsis">•••</span>
+                            )
+                          )}
+
+                        <button
+                          className="btn-modern-nav btn-next"
+                          onClick={() => handleInventoryPageChange(inventoryPage + 1)}
+                          disabled={inventoryPage === inventoryTotalPages}
                         >
                           <span>Next</span>
                         </button>

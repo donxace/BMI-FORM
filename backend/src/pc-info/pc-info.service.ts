@@ -8,6 +8,7 @@ import { Desktop } from '../inventory-devices/entities/desktop.entity';
 import { Laptop } from '../inventory-devices/entities/laptop.entity';
 import { InventoryPersonnel } from '../inventory-personnel/inventory-personnel.entity';
 import { Division } from '../inventory-divisions/division.entity';
+import { InventoryDevicesService } from '../inventory-devices/inventory-devices.service';
 import { buildAssessmentSummary, buildHostIdentity, parseForenCsv, toFindingRows } from './foren-csv.util';
 
 // Hard safety cap, not real pagination — see the identical note in
@@ -30,6 +31,7 @@ export class PcInfoService {
     private readonly personnelRepo: Repository<InventoryPersonnel>,
     @InjectRepository(Division, 'inventory')
     private readonly divisionRepo: Repository<Division>,
+    private readonly inventoryDevicesService: InventoryDevicesService,
   ) {}
 
   // Powers the "Import CSV" button on the PC Information System dashboard.
@@ -166,6 +168,41 @@ export class PcInfoService {
         device_status: matchedDevice ? matchedDevice.is_active : null,
       };
     });
+  }
+
+  // Powers the "IT Inventory" section on the PC Info dashboard — the
+  // complete itms_inventech fleet across all 12 device types (desktops,
+  // laptops, printers, routers, switches, UPS, cameras, headsets,
+  // firewalls, splitters, switchers, others), not just the desktops/
+  // laptops that have had a FOREN security assessment imported. Exposed
+  // under pc-info (rather than the caller hitting /inventory/devices
+  // directly) so a pcinfo_* role can see it without also needing an
+  // inventory_* role.
+  async findAllInventory() {
+    const devices = await this.inventoryDevicesService.findAll();
+
+    const personnelIds = [...new Set(devices.map((d) => d.personnelId).filter((id): id is number => id !== null))];
+    const divisionIds = [...new Set(devices.map((d) => d.divisionId).filter((id): id is number => id !== null))];
+
+    const [personnelRows, divisionRows] = await Promise.all([
+      personnelIds.length > 0 ? this.personnelRepo.find({ where: { id: In(personnelIds) } }) : [],
+      divisionIds.length > 0 ? this.divisionRepo.find({ where: { id: In(divisionIds) } }) : [],
+    ]);
+
+    const personnelNameById = new Map<number, string>(
+      personnelRows.map((p): [number, string] => [p.id, `${p.first_name} ${p.last_name}`]),
+    );
+    const divisionNameById = new Map<number, string>(
+      divisionRows.map((d): [number, string] => [d.id, d.division]),
+    );
+
+    return devices
+      .map((d) => ({
+        ...d,
+        ownerName: d.personnelId !== null ? personnelNameById.get(d.personnelId) ?? null : null,
+        divisionName: d.divisionId !== null ? divisionNameById.get(d.divisionId) ?? null : null,
+      }))
+      .sort((a, b) => (b.createdDate ?? '').localeCompare(a.createdDate ?? ''));
   }
 
   // Powers the "PC Name" detail page — the single computer a person clicks

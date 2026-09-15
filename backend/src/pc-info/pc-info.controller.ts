@@ -62,6 +62,16 @@ export class PcInfoController {
     return this.pcInfoService.findAllAssessments();
   }
 
+  // Backs the "IT Inventory" section on the PC Info dashboard — the full
+  // itms_inventech device fleet (all 12 device types), exposed under
+  // pc-info so a pcinfo_* role doesn't also need an inventory_* role to
+  // see it.
+  @Roles(...PCINFO_READ_ROLES)
+  @Get('inventory')
+  async findAllInventory() {
+    return this.pcInfoService.findAllInventory();
+  }
+
   // Backs the PC detail page — one specific machine's assessment, not the
   // aggregate views the rest of this controller serves.
   @Roles(...PCINFO_READ_ROLES)

@@ -172,6 +172,7 @@
 ========================================================= */
 
 .summary-export-button,
+.print-report-button,
 .excel-export-button {
     height: 39px;
     padding: 0 15px;
@@ -192,6 +193,24 @@
 }
 
 .summary-export-button:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+/* Same secondary (white/gray) treatment as Export Summary — this opens a
+   new tab rather than downloading a file, so it doesn't earn the primary
+   blue Export Excel gets. */
+.print-report-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid #dce2ea;
+    background: white;
+    color: #536071;
+}
+
+.print-report-button:hover:not(:disabled) {
     background: #f8fafc;
     border-color: #cbd5e1;
 }
@@ -217,6 +236,7 @@
 }
 
 .summary-export-button:disabled,
+.print-report-button:disabled,
 .excel-export-button:disabled {
     opacity: 0.45;
     cursor: not-allowed;

@@ -12,51 +12,23 @@ import {
   FileSpreadsheet,
   Check,
   ChevronRight,
+  Printer,
 } from "lucide-react";
 import "./Report.css";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
-
-type Assessment = {
-  id: number;
-  serial_no: string | null;
-  os_edition: string | null;
-  os_build: string | null;
-  risk_score: number | null;
-  risk_level: string | null;
-  hostname: string | null;
-  ip_address: string | null;
-  assessed_at: string | null;
-  created_at: string;
-  device_name: string;
-  owner_name: string | null;
-  division_name: string | null;
-  device_status: boolean | null;
-};
-
-function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("pcInfoAuthToken")}` };
-}
-
-function formatDate(date: string | null) {
-  if (!date) return "—";
-  const parsed = new Date(date);
-  if (isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-}
+import {
+  type Assessment,
+  fetchPcInfoAssessments,
+  filterPcInfoAssessments,
+  formatDate,
+  pcInfoFiltersToSearchParams,
+  riskBadgeClass,
+} from "../utils/pcInfoReport";
 
 function formatDateForExcel(date: string | null) {
   if (!date) return "";
   const parsed = new Date(date);
   if (isNaN(parsed.getTime())) return date;
   return parsed.toLocaleDateString("en-US");
-}
-
-function riskBadgeClass(level: string | null) {
-  if (level === "HIGH") return "obese";
-  if (level === "MEDIUM") return "overweight";
-  if (level === "LOW") return "normal";
-  return "underweight";
 }
 
 export default function PcInfoReport() {
@@ -79,9 +51,7 @@ export default function PcInfoReport() {
     async function loadData() {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/pc-info/assessments`, { headers: authHeaders() });
-        if (!response.ok) throw new Error("Failed to load report data.");
-        setAssessments(await response.json());
+        setAssessments(await fetchPcInfoAssessments());
         setError("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load report data.");
@@ -101,21 +71,10 @@ export default function PcInfoReport() {
     [assessments]
   );
 
-  const filteredAssessments = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return assessments.filter((a) => {
-      const division = a.division_name ?? "Unassigned";
-      const matchesSearch =
-        !term ||
-        a.device_name.toLowerCase().includes(term) ||
-        (a.serial_no ?? "").toLowerCase().includes(term) ||
-        (a.owner_name ?? "").toLowerCase().includes(term);
-      const matchesDivision = !divisionFilter || division === divisionFilter;
-      const matchesRisk = !riskFilter || a.risk_level === riskFilter;
-      const matchesOs = !osFilter || a.os_edition === osFilter;
-      return matchesSearch && matchesDivision && matchesRisk && matchesOs;
-    });
-  }, [assessments, search, divisionFilter, riskFilter, osFilter]);
+  const filteredAssessments = useMemo(
+    () => filterPcInfoAssessments(assessments, { search, divisionFilter, riskFilter, osFilter }),
+    [assessments, search, divisionFilter, riskFilter, osFilter]
+  );
 
   const totalReports = filteredAssessments.length;
   const highRiskCount = filteredAssessments.filter((a) => a.risk_level === "HIGH").length;
@@ -200,6 +159,13 @@ export default function PcInfoReport() {
     XLSX.writeFile(workbook, `PcInfo_Report_Summary_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  // Opens a new tab at /pc-info/report/print carrying the current filters
+  // as a query string — same pattern as BMI's Report.tsx.
+  const openPrintableReport = () => {
+    const query = pcInfoFiltersToSearchParams({ search, divisionFilter, riskFilter, osFilter }).toString();
+    window.open(`/pc-info/report/print${query ? `?${query}` : ""}`, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="report-page">
 
@@ -228,6 +194,10 @@ export default function PcInfoReport() {
         <div className="generator-actions">
           <button className="summary-export-button" onClick={exportSummaryToExcel} disabled={filteredAssessments.length === 0}>
             Export Summary
+          </button>
+          <button className="print-report-button" onClick={openPrintableReport} disabled={filteredAssessments.length === 0}>
+            <span><Printer size={14} strokeWidth={2.25} /></span>
+            Printable Format
           </button>
           <button className="excel-export-button" onClick={exportToExcel} disabled={filteredAssessments.length === 0}>
             <span><Download size={14} strokeWidth={2.25} /></span>

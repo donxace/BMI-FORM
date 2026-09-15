@@ -11,118 +11,28 @@ import {
   FileSpreadsheet,
   Check,
   ChevronRight,
+  Printer,
 } from "lucide-react";
 import "./Report.css";
 import StatDrilldownModal, {
   type DrilldownRow,
 } from "../components/StatDrilldownModal";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
-
-/*
- * ============================================================
- * TYPES
- * ============================================================
- */
-
-type Classification =
-  | "Underweight"
-  | "Normal"
-  | "Overweight"
-  | "Obese";
-
-type Personnel = {
-  personnel_id: number;
-  rfid_uid: string;
-  rank: string;
-  surname: string;
-  first_name: string;
-  middle_initial: string | null;
-  office: string | null;
-  age: number | null;
-  sex: string | null;
-};
-
-type Assessment = {
-  assessment_id: number;
-  personnel_id: number;
-
-  height: number;
-  weight: number;
-  waist: number | null;
-  hip: number | null;
-  wrist: number | null;
-
-  bmi: number;
-  ibw: number | null;
-  weight_to_lose: number | null;
-
-  pnp_classification: string;
-  who_classification: Classification;
-
-  assessment_date: string;
-
-  unit_representative: string | null;
-  health_service_representative: string | null;
-  encoder: string | null;
-
-  personnel?: Personnel;
-};
+import {
+  type Assessment,
+  fetchBmiAssessments,
+  filterAssessments,
+  filtersToSearchParams,
+  formatDate,
+  getClassificationClass,
+  getFullName,
+  getInitials,
+} from "../utils/bmiReport";
 
 /*
  * ============================================================
- * HELPERS
+ * HELPERS (Excel export only — not shared with the print page)
  * ============================================================
  */
-
-function getFullName(personnel?: Personnel) {
-  if (!personnel) {
-    return "Unknown Personnel";
-  }
-
-  return [
-    personnel.first_name,
-    personnel.middle_initial,
-    personnel.surname,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function getInitials(personnel?: Personnel) {
-  if (!personnel) {
-    return "NA";
-  }
-
-  const first = personnel.first_name?.charAt(0) ?? "";
-  const last = personnel.surname?.charAt(0) ?? "";
-
-  return `${first}${last}`.toUpperCase();
-}
-
-function getClassificationClass(classification: string) {
-  return classification
-    .toLowerCase()
-    .replace(/\s+/g, "-");
-}
-
-function formatDate(date: string) {
-  if (!date) {
-    return "—";
-  }
-
-  const parsedDate = new Date(date);
-
-  if (isNaN(parsedDate.getTime())) {
-    return date;
-  }
-
-  return parsedDate.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 function formatDateForExcel(date: string) {
   if (!date) {
@@ -209,205 +119,20 @@ export default function Report() {
    */
 
   useEffect(() => {
-    const fetchAssessments = async () => {
+    const loadAssessments = async () => {
       try {
         setLoading(true);
         setError("");
-
-        const response = await fetch(
-          `${API_BASE_URL}/bmi-assessments`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          },
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `HTTP ${response.status}`,
-          );
-        }
-
-        const rawData =
-          await response.json();
-
-        if (!Array.isArray(rawData)) {
-          throw new Error(
-            "Invalid report data returned by server.",
-          );
-        }
-
-        const data: Assessment[] =
-          rawData.map((item: any) => {
-            const personnelId = Number(
-              item.assessment_personnel_id ??
-                item.personnel_id ??
-                item.personnelId ??
-                0,
-            );
-
-            const personnel: Personnel = {
-              personnel_id: personnelId,
-
-              rfid_uid:
-                item.personnel_rfid_uid ??
-                item.rfid_uid ??
-                "",
-
-              rank:
-                item.personnel_rank ??
-                item.rank ??
-                "",
-
-              surname:
-                item.personnel_surname ??
-                item.surname ??
-                "",
-
-              first_name:
-                item.personnel_first_name ??
-                item.first_name ??
-                "",
-
-              middle_initial:
-                item.personnel_middle_initial ??
-                item.middle_initial ??
-                null,
-
-              office:
-                item.personnel_office ??
-                item.office ??
-                null,
-
-              age:
-                item.personnel_age ??
-                item.age ??
-                null,
-
-              sex:
-                item.personnel_sex ??
-                item.sex ??
-                null,
-            };
-
-            return {
-              assessment_id: Number(
-                item.assessment_assessment_id ??
-                  item.assessment_id ??
-                  0,
-              ),
-
-              personnel_id: personnelId,
-
-              height: Number(
-                item.assessment_height ?? 0,
-              ),
-
-              weight: Number(
-                item.assessment_weight ?? 0,
-              ),
-
-              waist:
-                item.assessment_waist != null
-                  ? Number(
-                      item.assessment_waist,
-                    )
-                  : null,
-
-              hip:
-                item.assessment_hip != null
-                  ? Number(
-                      item.assessment_hip,
-                    )
-                  : null,
-
-              wrist:
-                item.assessment_wrist != null
-                  ? Number(
-                      item.assessment_wrist,
-                    )
-                  : null,
-
-              bmi: Number(
-                item.assessment_bmi ?? 0,
-              ),
-
-              ibw:
-                item.assessment_ibw != null
-                  ? Number(
-                      item.assessment_ibw,
-                    )
-                  : null,
-
-              weight_to_lose:
-                item.assessment_weight_to_lose !=
-                null
-                  ? Number(
-                      item.assessment_weight_to_lose,
-                    )
-                  : null,
-
-              pnp_classification:
-                item.assessment_pnp_classification ??
-                "N/A",
-
-              who_classification:
-                (item.assessment_who_classification ??
-                  "Normal") as Classification,
-
-              assessment_date:
-                item.assessment_assessment_date ??
-                "",
-
-              unit_representative:
-                item.assessment_unit_representative ??
-                null,
-
-              health_service_representative:
-                item.assessment_health_service_representative ??
-                null,
-
-              encoder:
-                item.assessment_encoder ??
-                null,
-
-              personnel,
-            };
-          });
-
-        /*
-         * ======================================================
-         * LATEST TO OLDEST
-         *
-         * Assessment ID is the primary ordering.
-         * ======================================================
-         */
-
-        data.sort(
-          (a, b) =>
-            b.assessment_id -
-            a.assessment_id,
-        );
-
-        setAssessments(data);
+        setAssessments(await fetchBmiAssessments());
       } catch (err) {
-        console.error(
-          "REPORT FETCH ERROR:",
-          err,
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load reports.",
-        );
+        console.error("REPORT FETCH ERROR:", err);
+        setError(err instanceof Error ? err.message : "Unable to load reports.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAssessments();
+    loadAssessments();
   }, []);
 
   /*
@@ -461,139 +186,10 @@ export default function Report() {
    * ============================================================
    */
 
-  const filteredReports = useMemo(() => {
-    const searchValue =
-      search.toLowerCase().trim();
-
-    const now = new Date();
-
-    return assessments.filter(
-      (assessment) => {
-        const personnel =
-          assessment.personnel;
-
-        const fullName =
-          getFullName(personnel).toLowerCase();
-
-        const personnelRank =
-          personnel?.rank?.toLowerCase() ?? "";
-
-        const personnelOffice =
-          personnel?.office?.toLowerCase() ?? "";
-
-        const personnelSex =
-          personnel?.sex?.toLowerCase() ?? "";
-
-        const rfid =
-          personnel?.rfid_uid?.toLowerCase() ?? "";
-
-        const personnelId =
-          String(
-            assessment.personnel_id,
-          );
-
-        const assessmentId =
-          String(
-            assessment.assessment_id,
-          );
-
-        /*
-         * Search personnel columns
-         */
-
-        const matchesSearch =
-          !searchValue ||
-          fullName.includes(searchValue) ||
-          personnelRank.includes(searchValue) ||
-          personnelOffice.includes(searchValue) ||
-          personnelSex.includes(searchValue) ||
-          rfid.includes(searchValue) ||
-          personnelId.includes(searchValue) ||
-          assessmentId.includes(searchValue);
-
-        /*
-         * Rank
-         */
-
-        const matchesRank =
-          !rank ||
-          personnel?.rank === rank;
-
-        /*
-         * Office
-         */
-
-        const matchesOffice =
-          !office ||
-          personnel?.office === office;
-
-        /*
-         * Sex
-         */
-
-        const matchesSex =
-          !sex ||
-          personnel?.sex === sex;
-
-        /*
-         * Classification
-         */
-
-        const matchesClassification =
-          !classification ||
-          assessment.who_classification ===
-            classification;
-
-        /*
-         * Date
-         */
-
-        let matchesDate = true;
-
-        const assessmentDate =
-          new Date(
-            assessment.assessment_date,
-          );
-
-        if (dateFilter === "today") {
-          matchesDate =
-            assessmentDate.toDateString() ===
-            now.toDateString();
-        }
-
-        if (dateFilter === "month") {
-          matchesDate =
-            assessmentDate.getMonth() ===
-              now.getMonth() &&
-            assessmentDate.getFullYear() ===
-              now.getFullYear();
-        }
-
-        if (dateFilter === "year") {
-          matchesDate =
-            assessmentDate.getFullYear() ===
-            now.getFullYear();
-        }
-
-        return (
-          matchesSearch &&
-          matchesRank &&
-          matchesOffice &&
-          matchesSex &&
-          matchesClassification &&
-          matchesDate
-        );
-      },
-    );
-  }, [
-    assessments,
-    search,
-    rank,
-    office,
-    sex,
-    classification,
-    dateFilter,
-  ]);
+  const filteredReports = useMemo(
+    () => filterAssessments(assessments, { search, rank, office, sex, classification, dateFilter }),
+    [assessments, search, rank, office, sex, classification, dateFilter],
+  );
 
   /*
    * ============================================================
@@ -1018,6 +614,34 @@ export default function Report() {
 
   /*
    * ============================================================
+   * PRINTABLE FORMAT
+   *
+   * Opens a new tab at /report/print carrying the current filters
+   * as a query string — the print page re-fetches and re-filters
+   * independently (see utils/bmiReport.ts) rather than trying to
+   * hand off live component state across tabs.
+   * ============================================================
+   */
+
+  const openPrintableReport = () => {
+    const query = filtersToSearchParams({
+      search,
+      rank,
+      office,
+      sex,
+      classification,
+      dateFilter,
+    }).toString();
+
+    window.open(
+      `/report/print${query ? `?${query}` : ""}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  /*
+   * ============================================================
    * CURRENT DATE
    * ============================================================
    */
@@ -1119,6 +743,19 @@ export default function Report() {
             }
           >
             Export Summary
+          </button>
+
+          <button
+            className="print-report-button"
+            onClick={openPrintableReport}
+            disabled={
+              filteredReports.length === 0
+            }
+          >
+            <span>
+              <Printer size={14} strokeWidth={2.25} />
+            </span>
+            Printable Format
           </button>
 
           <button

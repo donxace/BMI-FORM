@@ -26,11 +26,13 @@ import PcInfoComponentStatus from "./pages/PcInfoComponentStatus";
 import PcInfoRegistrationKeys from "./pages/PcInfoRegistrationKeys";
 import PcInfoAnalytics from "./pages/PcInfoAnalytics";
 import PcInfoReport from "./pages/PcInfoReport";
+import PcInfoReportPrint from "./pages/PcInfoReportPrint";
 import Dashboard from "./pages/Dashboard";
 import Measurement from "./pages/Measurement";
 import Personnel from "./pages/Personnel";
 import Assessment from "./pages/Assessment";
 import Report from "./pages/Report";
+import ReportPrint from "./pages/ReportPrint";
 import Analytics from "./pages/Analytics";
 import IntrusionDetection from "./pages/IntrusionDetection";
 import EnvironmentMonitoring from "./pages/EnvironmentMonitoring";
@@ -193,6 +195,16 @@ function App() {
             />
 
           </Route>
+
+          {/* Printable BMI report — deliberately NOT under MainLayout
+              (see Report.tsx's openPrintableReport, which window.opens
+              this in a new tab): a print-friendly document has no use
+              for the dashboard sidebar/nav chrome. Still under
+              ProtectedRoute so it requires a valid BMI login. */}
+          <Route
+            path="/report/print"
+            element={<ReportPrint />}
+          />
         </Route>
 
         {/* =====================================================
@@ -342,6 +354,13 @@ function App() {
             />
 
           </Route>
+
+          {/* Printable PC Info report — same reasoning as BMI's
+              /report/print: no MainLayout chrome, opened in a new tab. */}
+          <Route
+            path="/pc-info/report/print"
+            element={<PcInfoReportPrint />}
+          />
         </Route>
 
         {/* pcinfo_admin only — generating/revoking registration keys is a

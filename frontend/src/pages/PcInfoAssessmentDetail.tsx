@@ -602,10 +602,10 @@ export default function PcInfoAssessmentDetail() {
                       <iframe
                         title="Public IP approximate location"
                         style={{ width: "100%", height: 180, border: 0, borderRadius: 8 }}
-                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${publicIpLon - 0.2}%2C${publicIpLat - 0.15}%2C${publicIpLon + 0.2}%2C${publicIpLat + 0.15}&layer=mapnik&marker=${publicIpLat}%2C${publicIpLon}`}
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${publicIpLon - 0.05}%2C${publicIpLat - 0.0375}%2C${publicIpLon + 0.05}%2C${publicIpLat + 0.0375}&layer=mapnik&marker=${publicIpLat}%2C${publicIpLon}`}
                       />
                       <a
-                        href={`https://www.openstreetmap.org/?mlat=${publicIpLat}&mlon=${publicIpLon}#map=11/${publicIpLat}/${publicIpLon}`}
+                        href={`https://www.openstreetmap.org/?mlat=${publicIpLat}&mlon=${publicIpLon}#map=14/${publicIpLat}/${publicIpLon}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ display: "inline-block", marginTop: 8, fontSize: "0.78rem", color: "#2563eb", fontWeight: 600 }}

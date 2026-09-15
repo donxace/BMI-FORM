@@ -481,6 +481,36 @@
     color: #2563eb;
 }
 
+.login-links-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-top: -8px;
+}
+
+.forgot-password-link {
+    border: none;
+    background: transparent;
+
+    padding: 2px;
+
+    color: #667085;
+
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    text-decoration: underline;
+    text-underline-offset: 3px;
+
+    cursor: pointer;
+}
+
+.forgot-password-link:hover {
+    color: #2563eb;
+}
+
 /* =========================================================
    BUTTON & SPINNER
 ========================================================= */

@@ -126,6 +126,15 @@ const SECTION_TABLE_NO = {
   'FUNCTIONAL TESTING': 3,
 };
 
+// Older FOREN exports use a separate numeric TABLE column instead of a
+// named SECTION label (SECTION is literally "Table 1"/"Table 2"/
+// "Table 3" there) — see foren-csv.util.ts's identical comment for the
+// full explanation. Normalizing SECTION via this reverse map keeps
+// every consumer below unchanged.
+const TABLE_NO_TO_SECTION = Object.fromEntries(
+  Object.entries(SECTION_TABLE_NO).map(([section, tableNo]) => [String(tableNo), section]),
+);
+
 function isSubHeaderRow(row) {
   return (row.CATEGORY || '').trim() === 'Category';
 }
@@ -218,6 +227,15 @@ async function main() {
     .slice(1)
     .filter((r) => r.some((cell) => cell.trim() !== ''))
     .map((r) => Object.fromEntries(header.map((h, i) => [h, (r[i] ?? '').trim()])));
+
+  if (header.includes('TABLE')) {
+    for (const row of allRows) {
+      const canonicalSection = TABLE_NO_TO_SECTION[row.TABLE];
+      if (canonicalSection) {
+        row.SECTION = canonicalSection;
+      }
+    }
+  }
 
   const rows = allRows.filter((r) => !isSubHeaderRow(r));
   const hostInfo = rows.filter((r) => r.SECTION === 'COMPUTER / NETWORK INFORMATION');

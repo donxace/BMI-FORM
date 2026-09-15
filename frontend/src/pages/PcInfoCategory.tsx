@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import "./Dashboard.css";
 import { categoryForSlug } from "../pcInfoCategories";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 type Finding = {
   id: number;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./Personnel.css";
 import { Users, Search, HardDrive, Download, FileText, ChevronRight } from "lucide-react";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 const ITEMS_PER_PAGE = 10;
 

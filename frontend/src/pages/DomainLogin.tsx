@@ -10,7 +10,7 @@ import {
 import { getHardwareIdentity } from "../utils/machineId";
 import "./Login.css";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 type DomainLoginProps = {
   /** Badge line above the heading, e.g. "HARDWARE INVENTORY SYSTEM". */

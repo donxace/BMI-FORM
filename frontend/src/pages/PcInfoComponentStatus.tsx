@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./Dashboard.css";
 import { Gauge } from "lucide-react";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 type ComponentFinding = {
   id: number;

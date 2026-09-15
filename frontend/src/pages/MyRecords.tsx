@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import "./MyRecords.css";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 type AssessmentRecord = {
   assessment_id: number;

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Mail, ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import "./Login.css";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 /*
  * Reachable from every login form's "Forgot password?" link — the

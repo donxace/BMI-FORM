@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { KeyRound, Copy, Ban, RefreshCw, Check, X, Mail } from "lucide-react";
 import "./AuthLogs.css";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 const SYSTEM = "pcinfo";
 
 type PcInfoUser = {

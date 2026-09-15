@@ -4,7 +4,7 @@ import { Hash, CheckCircle2, XCircle, Users } from "lucide-react";
 import { findAuthLogsSession, getPageSystems } from "../utils/adminSession";
 import "./AuthLogs.css";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 const SYSTEM_LABELS: Record<string, string> = {
   bmi: "BMI System",

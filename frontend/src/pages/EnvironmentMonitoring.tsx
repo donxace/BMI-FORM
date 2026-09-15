@@ -34,7 +34,7 @@ const SMOKE_COLOR = "#eb6834"; // categorical slot 2 (orange)
  * ============================================================
  */
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 /*
  * ============================================================

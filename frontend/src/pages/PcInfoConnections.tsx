@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 const ITEMS_PER_PAGE = 10;
 
 const BAR_COLORS = ["#1d4ed8", "#7c3aed", "#0d9488", "#f59e0b", "#ef4444", "#22c55e", "#0891b2", "#db2777"];

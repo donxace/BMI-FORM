@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { KeyRound, ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import "./Login.css";
 
-const API_BASE_URL = `http://${window.location.hostname}:3000`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
 // Landed on from the link in the reset email: /reset-password?token=...
 export default function ResetPassword() {

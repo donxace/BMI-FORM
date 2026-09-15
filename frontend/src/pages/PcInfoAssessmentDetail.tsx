@@ -10,6 +10,7 @@ import {
   Fingerprint,
   Cpu,
   Lock,
+  MapPin,
   CheckCircle2,
   XCircle,
   MinusCircle,
@@ -44,6 +45,13 @@ type Assessment = {
   mac_address: string | null;
   username: string | null;
   domain_workgroup: string | null;
+  public_ip: string | null;
+  isp: string | null;
+  public_ip_lat: number | null;
+  public_ip_lon: number | null;
+  public_ip_city: string | null;
+  public_ip_region: string | null;
+  public_ip_country: string | null;
   foren_version: string | null;
   ran_as_admin: boolean | null;
   assessed_at: string | null;
@@ -372,6 +380,13 @@ export default function PcInfoAssessmentDetail() {
   const firewallOn = assessment.firewall_domain && assessment.firewall_private && assessment.firewall_public;
   const secureBootOn = (assessment.secure_boot_status ?? "").toUpperCase() === "ENABLED";
 
+  // TypeORM's mysql driver returns `decimal` columns as strings (no
+  // decimalNumbers flag set on the connection) — coerce before using
+  // these in arithmetic (the embed URL's bbox below), not just string
+  // interpolation.
+  const publicIpLat = assessment.public_ip_lat !== null ? Number(assessment.public_ip_lat) : null;
+  const publicIpLon = assessment.public_ip_lon !== null ? Number(assessment.public_ip_lon) : null;
+
   return (
     <div className="dashboard">
       <main className="main-content">
@@ -537,6 +552,73 @@ export default function PcInfoAssessmentDetail() {
                   <div className="detail-item"><span>Domain / Workgroup</span><strong>{assessment.domain_workgroup ?? "—"}</strong></div>
                 </div>
               </section>
+
+              {/* Public IP / ISP / geolocation — its own full-width card
+                  (spans every column of the grid above) rather than one
+                  more grid cell, so the map has room to be read as
+                  evidence for the facts beside it instead of either
+                  dominating a cell on its own or getting buried as a
+                  caption line. Hidden entirely (same "hide, don't
+                  dead-end" convention as the rest of this page) when the
+                  CSV carried no WAN/Internet data at all — only the map
+                  half falls back to a message, for the case where a
+                  Public IP exists but geolocation couldn't resolve it. */}
+              {assessment.public_ip !== null && (
+              <section className="card" style={{ gridColumn: "1 / -1" }}>
+                <div className="card-header">
+                  <div>
+                    <h3>
+                      <MapPin size={16} strokeWidth={2} style={{ verticalAlign: "-3px", marginRight: 8 }} />
+                      Public IP Location
+                    </h3>
+                  </div>
+                  <span
+                    className="badge underweight"
+                    title="IP geolocation is approximate (often city-level, sometimes off by tens of km) and reflects the ISP's registered address, not necessarily the machine's exact physical location."
+                  >
+                    <span className="badge-dot" />
+                    Approximate
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: 24,
+                    alignItems: "center",
+                    padding: "0 20px 20px",
+                  }}
+                >
+                  <div className="detail-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", padding: 0 }}>
+                    <div className="detail-item"><span>Public IP</span><strong>{assessment.public_ip ?? "—"}</strong></div>
+                    <div className="detail-item"><span>ISP</span><strong>{assessment.isp ?? "—"}</strong></div>
+                    <div className="detail-item"><span>City</span><strong>{assessment.public_ip_city ?? "—"}</strong></div>
+                    <div className="detail-item"><span>Region</span><strong>{assessment.public_ip_region ?? "—"}</strong></div>
+                    <div className="detail-item" style={{ gridColumn: "1 / -1" }}><span>Country</span><strong>{assessment.public_ip_country ?? "—"}</strong></div>
+                  </div>
+
+                  {publicIpLat !== null && publicIpLon !== null ? (
+                    <div>
+                      <iframe
+                        title="Public IP approximate location"
+                        style={{ width: "100%", height: 180, border: 0, borderRadius: 8 }}
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${publicIpLon - 0.2}%2C${publicIpLat - 0.15}%2C${publicIpLon + 0.2}%2C${publicIpLat + 0.15}&layer=mapnik&marker=${publicIpLat}%2C${publicIpLon}`}
+                      />
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${publicIpLat}&mlon=${publicIpLon}#map=11/${publicIpLat}/${publicIpLon}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: "inline-block", marginTop: 8, fontSize: "0.78rem", color: "#2563eb", fontWeight: 600 }}
+                      >
+                        Open larger map ↗
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="chart-empty">No location resolved for this machine's public IP.</div>
+                  )}
+                </div>
+              </section>
+              )}
 
               <section className="card">
                 <div className="card-header">

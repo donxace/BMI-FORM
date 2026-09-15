@@ -126,6 +126,38 @@ export class SecurityAssessment {
   @Column({ type: 'varchar', length: 150, nullable: true })
   domain_workgroup!: string | null;
 
+  // Public IP / ISP, from the same "COMPUTER / NETWORK INFORMATION"
+  // section's "WAN / Int" component — see foren-csv.util.ts's
+  // buildHostIdentity. public_ip_* below is a geolocation lookup of
+  // public_ip, resolved once at import time and cached here — see
+  // ip-geolocation.util.ts and PcInfoService.importAssessmentCsv.
+  @Column({ type: 'varchar', length: 45, nullable: true })
+  public_ip!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  isp!: string | null;
+
+  @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true })
+  public_ip_lat!: number | null;
+
+  @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true })
+  public_ip_lon!: number | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  public_ip_city!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  public_ip_region!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  public_ip_country!: string | null;
+
+  // Set whenever a lookup is attempted (success or not) so it's clear the
+  // import-time lookup already ran — there's no refresh/retry path, so
+  // this is a record of when, not a cache-invalidation key.
+  @Column({ type: 'datetime', nullable: true })
+  public_ip_geo_looked_up_at!: Date | null;
+
   @Column({ type: 'timestamp' })
   created_at!: Date;
 }

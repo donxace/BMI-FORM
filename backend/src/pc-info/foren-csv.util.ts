@@ -239,6 +239,18 @@ export function buildHostIdentity(hostInfoRows: ForenCsvRow[]) {
     return match ? match.VALUE || null : null;
   };
 
+  // Tries each candidate COMPONENT in order, first match wins — real FOREN
+  // exports have been seen spelling this component out in full ("WAN /
+  // Internet"); "WAN / Int" is kept as a fallback in case an older/other
+  // export abbreviates it.
+  const getAny = (components: string[], property: string) => {
+    for (const component of components) {
+      const value = get(component, property);
+      if (value !== null) return value;
+    }
+    return null;
+  };
+
   return {
     hostname: get('System', 'Hostname'),
     computer_name: get('System', 'Computer Name'),
@@ -246,6 +258,10 @@ export function buildHostIdentity(hostInfoRows: ForenCsvRow[]) {
     mac_address: get('Adapter', 'MAC Address'),
     username: get('Windows', 'User'),
     domain_workgroup: get('Windows', 'Domain / Workgroup'),
+    // Added for the Public IP geolocation map on the assessment detail
+    // page; see PcInfoService.importAssessmentCsv.
+    public_ip: getAny(['WAN / Internet', 'WAN / Int'], 'Public IP'),
+    isp: getAny(['WAN / Internet', 'WAN / Int'], 'ISP'),
   };
 }
 
@@ -259,6 +275,13 @@ export function buildAssessmentSummary(assessmentRows: ForenCsvRow[]) {
 
   const motherboardSerial = get('MOTHERBOARD', 'Baseboard', 'Serial Number') || null;
 
+  // FOREN emits PROPERTY "Name" (the actual model string, e.g. "12th Gen
+  // Intel(R) Core(TM) i5-12400") when CPU detection succeeds, and only
+  // falls back to PROPERTY "Detection" (a WARN-status message like
+  // "Unable to detect CPU") when it fails — "Name" wins when both are
+  // absent/present since it's the actually useful value.
+  const cpuSummary = get('CPU', 'Processor', 'Name') || get('CPU', 'Processor', 'Detection') || null;
+
   return {
     serial_no: motherboardSerial,
     foren_version: get('ASSESSMENT', 'Foren', 'Version') || null,
@@ -268,7 +291,7 @@ export function buildAssessmentSummary(assessmentRows: ForenCsvRow[]) {
     motherboard_manufacturer: get('MOTHERBOARD', 'Baseboard', 'Manufacturer') || null,
     motherboard_product: get('MOTHERBOARD', 'Baseboard', 'Product') || null,
     motherboard_serial: motherboardSerial,
-    cpu_summary: get('CPU', 'Processor', 'Detection') || null,
+    cpu_summary: cpuSummary,
     ram_manufacturer: get('RAM', 'Memory Module', 'Manufacturer') || null,
     ram_capacity: get('RAM', 'Memory Module', 'Capacity') || null,
     ram_speed: get('RAM', 'Memory Module', 'Speed') || null,

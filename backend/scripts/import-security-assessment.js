@@ -106,6 +106,12 @@ function parseForenDate(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// Date -> "YYYY-MM-DD HH:MM:SS", same format parseForenDate produces.
+function formatDateTime(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 // "54.08 seconds" -> 54.08
 function parseDurationSeconds(value) {
   if (!value) return null;
@@ -144,6 +150,16 @@ function buildHostIdentity(hostInfoRows) {
     const match = hostInfoRows.find((r) => r.COMPONENT === component && r.PROPERTY === property);
     return match ? match.VALUE || null : null;
   };
+  // Tries each candidate COMPONENT in order — real FOREN exports have been
+  // seen spelling this out in full ("WAN / Internet"); "WAN / Int" is kept
+  // as a fallback for an older/other export that abbreviates it.
+  const getAny = (components, property) => {
+    for (const component of components) {
+      const value = get(component, property);
+      if (value !== null) return value;
+    }
+    return null;
+  };
   return {
     hostname: get('System', 'Hostname'),
     computer_name: get('System', 'Computer Name'),
@@ -151,7 +167,57 @@ function buildHostIdentity(hostInfoRows) {
     mac_address: get('Adapter', 'MAC Address'),
     username: get('Windows', 'User'),
     domain_workgroup: get('Windows', 'Domain / Workgroup'),
+    public_ip: getAny(['WAN / Internet', 'WAN / Int'], 'Public IP'),
+    isp: getAny(['WAN / Internet', 'WAN / Int'], 'ISP'),
   };
+}
+
+// Mirrors backend/src/pc-info/ip-geolocation.util.ts — see that file's
+// header comment for why ip-api.com / import-time caching were chosen.
+// Keep both in sync.
+function isLikelyPublicIpv4(ip) {
+  const match = (ip || '').trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!match) return false;
+  const octets = match.slice(1, 5).map(Number);
+  if (octets.some((n) => n > 255)) return false;
+  const [a, b] = octets;
+  if (a === 10) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 168) return false;
+  if (a === 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 0) return false;
+  return true;
+}
+
+async function lookupIpGeolocation(ip) {
+  if (!ip || !isLikelyPublicIpv4(ip)) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const res = await fetch(
+      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,lat,lon,city,regionName,country`,
+      { signal: controller.signal },
+    );
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.status !== 'success') return null;
+
+    return {
+      lat: data.lat,
+      lon: data.lon,
+      city: data.city || null,
+      region: data.regionName || null,
+      country: data.country || null,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function buildSummary(assessmentRows) {
@@ -163,6 +229,10 @@ function buildSummary(assessmentRows) {
   };
 
   const motherboardSerial = get('MOTHERBOARD', 'Baseboard', 'Serial Number') || null;
+  // FOREN emits PROPERTY "Name" (the actual model string) when CPU
+  // detection succeeds, and only falls back to PROPERTY "Detection" (a
+  // WARN-status message like "Unable to detect CPU") when it fails.
+  const cpuSummary = get('CPU', 'Processor', 'Name') || get('CPU', 'Processor', 'Detection') || null;
 
   return {
     serial_no: motherboardSerial,
@@ -173,7 +243,7 @@ function buildSummary(assessmentRows) {
     motherboard_manufacturer: get('MOTHERBOARD', 'Baseboard', 'Manufacturer') || null,
     motherboard_product: get('MOTHERBOARD', 'Baseboard', 'Product') || null,
     motherboard_serial: motherboardSerial,
-    cpu_summary: get('CPU', 'Processor', 'Detection') || null,
+    cpu_summary: cpuSummary,
     ram_manufacturer: get('RAM', 'Memory Module', 'Manufacturer') || null,
     ram_capacity: get('RAM', 'Memory Module', 'Capacity') || null,
     ram_speed: get('RAM', 'Memory Module', 'Speed') || null,
@@ -279,7 +349,23 @@ async function main() {
       }
     }
 
-    const record = { ...summary, ...identity, device_type: deviceType, device_id: deviceId };
+    const geo = await lookupIpGeolocation(identity.public_ip);
+
+    const record = {
+      ...summary,
+      ...identity,
+      device_type: deviceType,
+      device_id: deviceId,
+      public_ip_lat: geo?.lat ?? null,
+      public_ip_lon: geo?.lon ?? null,
+      public_ip_city: geo?.city ?? null,
+      public_ip_region: geo?.region ?? null,
+      public_ip_country: geo?.country ?? null,
+      // isp comes from ...identity (the CSV's own WAN/Internet row) — see
+      // the matching comment in pc-info.service.ts for why the
+      // geolocation API's ISP guess is not used to overwrite it.
+      public_ip_geo_looked_up_at: identity.public_ip ? formatDateTime(new Date()) : null,
+    };
     const columns = Object.keys(record);
     const values = Object.values(record);
     const placeholders = columns.map(() => '?').join(', ');

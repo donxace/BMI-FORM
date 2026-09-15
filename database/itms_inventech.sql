@@ -705,6 +705,14 @@ CREATE TABLE `security_assessments` (
   `mac_address` varchar(255) DEFAULT NULL,
   `username` varchar(150) DEFAULT NULL,
   `domain_workgroup` varchar(150) DEFAULT NULL,
+  `public_ip` varchar(45) DEFAULT NULL,
+  `isp` varchar(255) DEFAULT NULL,
+  `public_ip_lat` decimal(9,6) DEFAULT NULL,
+  `public_ip_lon` decimal(9,6) DEFAULT NULL,
+  `public_ip_city` varchar(150) DEFAULT NULL,
+  `public_ip_region` varchar(150) DEFAULT NULL,
+  `public_ip_country` varchar(150) DEFAULT NULL,
+  `public_ip_geo_looked_up_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `serial_no` (`serial_no`)
@@ -717,7 +725,7 @@ CREATE TABLE `security_assessments` (
 
 LOCK TABLES `security_assessments` WRITE;
 /*!40000 ALTER TABLE `security_assessments` DISABLE KEYS */;
-INSERT INTO `security_assessments` VALUES (1,'DBVWR1100130183FA630E1',NULL,NULL,'5',0,'2016-09-02 17:14:00',54.08,'Acer','Veriton M4690G','DBVWR1100130183FA630E1','Unable to detect CPU','Kingston','16.00 GB','3200 MHz','NVIDIA GeForce GTX 1650','4.00 GB','Microsoft Windows 10 Pro','19045.6466','DISABLED',NULL,0,0,1,1,1,1,1,171,19,0,45,'HIGH','ACCELAZO','CARLO','172.24.234.1, 172.19.19.01','00:15:5D:DD:99:15, D2:64:37:91:52:23','CARLO','WORKGROUP','2026-09-04 05:17:45');
+INSERT INTO `security_assessments` VALUES (1,'DBVWR1100130183FA630E1',NULL,NULL,'5',0,'2016-09-02 17:14:00',54.08,'Acer','Veriton M4690G','DBVWR1100130183FA630E1','Unable to detect CPU','Kingston','16.00 GB','3200 MHz','NVIDIA GeForce GTX 1650','4.00 GB','Microsoft Windows 10 Pro','19045.6466','DISABLED',NULL,0,0,1,1,1,1,1,171,19,0,45,'HIGH','ACCELAZO','CARLO','172.24.234.1, 172.19.19.01','00:15:5D:DD:99:15, D2:64:37:91:52:23','CARLO','WORKGROUP',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-09-04 05:17:45');
 /*!40000 ALTER TABLE `security_assessments` ENABLE KEYS */;
 UNLOCK TABLES;
 

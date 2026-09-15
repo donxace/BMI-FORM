@@ -10,6 +10,7 @@ import { InventoryPersonnel } from '../inventory-personnel/inventory-personnel.e
 import { Division } from '../inventory-divisions/division.entity';
 import { InventoryDevicesService } from '../inventory-devices/inventory-devices.service';
 import { buildAssessmentSummary, buildHostIdentity, parseForenCsv, toFindingRows } from './foren-csv.util';
+import { lookupIpGeolocation } from './ip-geolocation.util';
 
 // Hard safety cap, not real pagination — see the identical note in
 // inventory-devices.service.ts. security_assessment_findings already has
@@ -72,8 +73,31 @@ export class PcInfoService {
       }
     }
 
+    // Import-time geolocation lookup for identity.public_ip, cached on the
+    // row — see ip-geolocation.util.ts's header comment for why this runs
+    // now instead of on every assessment-detail page view. Never throws:
+    // a failed/slow lookup must not fail the import itself.
+    const geo = await lookupIpGeolocation(identity.public_ip);
+
     const assessment = await this.assessmentRepo.save(
-      this.assessmentRepo.create({ ...summary, ...identity, device_type: deviceType, device_id: deviceId }),
+      this.assessmentRepo.create({
+        ...summary,
+        ...identity,
+        device_type: deviceType,
+        device_id: deviceId,
+        public_ip_lat: geo?.lat ?? null,
+        public_ip_lon: geo?.lon ?? null,
+        public_ip_city: geo?.city ?? null,
+        public_ip_region: geo?.region ?? null,
+        public_ip_country: geo?.country ?? null,
+        // isp comes from ...identity (the CSV's own WAN/Internet row) and
+        // is intentionally left as-is here — the geolocation API's ISP
+        // field is a generic IP-to-organization lookup that can be wrong
+        // or outdated (seen returning an unrelated org/country for a real
+        // PLDT-assigned IP in testing); the CSV's value is reported
+        // directly by the machine and is the more trustworthy source.
+        public_ip_geo_looked_up_at: identity.public_ip ? new Date() : null,
+      }),
     );
 
     const findingRows = toFindingRows(rows).map((r) =>

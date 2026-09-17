@@ -24,6 +24,8 @@
 //
 // Usage: node backend/scripts/import-security-assessment.js <path-to-csv>
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const mysql = require('mysql2/promise');
 
 function parseArgs() {
@@ -365,6 +367,12 @@ async function main() {
       // the matching comment in pc-info.service.ts for why the
       // geolocation API's ISP guess is not used to overwrite it.
       public_ip_geo_looked_up_at: identity.public_ip ? formatDateTime(new Date()) : null,
+      // No authenticated admin session on this CLI path (unlike the
+      // in-app "Import CSV" button) — record the OS user who ran the
+      // script instead, so the history timeline still shows *something*
+      // for a scripted/bulk import rather than a blank.
+      imported_by_username: os.userInfo().username || null,
+      source_filename: path.basename(csvPath),
     };
     const columns = Object.keys(record);
     const values = Object.values(record);

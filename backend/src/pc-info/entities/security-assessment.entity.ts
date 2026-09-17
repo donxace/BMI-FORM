@@ -158,6 +158,19 @@ export class SecurityAssessment {
   @Column({ type: 'datetime', nullable: true })
   public_ip_geo_looked_up_at!: Date | null;
 
+  // Import provenance — who ran the "Import CSV" action and which file
+  // they uploaded. Not a foreign key: security_assessments lives in
+  // itms_inventech, `users` lives in bmi_monitoring — a separate
+  // database/TypeORM connection entirely (see app.module.ts), so this is
+  // a denormalized snapshot of the JWT's username claim at import time,
+  // same convention already used by bmi_assessments' plain-text
+  // unit_representative/encoder columns rather than a real relation.
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  imported_by_username!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  source_filename!: string | null;
+
   @Column({ type: 'timestamp' })
   created_at!: Date;
 }

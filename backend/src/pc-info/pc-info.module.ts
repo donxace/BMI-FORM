@@ -10,6 +10,7 @@ import { Division } from '../inventory-divisions/division.entity';
 import { InventoryDevicesModule } from '../inventory-devices/inventory-devices.module';
 import { PcInfoService } from './pc-info.service';
 import { PcInfoController } from './pc-info.controller';
+import { PcInfoRemoteController } from './pc-info-remote.controller';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { PcInfoController } from './pc-info.controller';
     // 12 repositories here.
     InventoryDevicesModule,
   ],
-  controllers: [PcInfoController],
+  controllers: [PcInfoController, PcInfoRemoteController],
   providers: [PcInfoService],
 })
 export class PcInfoModule {}

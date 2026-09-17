@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   XCircle,
   MinusCircle,
+  History as HistoryIcon,
+  FileText,
 } from "lucide-react";
 import {
   Bar,
@@ -75,6 +77,20 @@ type Assessment = {
   firewall_public: boolean | null;
   risk_score: number | null;
   risk_level: string | null;
+  imported_by_username: string | null;
+  source_filename: string | null;
+};
+
+type HistoryEntry = {
+  id: number;
+  is_current: boolean;
+  hostname: string | null;
+  assessed_at: string | null;
+  created_at: string;
+  risk_score: number | null;
+  risk_level: string | null;
+  imported_by_username: string | null;
+  source_filename: string | null;
 };
 
 type Finding = {
@@ -165,6 +181,7 @@ export default function PcInfoAssessmentDetail() {
 
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [connectionsPage, setConnectionsPage] = useState(1);
@@ -176,7 +193,7 @@ export default function PcInfoAssessmentDetail() {
   // connections, component checklist) can each run into the hundreds of
   // rows, so only one is ever on screen at a time — a tab switch, not a
   // long scroll — with a risk overview always visible above them.
-  type Tab = "overview" | "hardware" | "network" | "checklist";
+  type Tab = "overview" | "hardware" | "network" | "checklist" | "history";
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   useEffect(() => {
@@ -189,13 +206,15 @@ export default function PcInfoAssessmentDetail() {
     async function load() {
       try {
         setLoading(true);
-        const [assessmentRes, findingsRes] = await Promise.all([
+        const [assessmentRes, findingsRes, historyRes] = await Promise.all([
           fetch(`${API_BASE_URL}/pc-info/assessments/${id}`, { headers: authHeaders() }),
           fetch(`${API_BASE_URL}/pc-info/assessments/${id}/findings`, { headers: authHeaders() }),
+          fetch(`${API_BASE_URL}/pc-info/assessments/${id}/history`, { headers: authHeaders() }),
         ]);
         if (!assessmentRes.ok) throw new Error("Machine not found.");
         setAssessment(await assessmentRes.json());
         setFindings(findingsRes.ok ? await findingsRes.json() : []);
+        setHistory(historyRes.ok ? await historyRes.json() : []);
         setError("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load this machine's details.");
@@ -375,6 +394,7 @@ export default function PcInfoAssessmentDetail() {
     { key: "hardware", label: "Hardware & Security", icon: ShieldAlert, count: findings.filter((f) => f.table_no === 1).length },
     { key: "network", label: "Network", icon: Network, count: connections.length },
     { key: "checklist", label: "Checklist", icon: ClipboardCheck, count: componentChecklist.length },
+    { key: "history", label: "Import History", icon: HistoryIcon, count: history.length },
   ];
 
   const firewallOn = assessment.firewall_domain && assessment.firewall_private && assessment.firewall_public;
@@ -462,6 +482,13 @@ export default function PcInfoAssessmentDetail() {
                   {assessment.device_id
                     ? `Matched to ${assessment.device_type} #${assessment.device_id} in inventory`
                     : "Not registered in inventory"}
+                  {(assessment.imported_by_username || assessment.source_filename) && (
+                    <>
+                      <br />
+                      Imported {assessment.imported_by_username ? `by ${assessment.imported_by_username}` : ""}
+                      {assessment.source_filename ? ` from ${assessment.source_filename}` : ""}
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -1017,6 +1044,81 @@ export default function PcInfoAssessmentDetail() {
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* IMPORT HISTORY TAB — every past import matched to this same
+              physical machine (see PcInfoService.findAssessmentHistory),
+              so re-importing the same device over time reads as a
+              timeline instead of a pile of disconnected entries. */}
+          {activeTab === "history" && (
+            <section className="card assessments-card">
+              <div className="card-header">
+                <div>
+                  <h3>
+                    <HistoryIcon size={16} strokeWidth={2} style={{ verticalAlign: "-3px", marginRight: 8 }} />
+                    Import History
+                  </h3>
+                  <p>Every time this machine's assessment has been imported, oldest first</p>
+                </div>
+              </div>
+
+              <div className="table-container">
+                {history.length === 0 ? (
+                  <div className="chart-empty">No import history found for this machine.</div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Assessed</th>
+                        <th>Risk</th>
+                        <th>Imported By</th>
+                        <th>File</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((h) => (
+                        <tr key={h.id} style={h.is_current ? { background: "#eff6ff" } : undefined}>
+                          <td>{formatDateTime(h.assessed_at ?? h.created_at)}</td>
+                          <td>
+                            <span className={`badge ${riskBadgeClass(h.risk_level)}`}>
+                              <span className="badge-dot" />
+                              {h.risk_level ?? "UNKNOWN"}
+                            </span>
+                          </td>
+                          <td>{h.imported_by_username ?? "—"}</td>
+                          <td>
+                            {h.source_filename ? (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <FileText size={13} strokeWidth={2} color="#94a3b8" />
+                                {h.source_filename}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td>
+                            {h.is_current ? (
+                              <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#2563eb" }}>
+                                Viewing this one
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="machine-link"
+                                onClick={() => navigate(`/pc-info/assessment/${h.id}`)}
+                              >
+                                View →
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             </section>

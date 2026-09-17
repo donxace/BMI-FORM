@@ -8,10 +8,12 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PcInfoService } from './pc-info.service';
 import { AdminAuthGuard } from '../auth/guards/admin-auth.guard';
@@ -49,11 +51,12 @@ export class PcInfoController {
       },
     }),
   )
-  async importAssessment(@UploadedFile() file?: Express.Multer.File) {
+  async importAssessment(@UploadedFile() file: Express.Multer.File | undefined, @Req() request: Request) {
     if (!file) {
       throw new BadRequestException('No CSV file uploaded.');
     }
-    return this.pcInfoService.importAssessmentCsv(file.buffer);
+    const importedByUsername = (request as any).user?.username ?? null;
+    return this.pcInfoService.importAssessmentCsv(file.buffer, importedByUsername, file.originalname ?? null);
   }
 
   @Roles(...PCINFO_READ_ROLES)
@@ -84,6 +87,15 @@ export class PcInfoController {
   @Get('assessments/:id/findings')
   async findFindingsByAssessment(@Param('id') id: string) {
     return this.pcInfoService.findFindingsByAssessment(Number(id));
+  }
+
+  // Every past import for the same physical machine as :id — see
+  // PcInfoService.findAssessmentHistory for how "same machine" is
+  // decided when the device isn't registered in inventory.
+  @Roles(...PCINFO_READ_ROLES)
+  @Get('assessments/:id/history')
+  async findAssessmentHistory(@Param('id', ParseIntPipe) id: number) {
+    return this.pcInfoService.findAssessmentHistory(id);
   }
 
   @Roles(...PCINFO_ADMIN_ROLES)

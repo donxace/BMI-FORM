@@ -39,7 +39,7 @@ export class PcInfoService {
   // Same logic/behavior as backend/scripts/import-security-assessment.js —
   // that script remains useful for scripted/bulk imports, this is the
   // one-off, no-terminal-needed equivalent for a single machine's report.
-  async importAssessmentCsv(fileBuffer: Buffer) {
+  async importAssessmentCsv(fileBuffer: Buffer, importedByUsername: string | null, sourceFilename: string | null) {
     const raw = fileBuffer.toString('utf8');
 
     let rows, hostInfo;
@@ -97,6 +97,8 @@ export class PcInfoService {
         // PLDT-assigned IP in testing); the CSV's value is reported
         // directly by the machine and is the more trustworthy source.
         public_ip_geo_looked_up_at: identity.public_ip ? new Date() : null,
+        imported_by_username: importedByUsername,
+        source_filename: sourceFilename,
       }),
     );
 
@@ -238,6 +240,46 @@ export class PcInfoService {
       throw new NotFoundException(`No assessment #${id}.`);
     }
     return assessment;
+  }
+
+  // Powers the "Import History" tab on the assessment detail page — every
+  // assessment ever imported for the SAME physical machine as `id`, not
+  // just this one row, so re-importing the same device over time reads
+  // as a timeline instead of a pile of disconnected, unrelated-looking
+  // entries. "Same machine" is decided the same way an import already
+  // soft-matches to inventory:
+  //   - device_type + device_id, when this assessment matched an
+  //     inventory device (the more authoritative link), or
+  //   - motherboard_serial, for a device never registered in inventory
+  //     but whose FOREN export reports the same serial every time.
+  // Falls back to just this one row (a "history" of one) when neither
+  // identifier is available at all.
+  async findAssessmentHistory(id: number) {
+    const target = await this.findAssessmentById(id);
+
+    const where =
+      target.device_type && target.device_id !== null
+        ? { device_type: target.device_type, device_id: target.device_id }
+        : target.motherboard_serial
+          ? { motherboard_serial: target.motherboard_serial }
+          : { id: target.id };
+
+    const history = await this.assessmentRepo.find({
+      where,
+      order: { assessed_at: 'ASC', created_at: 'ASC' },
+    });
+
+    return history.map((a) => ({
+      id: a.id,
+      is_current: a.id === target.id,
+      hostname: a.hostname,
+      assessed_at: a.assessed_at,
+      created_at: a.created_at,
+      risk_score: a.risk_score,
+      risk_level: a.risk_level,
+      imported_by_username: a.imported_by_username,
+      source_filename: a.source_filename,
+    }));
   }
 
   // Deletes one imported machine's assessment and all of its raw finding

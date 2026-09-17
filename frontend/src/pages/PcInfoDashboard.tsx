@@ -590,7 +590,7 @@ export default function PcInfoDashboard() {
                     <RechartsTooltip
                       cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
                       contentStyle={chartTooltipStyle}
-                      formatter={(value: number, _name, props: any) => [`${value} / 100`, props.payload.machine]}
+                      formatter={(value: any, _name, props: any) => [`${value} / 100`, props.payload.machine]}
                     />
                     <Area
                       type="monotone"

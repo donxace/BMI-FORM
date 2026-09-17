@@ -570,7 +570,7 @@ export default function InventoryDashboard() {
                       <RechartsTooltip
                         cursor={{ fill: "rgba(37, 99, 235, 0.06)" }}
                         contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
-                        formatter={(value: number, _name, props: any) => [`${value} devices (${props.payload.percentage}%)`, props.payload.label]}
+                        formatter={(value: any, _name, props: any) => [`${value} devices (${props.payload.percentage}%)`, props.payload.label]}
                       />
                       <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={18}>
                         {typeDistribution.map((entry, idx) => (
@@ -658,7 +658,7 @@ export default function InventoryDashboard() {
                   <RechartsTooltip
                     cursor={{ stroke: "#cbd5e1", strokeDasharray: "3 3" }}
                     contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.8rem" }}
-                    formatter={(value: number) => [`${value} device${value === 1 ? "" : "s"}`, "Added"]}
+                    formatter={(value: any) => [`${value} device${value === 1 ? "" : "s"}`, "Added"]}
                   />
                   <Area
                     type="monotone"

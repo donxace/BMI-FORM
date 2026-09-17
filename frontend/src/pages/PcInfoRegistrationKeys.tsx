@@ -21,10 +21,20 @@ const ROLE_LABELS: Record<string, string> = {
   pcinfo_viewer: "Viewer",
 };
 
+// Which tier a new key grants — mirrors backend's keyRoleTiersForSystem
+// (register.dto.ts). Viewer stays the default since that's what every
+// key granted before this option existed.
+const KEY_ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "pcinfo_viewer", label: "Viewer (read-only)" },
+  { value: "pcinfo_editor", label: "Editor (can import assessments)" },
+  { value: "pcinfo_admin", label: "Admin (full access, including delete)" },
+];
+
 type RegistrationKey = {
   id: number;
   code: string;
   system: string;
+  role: string;
   created_by: string | null;
   used_by: string | null;
   used_at: string | null;
@@ -78,9 +88,14 @@ export default function PcInfoRegistrationKeys() {
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [justGenerated, setJustGenerated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [generateRole, setGenerateRole] = useState(KEY_ROLE_OPTIONS[0].value);
 
   const [requests, setRequests] = useState<RegistrationKeyRequest[] | null>(null);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
+  // Which role to grant when approving each pending request — keyed by
+  // request id so multiple rows can have different tiers chosen at once,
+  // defaulting to viewer (same default as generateRole).
+  const [approveRoles, setApproveRoles] = useState<Record<number, string>>({});
 
   const [users, setUsers] = useState<PcInfoUser[] | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
@@ -156,7 +171,11 @@ export default function PcInfoRegistrationKeys() {
 
       const response = await fetch(
         `${API_BASE_URL}/auth/registration-keys/requests/${id}/approve`,
-        { method: "POST", headers: authHeaders() }
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ role: approveRoles[id] ?? KEY_ROLE_OPTIONS[0].value }),
+        }
       );
 
       if (!response.ok) {
@@ -250,7 +269,7 @@ export default function PcInfoRegistrationKeys() {
       const response = await fetch(`${API_BASE_URL}/auth/registration-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ system: SYSTEM }),
+        body: JSON.stringify({ system: SYSTEM, role: generateRole }),
       });
 
       if (!response.ok) {
@@ -366,6 +385,7 @@ export default function PcInfoRegistrationKeys() {
                   <th>Username</th>
                   <th>Email</th>
                   <th>Requested</th>
+                  <th>Grant Role</th>
                   <th></th>
                 </tr>
               </thead>
@@ -375,6 +395,26 @@ export default function PcInfoRegistrationKeys() {
                     <td>{req.username}</td>
                     <td>{req.email}</td>
                     <td>{formatDateTime(req.created_at)}</td>
+                    <td>
+                      <select
+                        value={approveRoles[req.id] ?? KEY_ROLE_OPTIONS[0].value}
+                        onChange={(e) =>
+                          setApproveRoles((prev) => ({ ...prev, [req.id]: e.target.value }))
+                        }
+                        disabled={resolvingId === req.id}
+                        style={{
+                          border: "1px solid #dce2ea",
+                          borderRadius: "6px",
+                          padding: "5px 8px",
+                          fontSize: "12px",
+                          color: "#334155",
+                        }}
+                      >
+                        {KEY_ROLE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{ROLE_LABELS[opt.value]}</option>
+                        ))}
+                      </select>
+                    </td>
                     <td style={{ display: "flex", gap: 8 }}>
                       <button
                         type="button"
@@ -434,6 +474,22 @@ export default function PcInfoRegistrationKeys() {
         </div>
 
         <div className="auth-logs-toolbar">
+          <select
+            value={generateRole}
+            onChange={(e) => setGenerateRole(e.target.value)}
+            disabled={generating}
+            style={{
+              border: "1px solid #dce2ea",
+              borderRadius: "6px",
+              padding: "6px 10px",
+              fontSize: "13px",
+              color: "#334155",
+            }}
+          >
+            {KEY_ROLE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
           <button type="button" onClick={handleGenerate} disabled={generating}>
             {generating ? "Generating…" : "+ Generate New Key"}
           </button>
@@ -453,6 +509,7 @@ export default function PcInfoRegistrationKeys() {
               <thead>
                 <tr>
                   <th>Code</th>
+                  <th>Grants</th>
                   <th>Status</th>
                   <th>Created By</th>
                   <th>Used By</th>
@@ -468,6 +525,7 @@ export default function PcInfoRegistrationKeys() {
                   return (
                     <tr key={key.id}>
                       <td className="auth-logs-mono">{key.code}</td>
+                      <td>{ROLE_LABELS[key.role] ?? key.role}</td>
                       <td><span className={status.className}>{status.label}</span></td>
                       <td>{key.created_by ?? "—"}</td>
                       <td>{key.used_by ?? "—"}</td>

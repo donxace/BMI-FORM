@@ -24,6 +24,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { GenerateRegistrationKeyDto } from './dto/generate-registration-key.dto';
 import { RequestRegistrationKeyDto } from './dto/request-registration-key.dto';
+import { ActivateRegistrationKeyDto } from './dto/activate-registration-key.dto';
+import { ApproveRegistrationKeyRequestDto } from './dto/approve-registration-key-request.dto';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { Roles } from './decorators/roles.decorator';
 
@@ -68,12 +70,28 @@ export class AuthController {
 
   // Public self-service signup — always grants a viewer-only role (see
   // AuthService.register); same brute-force rationale as login() above
-  // for why this is throttled despite not checking a password.
+  // for why this is throttled despite not checking a password. For a
+  // REGISTRATION_KEY_REQUIRED_SYSTEMS system, this only ever creates the
+  // account — see activateRegistrationKey() below for the step that
+  // actually grants access.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('register')
   async register(@Body() dto: RegisterDto, @Req() request: Request) {
     return this.authService.register(dto, {
+      ip_address: getClientIp(request),
+      user_agent: request.headers['user-agent'] ?? null,
+    });
+  }
+
+  // Step 2 for a REGISTRATION_KEY_REQUIRED_SYSTEMS system — activates
+  // the access that register() deliberately withheld. Throttled like
+  // login(): this checks both a password and a serial key.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('registration-keys/activate')
+  async activateRegistrationKey(@Body() dto: ActivateRegistrationKeyDto, @Req() request: Request) {
+    return this.authService.activateRegistrationKey(dto, {
       ip_address: getClientIp(request),
       user_agent: request.headers['user-agent'] ?? null,
     });
@@ -293,6 +311,7 @@ export class AuthController {
   @Post('registration-keys/requests/:id/approve')
   async approveRegistrationKeyRequest(
     @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ApproveRegistrationKeyRequestDto,
     @Req() request: Request,
   ) {
     const role = (request as any).user.role as string;
@@ -305,7 +324,7 @@ export class AuthController {
       }
     }
 
-    return this.authService.approveRegistrationKeyRequest(id, userId);
+    return this.authService.approveRegistrationKeyRequest(id, userId, dto.role);
   }
 
   @UseGuards(AdminAuthGuard)

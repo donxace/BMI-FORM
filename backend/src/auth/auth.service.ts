@@ -18,9 +18,10 @@ import { PersonnelLoginDto } from './dto/personnel-login.dto';
 import { PersonnelRegisterDto } from './dto/personnel-register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { RegisterDto, REGISTRATION_KEY_REQUIRED_SYSTEMS } from './dto/register.dto';
+import { RegisterDto, REGISTRATION_KEY_REQUIRED_SYSTEMS, keyRoleTiersForSystem } from './dto/register.dto';
 import { GenerateRegistrationKeyDto } from './dto/generate-registration-key.dto';
 import { RequestRegistrationKeyDto } from './dto/request-registration-key.dto';
+import { ActivateRegistrationKeyDto } from './dto/activate-registration-key.dto';
 import { RegistrationKey } from './entities/registration-key.entity';
 import { RegistrationKeyRequest } from './entities/registration-key-request.entity';
 import { UserRole } from './entities/user-role.entity';
@@ -191,15 +192,26 @@ export class AuthService {
    * already belong to the SAME existing account, this extends it (after
    * verifying the submitted password actually matches, so it can't be
    * used to graft a role onto a stranger's account) instead of rejecting
-   * outright. A system in REGISTRATION_KEY_REQUIRED_SYSTEMS still needs
-   * a valid key either way — extending an existing account into PC Info
-   * is no less gated than creating a fresh one for it.
+   * outright.
+   *
+   * For a system in REGISTRATION_KEY_REQUIRED_SYSTEMS (currently just PC
+   * Info), this endpoint ONLY ever creates/matches the account — it
+   * never grants that system's role and never issues a token, because
+   * RegisterDto has no serialKey field at all. Access is granted
+   * exclusively by activateRegistrationKey() below, a separate endpoint
+   * with its own DTO where serialKey is mandatory. Splitting these two
+   * concerns across two endpoints (rather than one endpoint with an
+   * optional field) means "a valid key is required for PC Info access"
+   * is enforced by class-validator on activateRegistrationKey's own DTO,
+   * not by an if-branch that a future edit could quietly loosen — and a
+   * bad/missing key can never undo the account this call already saved.
    * =========================================================
    */
 
   async register(dto: RegisterDto, meta: RequestMeta) {
     const username = dto.username.trim();
     const email = dto.email.trim().toLowerCase();
+    const keyRequired = REGISTRATION_KEY_REQUIRED_SYSTEMS.includes(dto.system);
     const role = REGISTER_ROLE_BY_SYSTEM[dto.system];
 
     const logFailure = (result: string) =>
@@ -211,24 +223,6 @@ export class AuthService {
         result,
         meta,
       });
-
-    let registrationKey: RegistrationKey | null = null;
-
-    if (REGISTRATION_KEY_REQUIRED_SYSTEMS.includes(dto.system)) {
-      registrationKey = await this.registrationKeyRepository.findOne({
-        where: { code: dto.serialKey?.trim(), system: dto.system },
-      });
-
-      if (
-        !registrationKey ||
-        registrationKey.used_at ||
-        registrationKey.revoked_at
-      ) {
-        const reason = 'That serial key is invalid, already used, or has been revoked.';
-        await logFailure(reason);
-        throw new BadRequestException(reason);
-      }
-    }
 
     const userByUsername = await this.userRepository.findOne({ where: { username } });
     const userByEmail = await this.userRepository.findOne({ where: { email } });
@@ -292,15 +286,30 @@ export class AuthService {
       isNewAccount = true;
     }
 
+    if (keyRequired) {
+      // No role, no token — see this method's header comment. The
+      // account is fully saved above; only PC Info access is deferred.
+      await this.logAttempt({
+        user_id: targetUser.id,
+        username: targetUser.username,
+        system: dto.system,
+        event: EVENT.REGISTER_SUCCESS,
+        result: 'Account created; access pending a valid serial key.',
+        meta,
+      });
+
+      return {
+        message: isNewAccount
+          ? 'Account created. Enter the serial key provided by your administrator to activate access.'
+          : 'Enter the serial key provided by your administrator to activate access on this account.',
+        requiresKey: true,
+        username: targetUser.username,
+      };
+    }
+
     await this.userRoleRepository.save(
       this.userRoleRepository.create({ user_id: targetUser.id, system: dto.system, role }),
     );
-
-    if (registrationKey) {
-      registrationKey.used_by_user_id = targetUser.id;
-      registrationKey.used_at = new Date();
-      await this.registrationKeyRepository.save(registrationKey);
-    }
 
     const token = await this.jwtService.signAsync({
       sub: targetUser.id,
@@ -330,6 +339,115 @@ export class AuthService {
 
   /*
    * =========================================================
+   * REGISTRATION KEY ACTIVATION — step 2 for a
+   * REGISTRATION_KEY_REQUIRED_SYSTEMS system. register() above already
+   * created (or matched) the account with no access to dto.system; this
+   * verifies the account's password (same account-hijack protection as
+   * register()'s "extend an existing account" branch) and a valid,
+   * unused, unrevoked key before granting the role and issuing a token.
+   * ActivateRegistrationKeyDto makes serialKey mandatory — there is no
+   * path through this method that grants access without one.
+   * =========================================================
+   */
+
+  async activateRegistrationKey(dto: ActivateRegistrationKeyDto, meta: RequestMeta) {
+    const username = dto.username.trim();
+
+    const logFailure = (result: string) =>
+      this.logAttempt({
+        user_id: null,
+        username,
+        system: dto.system,
+        event: EVENT.REGISTER_FAILED,
+        result,
+        meta,
+      });
+
+    const user = await this.userRepository.findOne({ where: { username } });
+
+    if (!user) {
+      const reason = 'No account found with that username.';
+      await logFailure(reason);
+      throw new UnauthorizedException(reason);
+    }
+
+    const passwordOk = await bcrypt.compare(dto.password, user.password_hash).catch(() => false);
+
+    if (!passwordOk) {
+      const reason = 'Incorrect password for this account.';
+      await logFailure(reason);
+      throw new UnauthorizedException(reason);
+    }
+
+    if (!user.is_active) {
+      const reason = 'This account has been disabled.';
+      await logFailure(reason);
+      throw new UnauthorizedException(reason);
+    }
+
+    const alreadyHasRole = await this.userRoleRepository.findOne({
+      where: { user_id: user.id, system: dto.system },
+    });
+
+    if (alreadyHasRole) {
+      const reason = 'This account already has access to this system. Please sign in instead.';
+      await logFailure(reason);
+      throw new ConflictException(reason);
+    }
+
+    const registrationKey = await this.registrationKeyRepository.findOne({
+      where: { code: dto.serialKey.trim(), system: dto.system },
+    });
+
+    if (!registrationKey || registrationKey.used_at || registrationKey.revoked_at) {
+      const reason = 'That serial key is invalid, already used, or has been revoked.';
+      await logFailure(reason);
+      throw new BadRequestException(reason);
+    }
+
+    // The role this key actually grants — chosen by whichever admin
+    // generated it (see keyRoleTiersForSystem), not a fixed viewer-only
+    // default. registrationKey.role is guaranteed valid: generateRegistrationKey
+    // already checked it against keyRoleTiersForSystem(dto.system) at
+    // creation time.
+    const role = registrationKey.role;
+
+    await this.userRoleRepository.save(
+      this.userRoleRepository.create({ user_id: user.id, system: dto.system, role }),
+    );
+
+    registrationKey.used_by_user_id = user.id;
+    registrationKey.used_at = new Date();
+    await this.registrationKeyRepository.save(registrationKey);
+
+    const token = await this.jwtService.signAsync({
+      sub: user.id,
+      username: user.username,
+      role,
+    });
+
+    await this.logAttempt({
+      user_id: user.id,
+      username: user.username,
+      system: dto.system,
+      event: EVENT.REGISTER_SUCCESS,
+      result: 'Access activated with serial key.',
+      meta,
+    });
+
+    return {
+      message: 'Access activated.',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role,
+      },
+    };
+  }
+
+  /*
+   * =========================================================
    * REGISTRATION KEYS (admin-managed, gates self-service signup
    * for whichever systems are in REGISTRATION_KEY_REQUIRED_SYSTEMS)
    * =========================================================
@@ -347,6 +465,12 @@ export class AuthService {
   }
 
   async generateRegistrationKey(dto: GenerateRegistrationKeyDto, createdByUserId: number) {
+    if (!keyRoleTiersForSystem(dto.system).includes(dto.role)) {
+      throw new BadRequestException(
+        `"${dto.role}" isn't a valid role for ${dto.system} — expected one of ${keyRoleTiersForSystem(dto.system).join(', ')}.`,
+      );
+    }
+
     // Collisions are astronomically unlikely given the code space, but
     // the unique index is the real guarantee — retry once on the off
     // chance one is hit rather than surfacing a raw DB error.
@@ -358,6 +482,7 @@ export class AuthService {
       const key = this.registrationKeyRepository.create({
         code,
         system: dto.system,
+        role: dto.role,
         created_by_user_id: createdByUserId,
       });
       return this.registrationKeyRepository.save(key);
@@ -377,6 +502,7 @@ export class AuthService {
       id: key.id,
       code: key.code,
       system: key.system,
+      role: key.role,
       created_by: key.created_by?.username ?? null,
       used_by: key.used_by?.username ?? null,
       used_at: key.used_at,
@@ -399,7 +525,39 @@ export class AuthService {
     key.revoked_at = new Date();
     await this.registrationKeyRepository.save(key);
 
-    return { message: 'Key revoked.' };
+    // If this key came from an approved request (a directly-generated key
+    // has no request/email attached at all), and the email it was issued
+    // to already has a pending account sitting there — step 1 of
+    // register() done, but never activated with a key, exactly the
+    // "acelazo" situation — free that email up too instead of leaving a
+    // zero-access account nobody can ever register with again. Never
+    // touches an account that actually has access to something: only a
+    // dangling, zero-role account tied to this exact request's email
+    // qualifies.
+    let freedAccountEmail: string | null = null;
+
+    const request = await this.registrationKeyRequestRepository.findOne({
+      where: { registration_key_id: id },
+    });
+
+    if (request) {
+      const pendingUser = await this.userRepository.findOne({ where: { email: request.email } });
+
+      if (pendingUser && pendingUser.role !== 'admin') {
+        const roleCount = await this.userRoleRepository.count({ where: { user_id: pendingUser.id } });
+
+        if (roleCount === 0) {
+          await this.userRepository.delete({ id: pendingUser.id });
+          freedAccountEmail = pendingUser.email;
+        }
+      }
+    }
+
+    return {
+      message: freedAccountEmail
+        ? `Key revoked. Also removed the pending account for ${freedAccountEmail} (it never activated).`
+        : 'Key revoked.',
+    };
   }
 
   /*
@@ -445,7 +603,7 @@ export class AuthService {
     });
   }
 
-  async approveRegistrationKeyRequest(id: number, adminUserId: number) {
+  async approveRegistrationKeyRequest(id: number, adminUserId: number, role: string) {
     const request = await this.registrationKeyRequestRepository.findOne({ where: { id } });
 
     if (!request) {
@@ -456,7 +614,10 @@ export class AuthService {
       throw new BadRequestException('This request has already been resolved.');
     }
 
-    const key = await this.generateRegistrationKey({ system: request.system as any }, adminUserId);
+    const key = await this.generateRegistrationKey(
+      { system: request.system as any, role },
+      adminUserId,
+    );
 
     request.status = 'fulfilled';
     request.registration_key_id = key.id;

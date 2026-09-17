@@ -15,6 +15,14 @@ export class RegistrationKey {
   @Column()
   system!: string;
 
+  // Which tier this key grants when activated, e.g. 'pcinfo_editor' — an
+  // admin picks this when generating the key or approving a request (see
+  // keyRoleTiersForSystem in register.dto.ts). AuthService.
+  // activateRegistrationKey grants exactly this role, not a fixed
+  // "always viewer" default.
+  @Column()
+  role!: string;
+
   @Column({ type: 'int', nullable: true })
   created_by_user_id!: number | null;
 

@@ -12,6 +12,13 @@ import "./Login.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
+// Mirrors backend's REGISTRATION_KEY_REQUIRED_SYSTEMS (register.dto.ts)
+// and Register.tsx's own copy of the same list — which domains have an
+// account-exists-but-inactive state reachable by exactly this login
+// error, rather than treating it as a plain wrong-credentials failure.
+const REGISTRATION_KEY_REQUIRED_SYSTEMS = ["pcinfo"];
+const NO_ACCESS_MESSAGE = "This account does not have access to this system.";
+
 type DomainLoginProps = {
   /** Badge line above the heading, e.g. "HARDWARE INVENTORY SYSTEM". */
   badgeText: string;
@@ -93,9 +100,19 @@ export default function DomainLogin({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.message || "Invalid credentials. Please try again."
-        );
+        const message = errorData?.message || "Invalid credentials. Please try again.";
+
+        // This account exists (the password checked out) but has no role
+        // for this system — for a keyed domain that's exactly the state
+        // step 1 of registration leaves an account in (see AuthService.
+        // register / Register.tsx). Send them straight to activation
+        // instead of dead-ending on a generic error.
+        if (message === NO_ACCESS_MESSAGE && REGISTRATION_KEY_REQUIRED_SYSTEMS.includes(system)) {
+          navigate(`/register?system=${system}&step=key&username=${encodeURIComponent(username.trim())}`);
+          return;
+        }
+
+        throw new Error(message);
       }
 
       const data = await response.json();
@@ -103,9 +120,12 @@ export default function DomainLogin({
       const acceptedRoles = Array.isArray(expectedRole) ? expectedRole : [expectedRole];
 
       if (role !== "admin" && !acceptedRoles.includes(role)) {
-        throw new Error(
-          "This account does not have access to this system."
-        );
+        if (REGISTRATION_KEY_REQUIRED_SYSTEMS.includes(system)) {
+          navigate(`/register?system=${system}&step=key&username=${encodeURIComponent(username.trim())}`);
+          return;
+        }
+
+        throw new Error(NO_ACCESS_MESSAGE);
       }
 
       if (data.token) {

@@ -42,7 +42,7 @@ CREATE TABLE `authentication_audit_logs` (
   KEY `idx_auth_audit_system` (`system`),
   KEY `idx_auth_audit_created` (`created_at`),
   CONSTRAINT `fk_auth_audit_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=140 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=140 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -217,6 +217,124 @@ INSERT INTO `ranks` VALUES (1,'NUP',14),(2,'PAT',13),(3,'PCPL',12),(4,'PSSG',11)
 UNLOCK TABLES;
 
 --
+-- Table structure for table `registration_key_requests`
+--
+-- A /register visitor's request for a serial key (systems in
+-- REGISTRATION_KEY_REQUIRED_SYSTEMS only). See
+-- database/migrations/2026-09-07_add_registration_key_requests.sql —
+-- previously missing from this dump entirely (schema only added here,
+-- no seed rows, since this is transient per-signup state).
+--
+
+DROP TABLE IF EXISTS `registration_key_requests`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `registration_key_requests` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `system` varchar(30) COLLATE utf8mb4_general_ci NOT NULL,
+  `username` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `status` varchar(20) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending',
+  `registration_key_id` int DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `resolved_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_registration_key_requests_system_status` (`system`,`status`),
+  KEY `fk_registration_key_requests_key` (`registration_key_id`),
+  CONSTRAINT `fk_registration_key_requests_key` FOREIGN KEY (`registration_key_id`) REFERENCES `registration_keys` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `registration_key_requests`
+--
+
+LOCK TABLES `registration_key_requests` WRITE;
+/*!40000 ALTER TABLE `registration_key_requests` DISABLE KEYS */;
+/*!40000 ALTER TABLE `registration_key_requests` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `registration_keys`
+--
+-- One-time serial keys gating self-service registration for domains
+-- that opt into requiring one — see REGISTRATION_KEY_REQUIRED_SYSTEMS
+-- in register.dto.ts. `role` (added 2026-09-17) is which tier the key
+-- grants when activated — see keyRoleTiersForSystem, same file.
+--
+
+DROP TABLE IF EXISTS `registration_keys`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `registration_keys` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(32) COLLATE utf8mb4_general_ci NOT NULL,
+  `system` varchar(30) COLLATE utf8mb4_general_ci NOT NULL,
+  `role` varchar(50) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pcinfo_viewer',
+  `created_by_user_id` int DEFAULT NULL,
+  `used_by_user_id` int DEFAULT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_registration_keys_code` (`code`),
+  KEY `idx_registration_keys_system` (`system`),
+  KEY `fk_registration_keys_created_by` (`created_by_user_id`),
+  KEY `fk_registration_keys_used_by` (`used_by_user_id`),
+  CONSTRAINT `fk_registration_keys_created_by` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_registration_keys_used_by` FOREIGN KEY (`used_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `registration_keys`
+--
+
+LOCK TABLES `registration_keys` WRITE;
+/*!40000 ALTER TABLE `registration_keys` DISABLE KEYS */;
+/*!40000 ALTER TABLE `registration_keys` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `user_roles`
+--
+-- Multi-domain RBAC: one row per (account, system) — see
+-- database/migrations/2026-09-07_add_multi_domain_user_roles.sql and
+-- manage-user.js's header comment for the full role-tier convention.
+-- Seeded to match the 15 non-'admin' demo accounts below (ids 2-16,
+-- each username already named after its intended system_tier) — without
+-- these, validateAndLogin has no per-system role to resolve and every
+-- one of those accounts would fail to log in on a fresh reseed (the
+-- literal 'admin' account, id 1, is the only one that doesn't need a
+-- row here — it bypasses this table entirely).
+--
+
+DROP TABLE IF EXISTS `user_roles`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_roles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `system` varchar(30) COLLATE utf8mb4_general_ci NOT NULL,
+  `role` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_user_roles_user_system` (`user_id`,`system`),
+  CONSTRAINT `fk_user_roles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `user_roles`
+--
+
+LOCK TABLES `user_roles` WRITE;
+/*!40000 ALTER TABLE `user_roles` DISABLE KEYS */;
+INSERT INTO `user_roles` VALUES (1,2,'bmi','bmi_admin','2026-09-06 11:17:21'),(2,3,'inventory','inventory_admin','2026-09-06 11:17:21'),(3,4,'pcinfo','pcinfo_admin','2026-09-06 11:17:21'),(4,5,'intrusion','intrusion_admin','2026-09-06 11:17:21'),(5,6,'environment','environment_admin','2026-09-06 11:17:21'),(6,7,'inventory','inventory_viewer','2026-09-06 11:17:21'),(7,8,'inventory','inventory_editor','2026-09-06 11:17:21'),(8,9,'bmi','bmi_viewer','2026-09-06 11:17:21'),(9,10,'bmi','bmi_editor','2026-09-06 11:17:21'),(10,11,'intrusion','intrusion_viewer','2026-09-06 11:17:21'),(11,12,'intrusion','intrusion_editor','2026-09-06 11:17:21'),(12,13,'environment','environment_viewer','2026-09-06 11:17:21'),(13,14,'environment','environment_editor','2026-09-06 11:17:21'),(14,15,'pcinfo','pcinfo_viewer','2026-09-06 11:17:21'),(15,16,'pcinfo','pcinfo_editor','2026-09-06 11:17:21');
+/*!40000 ALTER TABLE `user_roles` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `users`
 --
 
@@ -226,8 +344,9 @@ DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `email` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `role` varchar(50) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'user',
+  `role` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `machine_id` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `license_expires_at` date DEFAULT NULL,
   `failed_attempts` tinyint unsigned NOT NULL DEFAULT '0',
@@ -236,11 +355,14 @@ CREATE TABLE `users` (
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `reset_token_hash` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `reset_token_expires_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   KEY `idx_users_machine_id` (`machine_id`),
   KEY `idx_users_role` (`role`),
-  KEY `idx_users_active` (`is_active`)
+  KEY `idx_users_active` (`is_active`),
+  KEY `idx_users_reset_token_hash` (`reset_token_hash`)
 ) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -250,7 +372,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'admin','$2b$10$aKU9Ez6rsUc5IPiBtFYJ0u87wp.N.vZMyd6sE73xAYwjKNRpK0Hzu','admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:20:57'),(2,'bmi_admin','$2b$10$20Bg3H02JNbrCbK806RCfeXQAbPkcPb9ylNNezH5PChZ/QRh18vOW','bmi_admin',NULL,NULL,1,'2026-09-06 20:11:49','2026-09-06 20:11:49',1,'2026-09-06 11:17:21','2026-09-06 12:25:06'),(3,'inventory_admin','$2b$10$X5OowoqX6HKRo4HGLAVKA.5Hz3eKVnhW94QQm1ePK/JbORZv6/ojC','inventory_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(4,'pcinfo_admin','$2b$10$NjU4Kvph0dGMjbIN0o/Gf.EW86LDNpF8kWczGQKuuh.qBPEHA3H.u','pcinfo_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(5,'intrusion_admin','$2b$10$Ky7FkrmrMHNQko7ugC78e.pZflz89ODQeMSuTORBka92pNCS8hlkW','intrusion_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(6,'environment_admin','$2b$10$L6z2eOYx4Q2qs2.8Yh8NaOM5OX2lpnaKwaxtnERIqCfztM8BH7TIG','environment_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(7,'inventory_viewer','$2b$10$oI2sQdfBuxEePPBW/j/0G.fuZUuGBVB4Uca8cjX88qr.tGvCMtQ5a','inventory_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(8,'inventory_editor','$2b$10$IC2197xD2qhriURX.ChWzeS3sR7PGjsDT.yLIFk4HMDATLbIB5WHC','inventory_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(9,'bmi_viewer','$2b$10$O7kBoV2KEzKvOaPDQzbN0uoa2/He2wDArPefIDLoWqfCGMbNJWcs6','bmi_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(10,'bmi_editor','$2b$10$Dbw11GOYPh9s8KSCFU17b.ArfID66zVKEDWL0IiBSXq/.bPbT7Ooy','bmi_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(11,'intrusion_viewer','$2b$10$gQVCad3lz6hWMM7ONfiAI.FpDI05otSrWeRrHyu1XpPqdVXwdqMRS','intrusion_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(12,'intrusion_editor','$2b$10$GAfFyTZxhXx7UYshI6P9EOKQSmmTGk5EoFBfzhY6B1HXPBFe7zcu6','intrusion_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(13,'environment_viewer','$2b$10$yIRBfbd3wOKgGzWp0iVTDerJOxUJvHh38EvGH/c7pJm6s6P8Tjsh2','environment_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(14,'environment_editor','$2b$10$ta0RvTBaLlKz7NiO7dFQn.rzgG13s5XliNHUpQB0hoTt/YJY68HSi','environment_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(15,'pcinfo_viewer','$2b$10$TvBv3IQ7ipRu/CD2xgmBZ.20mhP.lBQEBJcQ/4G1avH.Gd5zaqOSe','pcinfo_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21'),(16,'pcinfo_editor','$2b$10$aAgBJSPnwnuuJviqB8BIh.FCarbnDH0ArWr5OBQxSQbhg0iNJRFhK','pcinfo_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21');
+INSERT INTO `users` VALUES (1,'admin',NULL,'$2b$10$aKU9Ez6rsUc5IPiBtFYJ0u87wp.N.vZMyd6sE73xAYwjKNRpK0Hzu','admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:20:57',NULL,NULL),(2,'bmi_admin',NULL,'$2b$10$20Bg3H02JNbrCbK806RCfeXQAbPkcPb9ylNNezH5PChZ/QRh18vOW','bmi_admin',NULL,NULL,1,'2026-09-06 20:11:49','2026-09-06 20:11:49',1,'2026-09-06 11:17:21','2026-09-06 12:25:06',NULL,NULL),(3,'inventory_admin',NULL,'$2b$10$X5OowoqX6HKRo4HGLAVKA.5Hz3eKVnhW94QQm1ePK/JbORZv6/ojC','inventory_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(4,'pcinfo_admin',NULL,'$2b$10$NjU4Kvph0dGMjbIN0o/Gf.EW86LDNpF8kWczGQKuuh.qBPEHA3H.u','pcinfo_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(5,'intrusion_admin',NULL,'$2b$10$Ky7FkrmrMHNQko7ugC78e.pZflz89ODQeMSuTORBka92pNCS8hlkW','intrusion_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(6,'environment_admin',NULL,'$2b$10$L6z2eOYx4Q2qs2.8Yh8NaOM5OX2lpnaKwaxtnERIqCfztM8BH7TIG','environment_admin',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(7,'inventory_viewer',NULL,'$2b$10$oI2sQdfBuxEePPBW/j/0G.fuZUuGBVB4Uca8cjX88qr.tGvCMtQ5a','inventory_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(8,'inventory_editor',NULL,'$2b$10$IC2197xD2qhriURX.ChWzeS3sR7PGjsDT.yLIFk4HMDATLbIB5WHC','inventory_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(9,'bmi_viewer',NULL,'$2b$10$O7kBoV2KEzKvOaPDQzbN0uoa2/He2wDArPefIDLoWqfCGMbNJWcs6','bmi_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(10,'bmi_editor',NULL,'$2b$10$Dbw11GOYPh9s8KSCFU17b.ArfID66zVKEDWL0IiBSXq/.bPbT7Ooy','bmi_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(11,'intrusion_viewer',NULL,'$2b$10$gQVCad3lz6hWMM7ONfiAI.FpDI05otSrWeRrHyu1XpPqdVXwdqMRS','intrusion_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(12,'intrusion_editor',NULL,'$2b$10$GAfFyTZxhXx7UYshI6P9EOKQSmmTGk5EoFBfzhY6B1HXPBFe7zcu6','intrusion_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(13,'environment_viewer',NULL,'$2b$10$yIRBfbd3wOKgGzWp0iVTDerJOxUJvHh38EvGH/c7pJm6s6P8Tjsh2','environment_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(14,'environment_editor',NULL,'$2b$10$ta0RvTBaLlKz7NiO7dFQn.rzgG13s5XliNHUpQB0hoTt/YJY68HSi','environment_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(15,'pcinfo_viewer',NULL,'$2b$10$TvBv3IQ7ipRu/CD2xgmBZ.20mhP.lBQEBJcQ/4G1avH.Gd5zaqOSe','pcinfo_viewer',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL),(16,'pcinfo_editor',NULL,'$2b$10$aAgBJSPnwnuuJviqB8BIh.FCarbnDH0ArWr5OBQxSQbhg0iNJRFhK','pcinfo_editor',NULL,NULL,0,NULL,NULL,1,'2026-09-06 11:17:21','2026-09-06 11:17:21',NULL,NULL);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 

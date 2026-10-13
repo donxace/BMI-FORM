@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'crypto';
 import puppeteer from 'puppeteer';
 
 @Injectable()
@@ -156,7 +157,7 @@ export class HealthReportsService {
 
     const tempHtmlPath = path.join(
       templateDir,
-      `generated-bmi-${assessmentId}.html`,
+      `generated-bmi-${assessmentId}-${randomUUID()}.html`,
     );
 
     fs.writeFileSync(
@@ -165,15 +166,17 @@ export class HealthReportsService {
       'utf8',
     );
 
-    // ==============================
-    // START BROWSER
-    // ==============================
-
-    const browser = await puppeteer.launch({
-      headless: true,
-    });
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
 
     try {
+
+      // ==============================
+      // START BROWSER
+      // ==============================
+
+      browser = await puppeteer.launch({
+        headless: true,
+      });
 
       const page = await browser.newPage();
 
@@ -256,7 +259,7 @@ export class HealthReportsService {
       // CLOSE BROWSER
       // ==============================
 
-      await browser.close();
+      await browser?.close().catch(() => undefined);
 
       // ==============================
       // DELETE TEMPORARY HTML

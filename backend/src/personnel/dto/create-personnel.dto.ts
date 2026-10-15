@@ -1,9 +1,11 @@
 import { IsNotEmpty, IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
 
 export class CreatePersonnelDto {
-  @IsNotEmpty()
+  // Optional — a QR code is generated for every personnel, so an RFID
+  // card is no longer required (it can be assigned later via update).
+  @IsOptional()
   @IsString()
-  rfid_uid!: string;
+  rfid_uid?: string | null;
 
   @IsNotEmpty()
   @IsString()

@@ -26,7 +26,7 @@ const CHART_SURFACE = "#fcfcfb";
 const CHART_GRID = "#e1e0d9";
 const CHART_MUTED = "#898781";
 const TEMP_COLOR = "#2a78d6"; // categorical slot 1 (blue)
-const SMOKE_COLOR = "#eb6834"; // categorical slot 2 (orange)
+const HUMIDITY_COLOR = "#eb6834"; // categorical slot 2 (orange)
 
 /*
  * ============================================================
@@ -43,7 +43,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.locat
  * GET /environment-monitoring/latest
  * {
  *   "temperature": 28.4,
- *   "smoke_level": 320,
+ *   "humidity": 55.0,
+ *   "smoke_level": 320,       (still drives "smoke_detected")
  *   "status": "normal" | "smoke_detected" | "high_temperature",
  *   "sensor_id": "ENV-01",
  *   "updated_at": "2026-08-27T09:15:00.000Z" | null
@@ -60,6 +61,7 @@ type EnvironmentStatus =
 
 type EnvironmentResponse = {
   temperature: number | null;
+  humidity: number | null;
   smoke_level: number | null;
   status: EnvironmentStatus;
   sensor_id?: string;
@@ -71,6 +73,7 @@ type EnvironmentLogEntry = {
   sensor_id: string | null;
   status: EnvironmentStatus;
   temperature: number | string | null;
+  humidity: number | string | null;
   smoke_level: number | null;
   event_time: string;
   created_at: string;
@@ -92,7 +95,7 @@ export default function EnvironmentMonitoring() {
   const [temperature, setTemperature] =
     useState<number | null>(null);
 
-  const [smokeLevel, setSmokeLevel] =
+  const [humidity, setHumidity] =
     useState<number | null>(null);
 
   const [sensorId, setSensorId] =
@@ -145,7 +148,7 @@ export default function EnvironmentMonitoring() {
         setConnectionState("online");
         setStatus(data.status);
         setTemperature(data.temperature);
-        setSmokeLevel(data.smoke_level);
+        setHumidity(data.humidity);
         setSensorId(data.sensor_id ?? "");
         setUpdatedAt(data.updated_at ?? null);
         setErrorMessage("");
@@ -256,7 +259,8 @@ export default function EnvironmentMonitoring() {
         }),
         temperature:
           entry.temperature != null ? Number(entry.temperature) : null,
-        smoke_level: entry.smoke_level,
+        humidity:
+          entry.humidity != null ? Number(entry.humidity) : null,
       })),
     [logs]
   );
@@ -268,21 +272,18 @@ export default function EnvironmentMonitoring() {
    */
 
   const TEMP_MAX = 60; // display ceiling, °C
-  const TEMP_HOT = 50; // matches the backend's high_temperature threshold
+  const TEMP_HOT = 40; // matches the backend's high_temperature threshold
   const TEMP_WARM = 35; // early-warning zone, below the actual alert
 
-  const SMOKE_MAX = 1800; // matches the backend's smoke_detected threshold
-  const SMOKE_CAUTION = 900; // early-warning zone, below the actual alert
+  const HUMIDITY_LOW = 20; // matches SAFETY_MONITOR's buzzer (HUMID_LOW_LIMIT)
+  const HUMIDITY_DRY = 30; // early-warning zone, above the actual alert
 
   const tempPct = Math.max(
     0,
     Math.min(100, ((temperature ?? 0) / TEMP_MAX) * 100)
   );
 
-  const smokePct = Math.max(
-    0,
-    Math.min(100, ((smokeLevel ?? 0) / SMOKE_MAX) * 100)
-  );
+  const humidityPct = Math.max(0, Math.min(100, humidity ?? 0));
 
   const tempZone =
     (temperature ?? 0) >= TEMP_HOT
@@ -291,23 +292,25 @@ export default function EnvironmentMonitoring() {
       ? "warm"
       : "cool";
 
-  const smokeZone =
-    (smokeLevel ?? 0) >= SMOKE_MAX
+  const humidityZone =
+    humidity == null
+      ? "clear"
+      : humidity < HUMIDITY_LOW
       ? "danger"
-      : (smokeLevel ?? 0) >= SMOKE_CAUTION
+      : humidity < HUMIDITY_DRY
       ? "caution"
       : "clear";
 
-  const SMOKE_RADIUS = 50;
-  const SMOKE_CIRCUMFERENCE = 2 * Math.PI * SMOKE_RADIUS;
-  const smokeDashOffset =
-    SMOKE_CIRCUMFERENCE * (1 - smokePct / 100);
+  const GAUGE_RADIUS = 50;
+  const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
+  const humidityDashOffset =
+    GAUGE_CIRCUMFERENCE * (1 - humidityPct / 100);
 
   /*
    * ============================================================
    * TREND CARD (single-axis small multiple)
    *
-   * Temperature and smoke live on wildly different scales, so
+   * Temperature and humidity live on different scales, so
    * each gets its own single-axis chart rather than one chart
    * with two y-scales. Each is a single series, so no legend box
    * — the title plus a small color dot next to it name the line.
@@ -322,7 +325,7 @@ export default function EnvironmentMonitoring() {
     chartData: series,
   }: {
     title: string;
-    dataKey: "temperature" | "smoke_level";
+    dataKey: "temperature" | "humidity";
     color: string;
     currentValue: string;
     unit: string;
@@ -472,8 +475,8 @@ export default function EnvironmentMonitoring() {
           </h1>
 
           <p>
-            Live readings from the ESP32 smoke and
-            temperature sensors.
+            Live readings from the ESP32 smoke, temperature
+            and humidity sensors.
           </p>
 
         </div>
@@ -570,13 +573,13 @@ export default function EnvironmentMonitoring() {
         </div>
 
         {/* ==================================================
-            SMOKE LEVEL — ANIMATED RADIAL GAUGE
+            HUMIDITY — ANIMATED RADIAL GAUGE (0–100 %)
         =================================================== */}
 
-        <div className={`environment-reading-card zone-${smokeZone}`}>
+        <div className={`environment-reading-card zone-${humidityZone}`}>
 
           <span className="environment-reading-label">
-            SMOKE LEVEL
+            HUMIDITY
           </span>
 
           <div className="smoke-gauge">
@@ -586,35 +589,33 @@ export default function EnvironmentMonitoring() {
                 className="smoke-gauge-track"
                 cx="60"
                 cy="60"
-                r={SMOKE_RADIUS}
+                r={GAUGE_RADIUS}
               />
               <circle
                 className="smoke-gauge-fill"
                 cx="60"
                 cy="60"
-                r={SMOKE_RADIUS}
-                strokeDasharray={SMOKE_CIRCUMFERENCE}
-                strokeDashoffset={smokeDashOffset}
+                r={GAUGE_RADIUS}
+                strokeDasharray={GAUGE_CIRCUMFERENCE}
+                strokeDashoffset={humidityDashOffset}
               />
             </svg>
 
             <div className="smoke-gauge-center">
-              <strong>{smokeLevel ?? "—"}</strong>
-              <small>/ {SMOKE_MAX}</small>
+              <strong>
+                {humidity != null ? humidity.toFixed(0) : "—"}
+              </strong>
+              <small>%</small>
             </div>
-
-            <div className="smoke-wisp wisp-1" />
-            <div className="smoke-wisp wisp-2" />
-            <div className="smoke-wisp wisp-3" />
 
           </div>
 
-          <small className={`environment-reading-badge zone-${smokeZone}`}>
-            {smokeZone === "danger"
-              ? "Smoke Detected"
-              : smokeZone === "caution"
-              ? "Elevated"
-              : "Clear"}
+          <small className={`environment-reading-badge zone-${humidityZone}`}>
+            {humidityZone === "danger"
+              ? "Low Humidity"
+              : humidityZone === "caution"
+              ? "Dry"
+              : "Normal"}
           </small>
 
         </div>
@@ -662,7 +663,7 @@ export default function EnvironmentMonitoring() {
                     <th>Time</th>
                     <th>Status</th>
                     <th>Temperature</th>
-                    <th>Smoke Level</th>
+                    <th>Humidity</th>
                     <th>Sensor</th>
                   </tr>
                 </thead>
@@ -693,7 +694,9 @@ export default function EnvironmentMonitoring() {
                       </td>
 
                       <td>
-                        {entry.smoke_level ?? "—"}
+                        {entry.humidity != null
+                          ? `${Number(entry.humidity).toFixed(0)} %`
+                          : "—"}
                       </td>
 
                       <td>
@@ -725,11 +728,12 @@ export default function EnvironmentMonitoring() {
           })}
 
           {renderTrendCard({
-            title: "Smoke Level Trend",
-            dataKey: "smoke_level",
-            color: SMOKE_COLOR,
-            currentValue: smokeLevel != null ? String(smokeLevel) : "—",
-            unit: "",
+            title: "Humidity Trend",
+            dataKey: "humidity",
+            color: HUMIDITY_COLOR,
+            currentValue:
+              humidity != null ? `${humidity.toFixed(0)}%` : "—",
+            unit: "%",
             chartData,
           })}
 

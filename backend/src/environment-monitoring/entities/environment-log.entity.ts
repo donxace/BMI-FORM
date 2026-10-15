@@ -19,6 +19,9 @@ export class EnvironmentLog {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   temperature!: number | null;
 
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  humidity!: number | null;
+
   @Column({ type: 'int', nullable: true })
   smoke_level!: number | null;
 

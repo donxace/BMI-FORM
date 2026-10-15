@@ -56,6 +56,14 @@ export class PersonnelController {
     return this.personnelService.reportRfidScan(data.rfid_uid);
   }
 
+  // QR BADGE SCAN (Measurement page camera / manual code entry)
+  @Post('qr/scan')
+  async reportQrScan(@Body() data: { qr_code: string }) {
+    console.log('QR SCAN:', data);
+
+    return this.personnelService.reportQrScan(data.qr_code);
+  }
+
   @Get('rfid/latest')
   async getLatestRfidScan() {
     return this.personnelService.getLatestRfidScan();

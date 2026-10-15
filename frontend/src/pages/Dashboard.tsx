@@ -28,6 +28,7 @@ import {
 import StatDrilldownModal, {
   type DrilldownRow,
 } from "../components/StatDrilldownModal";
+import BmiInsights from "../components/BmiInsights";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
 
@@ -458,6 +459,23 @@ export default function Dashboard() {
 
     return new Date().toLocaleDateString("en-US", { month: "long" }).toUpperCase();
   }, [selectedMonthFilter, availableMonths]);
+
+  /*
+   * The same month expressed for the BMI Insights API: a date range
+   * ('YYYY-MM-DD', end exclusive), or no range for "Show All Months".
+   */
+  const insightScope = useMemo(() => {
+    if (selectedMonthFilter === "ALL") return { from: null, to: null };
+
+    const [year, month] = selectedMonthFilter.split("-").map(Number);
+    const iso = (y: number, m: number) =>
+      `${y}-${String(m + 1).padStart(2, "0")}-01`;
+
+    return {
+      from: iso(year, month),
+      to: month === 11 ? iso(year + 1, 0) : iso(year, month + 1),
+    };
+  }, [selectedMonthFilter]);
 
   /*
    * COMPUTED METRICS
@@ -979,6 +997,9 @@ export default function Dashboard() {
               </div>
             </div>
           </section>
+
+          {/* BMI INSIGHTS - summary of exactly what the month filter shows */}
+          <BmiInsights scope={insightScope} ready={!loading} />
 
           {/* TRENDS OVER TIME (single card, metric switcher) */}
           <section className="card trend-card-single">

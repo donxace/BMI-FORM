@@ -489,6 +489,14 @@ export default function Measurement() {
    * ============================================================
    */
 
+  // Read inside the RFID poll, whose interval closure would otherwise
+  // only ever see the value from when the mode was selected.
+  const sessionStartedRef = useRef(false);
+
+  useEffect(() => {
+    sessionStartedRef.current = sessionStarted;
+  }, [sessionStarted]);
+
   useEffect(() => {
     if (personnelMode !== "automatic" && personnelMode !== "qr") {
       setRfidStatus("Waiting");
@@ -508,6 +516,11 @@ export default function Measurement() {
     // scan. Baseline it on the first poll (without acting on it) so
     // only a scan_id that shows up AFTER that auto-selects someone.
     let baselineScanId: number | null | undefined = undefined;
+
+    // Latest scan_id seen while a session (measuring or review) was
+    // running. Taps during a session must not switch the personnel
+    // being measured, and must not pop up once it ends either.
+    let lockedScanId: number | null | undefined = undefined;
 
     const checkRFID =
       async () => {
@@ -543,6 +556,20 @@ export default function Measurement() {
             setRfidStatus("Scanning");
             setRfidUid("");
             setSelectedPersonnel(null);
+            return;
+          }
+
+          if (sessionStartedRef.current) {
+            lockedScanId = data.scan_id ?? null;
+            return;
+          }
+
+          if (
+            lockedScanId !== undefined &&
+            data.scan_id === lockedScanId
+          ) {
+            // Nothing new since the session ended: keep showing the
+            // personnel that was just measured (for the PDF preview).
             return;
           }
 
@@ -648,11 +675,12 @@ export default function Measurement() {
    * ============================================================
    * QR CODE PERSONNEL DETECTION
    *
-   * Scans the device camera for a QR code encoding a personnel's
-   * RFID UID, then posts it to the SAME public endpoint the ESP32
-   * RFID reader uses (POST /personnel/rfid/scan) — the automatic-
-   * detection poll above (which also runs for "qr") picks it up
-   * within ~1s, exactly as if a physical card had been tapped.
+   * Scans the device camera for a personnel's QR badge (their own
+   * qr_code, independent of any RFID card) and posts it to
+   * POST /personnel/qr/scan. The backend publishes it as the same
+   * "latest scan" a card tap produces, so the automatic-detection
+   * poll above (which also runs for "qr") picks it up within ~1s.
+   * Older badges that encoded the RFID UID still match.
    * ============================================================
    */
 
@@ -666,10 +694,10 @@ export default function Measurement() {
   const [qrManualCode, setQrManualCode] = useState("");
 
   const reportScannedCode = (code: string) => {
-    fetch(`${API_BASE_URL}/personnel/rfid/scan`, {
+    fetch(`${API_BASE_URL}/personnel/qr/scan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rfid_uid: code }),
+      body: JSON.stringify({ qr_code: code }),
     }).catch(() => {});
   };
 
@@ -1192,6 +1220,27 @@ export default function Measurement() {
    * ============================================================
    */
 
+  // Empties the measurement fields and forgets the last saved
+  // assessment, so nothing from the previous personnel carries over.
+  const clearMeasurements = () => {
+    setHeight("");
+    setWeight("");
+    setWaist("");
+    setHip("");
+    setWrist("");
+    setSavedAssessmentId(null);
+  };
+
+  // A different personnel identified (next card tap, or picked
+  // manually) outside a session: start them on a clean form. After a
+  // save the same personnel stays selected, so their saved result and
+  // PDF preview remain until someone else is identified.
+  useEffect(() => {
+    if (!sessionStartedRef.current) {
+      clearMeasurements();
+    }
+  }, [selectedPersonnel?.personnel_id]);
+
   const startSession = () => {
     if (!selectedPersonnel) {
       alert(
@@ -1212,6 +1261,8 @@ export default function Measurement() {
 
       return;
     }
+
+    clearMeasurements();
 
     setSessionStarted(true);
 

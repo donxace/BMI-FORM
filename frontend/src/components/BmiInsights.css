@@ -1,0 +1,424 @@
+/* =========================================================
+   BMI INSIGHTS PANEL
+   Uses the Dashboard.css card / card-header / secondary-button
+   base and the same palette (classification colors, gradient
+   icon badges, #e7ebf1 borders) as the rest of the dashboard.
+========================================================= */
+
+.bmi-insights-card {
+  margin-bottom: 20px;
+}
+
+.bi-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bi-title-icon {
+  width: 26px;
+  height: 26px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 7px;
+
+  background: linear-gradient(135deg, #6d8cf0 0%, #3d59d6 100%);
+  box-shadow: 0 4px 10px -4px rgba(61, 89, 214, 0.55);
+
+  color: #ffffff;
+}
+
+.bi-refresh {
+  flex-shrink: 0;
+}
+
+.bi-refresh:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.bi-spin {
+  animation: bi-spin 0.9s linear infinite;
+}
+
+@keyframes bi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ---------- meta row ---------- */
+
+.bi-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 8px 12px;
+
+  margin: -8px 0 16px;
+
+  color: #6b7280;
+
+  font-size: 10px;
+}
+
+.bi-source {
+  display: inline-flex;
+  align-items: center;
+
+  height: 22px;
+  padding: 0 10px;
+
+  border: 1px solid transparent;
+  border-radius: 20px;
+
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.bi-source.ai {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.bi-source.rules {
+  border-color: #e5e9ef;
+  background: #f8fafc;
+  color: #657184;
+}
+
+.bi-note {
+  margin: 0 0 14px;
+
+  color: #6b7280;
+
+  font-size: 10.5px;
+  font-style: italic;
+}
+
+
+/* ---------- tiles ---------- */
+
+.bi-tiles {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 12px;
+
+  margin-bottom: 14px;
+}
+
+.bi-tile {
+  position: relative;
+
+  min-width: 0;
+
+  padding: 14px 15px 13px;
+
+  border: 1px solid #e7ebf1;
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  overflow: hidden;
+}
+
+/* Accent strip in the tile's classification color. */
+.bi-tile::before {
+  content: "";
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+
+  width: 3px;
+
+  background: var(--bi-accent);
+}
+
+.bi-tile.bi-within {
+  --bi-accent: #22c55e;
+  --bi-tint: #ecfdf3;
+  --bi-ink: #15803d;
+}
+
+.bi-tile.bi-above {
+  --bi-accent: #f59e0b;
+  --bi-tint: #fff7ed;
+  --bi-ink: #c2410c;
+}
+
+.bi-tile.bi-under {
+  --bi-accent: #60a5fa;
+  --bi-tint: #eff6ff;
+  --bi-ink: #2563eb;
+}
+
+.bi-tile.bi-reassessed {
+  --bi-accent: #7c3aed;
+  --bi-tint: #f5f3ff;
+  --bi-ink: #6d28d9;
+}
+
+.bi-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  color: #6b7280;
+
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.bi-tile-icon {
+  width: 28px;
+  height: 28px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 8px;
+
+  background: var(--bi-tint);
+  color: var(--bi-ink);
+}
+
+.bi-tile strong {
+  display: block;
+
+  margin: 9px 0 5px;
+
+  color: #172033;
+
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.bi-tile small {
+  display: block;
+
+  color: var(--bi-ink);
+
+  font-size: 9px;
+  font-weight: 600;
+}
+
+
+/* ---------- text boxes ---------- */
+
+.bi-box {
+  padding: 14px 16px;
+
+  border: 1px solid #eef1f5;
+  border-radius: 9px;
+
+  background: #f8fafc;
+
+  color: #273247;
+
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.bi-box + .bi-box,
+.bi-box + .bi-columns,
+.bi-alert + .bi-tiles,
+.bi-alert + .bi-box {
+  margin-top: 12px;
+}
+
+.bi-box p {
+  margin: 0;
+}
+
+.bi-box-title {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  margin-bottom: 7px;
+
+  color: #536071;
+
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bi-summary {
+  border-color: #dbe5ff;
+  background: #f5f8ff;
+}
+
+.bi-summary p {
+  color: #172033;
+
+  font-size: 12px;
+}
+
+.bi-alert {
+  margin-bottom: 14px;
+
+  border-color: #fed7aa;
+  background: #fff7ed;
+
+  color: #7c2d12;
+}
+
+.bi-alert .bi-box-title {
+  color: #c2410c;
+}
+
+.bi-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+
+  color: #dc2626;
+
+  font-weight: 600;
+}
+
+.bi-columns {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 12px;
+}
+
+.bi-list {
+  margin: 0;
+  padding-left: 17px;
+}
+
+.bi-list li + li {
+  margin-top: 5px;
+}
+
+.bi-list li::marker {
+  color: #94a3b8;
+}
+
+.bi-disclaimer {
+  margin: 14px 0 0;
+
+  color: #9aa4b2;
+
+  font-size: 9.5px;
+}
+
+
+/* ---------- loading skeleton ---------- */
+
+.bi-skeleton {
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+}
+
+.bi-skeleton .bi-tiles {
+  margin-bottom: 4px;
+}
+
+.bi-skel {
+  display: block;
+
+  border-radius: 8px;
+
+  background: linear-gradient(90deg, #eef2f7 0%, #f6f8fb 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+
+  animation: bi-shimmer 1.3s ease-in-out infinite;
+}
+
+.bi-skel-tile {
+  height: 86px;
+
+  border-radius: 10px;
+}
+
+.bi-skel-line {
+  width: 60%;
+  height: 12px;
+}
+
+.bi-skel-line.wide {
+  width: 92%;
+}
+
+.bi-loading {
+  margin: 4px 0 0;
+
+  color: #6b7280;
+
+  font-size: 10.5px;
+}
+
+@keyframes bi-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bi-spin,
+  .bi-skel {
+    animation: none;
+  }
+}
+
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1300px) {
+  .bi-tiles {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 850px) {
+  .bi-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 500px) {
+  .bmi-insights-card .card-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .bi-tiles {
+    grid-template-columns: 1fr;
+  }
+}

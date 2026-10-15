@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { EnvironmentLog } from './entities/environment-log.entity';
+import { sendAlertEmail } from '../common/alert-email';
 
 export type EnvironmentStatus =
   | 'normal'
@@ -11,20 +12,23 @@ export type EnvironmentStatus =
 
 export type EnvironmentReading = {
   temperature: number | null;
+  humidity: number | null;
   smoke_level: number | null;
   status: EnvironmentStatus;
   sensor_id: string;
   updated_at: string | null;
 };
 
-// Placeholder thresholds until real sensors are calibrated.
-const SMOKE_THRESHOLD = 1800; // raw analog reading (e.g. MQ-2 style sensor)
-const TEMPERATURE_THRESHOLD = 50; // degrees Celsius
+// Same values as arduino/SAFETY_MONITOR (MQ-2 + SHT31), so the website
+// alerts exactly when the board's buzzer goes off.
+const SMOKE_THRESHOLD = 1200; // raw analog reading (MQ-2)
+const TEMPERATURE_THRESHOLD = 40; // degrees Celsius
 
 @Injectable()
 export class EnvironmentMonitoringService {
   private latest: EnvironmentReading = {
     temperature: null,
+    humidity: null,
     smoke_level: null,
     status: 'normal',
     sensor_id: '',
@@ -42,6 +46,11 @@ export class EnvironmentMonitoringService {
       data.temperature != null
         ? Number(data.temperature)
         : this.latest.temperature;
+
+    const humidity =
+      data.humidity != null
+        ? Number(data.humidity)
+        : this.latest.humidity;
 
     const smoke_level =
       data.smoke_level != null
@@ -63,6 +72,7 @@ export class EnvironmentMonitoringService {
 
     this.latest = {
       temperature,
+      humidity,
       smoke_level,
       status,
       sensor_id: data.sensor_id ?? this.latest.sensor_id,
@@ -79,11 +89,27 @@ export class EnvironmentMonitoringService {
         sensor_id: this.latest.sensor_id || null,
         status: this.latest.status,
         temperature: this.latest.temperature,
+        humidity: this.latest.humidity,
         smoke_level: this.latest.smoke_level,
         event_time: new Date(),
       });
 
       await this.environmentLogRepository.save(log);
+
+      if (status !== 'normal') {
+        sendAlertEmail(
+          status,
+          status === 'smoke_detected'
+            ? `Smoke detected (${this.latest.sensor_id || 'sensor'})`
+            : `High temperature (${this.latest.sensor_id || 'sensor'})`,
+          {
+            Sensor: this.latest.sensor_id || null,
+            'Smoke level': `${smoke_level ?? '—'} (alert at ${SMOKE_THRESHOLD})`,
+            Temperature: `${temperature ?? '—'} °C (alert at ${TEMPERATURE_THRESHOLD} °C)`,
+            Humidity: humidity != null ? `${humidity} %` : null,
+          },
+        );
+      }
     }
 
     return this.latest;

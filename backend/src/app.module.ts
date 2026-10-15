@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HealthReportsModule } from './health-reports/health-reports.module';
 import { PersonnelModule } from './personnel/personnel.module';
 import { BmiAssessmentsModule } from './bmi-assessments/bmi-assessments.module';
+import { BmiInsightsModule } from './bmi-insights/bmi-insights.module';
 import { AuthModule } from './auth/auth.module'; 
 import { RanksModule } from './ranks/ranks.module';
 import { Rank } from './ranks/rank.entity';
@@ -63,6 +64,8 @@ import { PcInfoModule } from './pc-info/pc-info.module';
     PersonnelModule,
 
     BmiAssessmentsModule,
+
+    BmiInsightsModule,
 
     AuthModule,
 

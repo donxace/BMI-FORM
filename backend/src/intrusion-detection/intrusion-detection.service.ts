@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { IntrusionLog } from './entities/intrusion-log.entity';
+import { sendAlertEmail } from '../common/alert-email';
 
 export type IntrusionStatus = 'clear' | 'triggered';
 
@@ -57,6 +58,17 @@ export class IntrusionDetectionService {
       });
 
       await this.intrusionLogRepository.save(log);
+
+      if (this.latest.status === 'triggered') {
+        sendAlertEmail(
+          'intrusion',
+          `Intrusion detected (${this.latest.sensor_id || 'sensor'})`,
+          {
+            Sensor: this.latest.sensor_id || null,
+            Event: 'Laser beam broken',
+          },
+        );
+      }
     }
 
     return this.latest;

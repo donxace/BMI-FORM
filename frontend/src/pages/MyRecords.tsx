@@ -93,7 +93,9 @@ export default function MyRecords() {
      * correctly by both iOS Safari (Share/Save to Files) and
      * Android Chrome (saves to Downloads).
      */
-    const token = localStorage.getItem("authToken") ?? "";
+    // This page belongs to the signed-in personnel, so it uses their own
+    // token (the backend lets personnel open only their own reports).
+    const token = localStorage.getItem("personnelAuthToken") ?? "";
     window.open(
       `${API_BASE_URL}/health-reports/bmi/${assessmentId}/pdf?download=true&token=${encodeURIComponent(token)}`,
       "_blank"
@@ -286,7 +288,7 @@ export default function MyRecords() {
             </div>
 
             <iframe
-              src={`${API_BASE_URL}/health-reports/bmi/${previewId}/pdf?token=${encodeURIComponent(localStorage.getItem("authToken") ?? "")}`}
+              src={`${API_BASE_URL}/health-reports/bmi/${previewId}/pdf?token=${encodeURIComponent(localStorage.getItem("personnelAuthToken") ?? "")}`}
               title="BMI Assessment Form"
               className="my-records-preview-frame"
             />

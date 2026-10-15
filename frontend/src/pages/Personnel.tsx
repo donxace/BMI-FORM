@@ -28,7 +28,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.locat
 
 type Personnel = {
   personnel_id: number;
-  rfid_uid: string;
+  // RFID card and QR code are independent: either can exist alone.
+  rfid_uid: string | null;
+  qr_code: string | null;
   is_claimed: boolean;
   rank: string;
   surname: string;
@@ -176,10 +178,10 @@ export default function Personnel() {
    * ============================================================
    * QR BADGE MODAL STATE
    *
-   * Renders a personnel's rfid_uid as a scannable QR code — the
-   * counterpart to the camera-based QR scanner in Measurement.tsx,
-   * which decodes the same rfid_uid and posts it to the identical
-   * POST /personnel/rfid/scan endpoint a physical RFID tap uses.
+   * Renders a personnel's qr_code (independent of their RFID card)
+   * as a scannable QR code — the counterpart to the camera-based
+   * QR scanner in Measurement.tsx, which posts the decoded code to
+   * POST /personnel/qr/scan.
    * ============================================================
    */
   const [showQrModal, setShowQrModal] = useState(false);
@@ -340,7 +342,8 @@ export default function Personnel() {
 
       const data: Personnel[] = rawData.map((person: any) => ({
         personnel_id: Number(person.personnel_id),
-        rfid_uid: person.rfid_uid,
+        rfid_uid: person.rfid_uid ?? null,
+        qr_code: person.qr_code ?? null,
         is_claimed: person.is_claimed !== false,
         rank: person.rank || "N/A",
         surname: person.surname,
@@ -555,7 +558,7 @@ export default function Personnel() {
 
   const handleAddPersonnel = () => {
     setFormData({
-      rfid_uid: ARDUINO_RFID,
+      rfid_uid: "",
       rank: "",
       surname: "",
       first_name: "",
@@ -584,7 +587,7 @@ export default function Personnel() {
   useEffect(() => {
     if (searchParams.get("add") === "true") {
       setFormData({
-        rfid_uid: ARDUINO_RFID,
+        rfid_uid: "",
         rank: "",
         surname: "",
         first_name: "",
@@ -644,11 +647,6 @@ export default function Personnel() {
   ) => {
     event.preventDefault();
 
-    if (!formData.rfid_uid) {
-      alert("RFID UID is required.");
-      return;
-    }
-
     if (!formData.rank) {
       alert("Please select a rank.");
       return;
@@ -673,7 +671,8 @@ export default function Personnel() {
       setSavingPersonnel(true);
 
       const personnelData = {
-        rfid_uid: formData.rfid_uid,
+        // Optional: blank = no RFID card (the QR code is generated anyway).
+        rfid_uid: formData.rfid_uid.trim() || null,
         rank: formData.rank,
         surname: formData.surname,
         first_name: formData.first_name,
@@ -710,11 +709,31 @@ export default function Personnel() {
         );
       }
 
-      alert("Personnel added successfully!");
+      const created = await response.json();
 
       setShowAddModal(false);
 
       await fetchPersonnel();
+
+      /*
+       * Automatically generate the new personnel's QR badge
+       * (same badge as the list's QR action), ready to download
+       * or print.
+       */
+      await handleViewQr({
+        personnel_id: Number(created.personnel_id),
+        rfid_uid: created.rfid_uid ?? null,
+        qr_code: created.qr_code ?? null,
+        is_claimed: created.is_claimed !== false,
+        rank: created.rank || "N/A",
+        surname: created.surname,
+        first_name: created.first_name,
+        middle_initial: created.middle_initial,
+        q: created.q,
+        age: created.age,
+        sex: created.sex,
+        office: created.office,
+      });
     } catch (error) {
       console.error(
         "ADD PERSONNEL ERROR:",
@@ -827,8 +846,15 @@ export default function Personnel() {
     setQrError("");
     setShowQrModal(true);
 
+    // The badge encodes the personnel's own QR code — independent of
+    // their RFID card — which POST /personnel/qr/scan looks up.
+    if (!personnel.qr_code) {
+      setQrError("This personnel has no QR code yet.");
+      return;
+    }
+
     try {
-      const dataUrl = await QRCode.toDataURL(personnel.rfid_uid, {
+      const dataUrl = await QRCode.toDataURL(personnel.qr_code, {
         width: 320,
         margin: 2,
       });
@@ -874,7 +900,7 @@ export default function Personnel() {
     idLine.textContent = `Personnel ID #${String(qrPersonnel.personnel_id).padStart(4, "0")}`;
 
     const uidLine = doc.createElement("p");
-    uidLine.textContent = qrPersonnel.rfid_uid;
+    uidLine.textContent = qrPersonnel.qr_code ?? "";
 
     doc.body.append(img, heading, idLine, uidLine);
 
@@ -1340,14 +1366,16 @@ export default function Personnel() {
                     type="text"
                     name="rfid_uid"
                     value={editFormData.rfid_uid}
-                    readOnly
+                    onChange={handleEditFormChange}
+                    readOnly={viewOnlyMode}
+                    placeholder="No RFID card — enter a card UID to assign one"
                     style={{
                       width: "100%",
                       boxSizing: "border-box",
                       padding: "12px 14px",
                       border: "1px solid #cbd5e1",
                       borderRadius: "8px",
-                      background: "#f1f5f9",
+                      background: viewOnlyMode ? "#f1f5f9" : "#ffffff",
                       fontWeight: 600,
                       color: "#334155",
                     }}
@@ -2452,7 +2480,7 @@ export default function Personnel() {
                         fontWeight: 600,
                       }}
                     >
-                      RFID DETECTED
+                      OPTIONAL
                     </span>
 
                   </div>
@@ -2463,7 +2491,10 @@ export default function Personnel() {
                     value={
                       formData.rfid_uid
                     }
-                    readOnly
+                    onChange={
+                      handleFormChange
+                    }
+                    placeholder="No RFID card — leave blank, or enter a card UID"
                     style={{
                       width:
                         "100%",
@@ -2493,7 +2524,11 @@ export default function Personnel() {
                         "#64748b",
                     }}
                   >
-                    Arduino RFID
+                    A QR code badge is
+                    generated automatically
+                    when you save — it works
+                    with or without an RFID
+                    card. Arduino RFID
                     simulation:{" "}
                     {ARDUINO_RFID}
                   </small>
@@ -3298,14 +3333,14 @@ export default function Personnel() {
                   Personnel ID #{String(qrPersonnel.personnel_id).padStart(4, "0")}
                 </strong>
                 <span style={{ display: "block", marginTop: "4px", fontSize: "12px", color: "#6b7280", fontFamily: "monospace" }}>
-                  {qrPersonnel.rfid_uid}
+                  {qrPersonnel.qr_code}
                 </span>
               </div>
 
               <div style={{ display: "flex", gap: "10px", width: "100%" }}>
                 <a
                   href={qrDataUrl || undefined}
-                  download={qrDataUrl ? `badge-${qrPersonnel.rfid_uid}.png` : undefined}
+                  download={qrDataUrl ? `badge-${qrPersonnel.qr_code}.png` : undefined}
                   aria-disabled={!qrDataUrl}
                   style={{
                     flex: 1,

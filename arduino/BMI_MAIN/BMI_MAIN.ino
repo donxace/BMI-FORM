@@ -9,8 +9,7 @@
 // Both can be flipped at any time from the Serial Monitor
 // (send the letter + Enter, even while readings are printing):
 //   w -> WiFi ON/OFF
-//        ON : WiFi, website session, RFID tap, weight/height posted
-//             to the Measurement page.
+//        ON : WiFi, weight posted to the Measurement page.
 //        OFF: TEST MODE: scale only. No WiFi, no API, no website.
 //             Prints ">>> STABLE: xx kg" when the weight settles.
 //   d -> live readout ON/OFF (kg, lb, spread twice a second)
@@ -18,34 +17,19 @@
 bool useWifi = true;
 bool debugLive = true;
 
-const char* ssid = "HUAWEI-3j74";
-const char* password = "dxp2jzb9";
-
-const char* rfidScanUrl =
-  "http://192.168.1.22:3000/personnel/rfid/scan";
+const char* ssid = "ssf";
+const char* password = ""; // your WiFi password (kept out of GitHub, set before flashing)
 
 const char* readingUrl =
-  "http://192.168.1.22:3000/bmi-assessments/reading";
-
-const char* sessionStatusUrl =
-  "http://192.168.1.22:3000/bmi-assessments/session/status";
+  "http://172.20.10.3:3000/bmi-assessments/reading";
 
 // ========================================
 // SEQUENCE
 // ========================================
-// 1. Hold BOOT to fake an RFID tap -> the Measurement page's
-//    Automatic mode identifies the personnel via
-//    /personnel/rfid/latest.
-// 2. Admin presses "Start Measurement" on the website -> the
-//    board polls /bmi-assessments/session/status and only then
-//    starts prompting for input.
-// 3. Type a height value into the Serial Monitor and press
-//    Enter -> it's posted to /bmi-assessments/reading right
-//    away and appears on the Measurement page within ~1s.
-//    Then step on the HX711 load cell -> once the reading is
-//    stable it's posted automatically (no typing).
+// Step on the HX711 load cell -> once the reading is stable it's
+// posted automatically to /bmi-assessments/reading (no typing).
 //
-// WEIGHT SENSOR (HX711 on DT=GPIO4, SCK=GPIO5):
+// WEIGHT SENSOR (HX711 on DT=GPIO15, SCK=GPIO5):
 //   Calibration is fixed in code; the zero point is saved to
 //   flash, so a reboot with someone on the scale is harmless.
 //   t -> re-zero with the platform EMPTY (saved to flash)
@@ -53,11 +37,13 @@ const char* sessionStatusUrl =
 
 // ---- HX711 LOAD CELL ----
 
-const int HX711_DT_PIN = 4;
+const int HX711_DT_PIN = 15;
 const int HX711_SCK_PIN = 5;
 
-// Counts per kg, fitted on a real 72 kg person.
-const float CALIBRATION_VALUE = -26900.0;
+// Counts per kg. Rescaled twice from live reads against this user's actual
+// weight: 26900.0 -> 26028.6 (board read 68.7 at the actual 71 kg) ->
+// 24751.0 (board read 71.1 at the actual 74.77 kg: 26028.6 * 71.1 / 74.77).
+const float CALIBRATION_VALUE = 24751.0;
 const unsigned long SCALE_STABILIZING_MS = 2000;
 const int SCALE_SAMPLES_IN_USE = 8;     // smoothing inside HX711_ADC
 
@@ -86,203 +72,367 @@ float collectAvg = 0;
 float bestSpread = 0;
 float bestWeight = 0;
 
-// ---- STEP 1: FAKE RFID TAP (NO READER WIRED UP YET) ----
-// Swap FAKE_RFID_UID for any other rfid_uid already seeded in
-// the personnel table to identify a different person.
+// ---- WIFI CONNECTION (scan, pick, retry, watchdog) ----
+// Ported from VITALYZE/arduino/VITALS_COMBINED_MAIN/VITALS_COMBINED_MAIN.ino —
+// a bare WiFi.begin() then waiting forever gave no visibility into *why* a
+// connection failed (wrong password vs. out of range vs. 5 GHz-only router),
+// so this scans first, lets you pick + save a network, retries a few times
+// with a clear reason on each failure, and a watchdog in loop() recovers a
+// connection that drops while running instead of just going silent.
 
-const int RFID_BUTTON_PIN = 0; // BOOT button on most ESP32 dev boards
-const char* FAKE_RFID_UID = "RFID-125421521"; // Reyes, Carlo D. - PAT
+const unsigned long WIFI_ATTEMPT_MS = 12000;         // one attempt gets this long
+const int WIFI_MAX_ATTEMPTS = 3;                     // then the board restarts
+const unsigned long WIFI_RECONNECT_AFTER_MS = 10000; // lost this long -> reconnect
+const unsigned long WIFI_RESTART_AFTER_MS = 60000;   // lost this long -> restart
+const unsigned long WIFI_PICK_WAIT_MS = 10000;       // time to type a network number
+const unsigned long WIFI_PASSWORD_WAIT_MS = 60000;   // time to type the password
 
-const unsigned long RFID_DEBOUNCE_MS = 200;
+// ESP32-C3 boards often cannot join a router at full transmit power; this
+// board is an ESP32-S3, which keeps full power (lowering it would only
+// shorten its range), but the switch is kept so the sketch still behaves
+// if it's ever retargeted at a C3.
+//
+// NOTE: tried lowering this to WIFI_POWER_11dBm against "HMS PON" when it
+// rejected the board outright (strong -63 dBm signal, verified-correct
+// password, still refused) -- made no difference, so TX power was not the
+// cause there. Left at full power; see the connection log / network admin
+// for that network's actual cause (MAC filtering, WPA3-only/PMF-required,
+// or a client limit are the next things to check).
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+const wifi_power_t WIFI_TX_POWER = WIFI_POWER_8_5dBm;
+#else
+const wifi_power_t WIFI_TX_POWER = WIFI_POWER_19_5dBm;
+#endif
 
-unsigned long rfidCandidateSince = 0;
-bool rfidCandidateState = false;
-bool rfidLastSentPressed = false;
+// The network in use: the saved one, else the ssid/password at the top.
+String activeSsid;
+String activePassword;
+bool pickedThisBoot = false; // typed in now, so save it once it connects
 
-// ---- STEP 2: SERIAL HEIGHT/WEIGHT INPUT ----
+Preferences wifiPrefs;
 
-enum ReadingInputStage {
-  WAITING_FOR_HEIGHT,
-  WAITING_FOR_WEIGHT,
-};
+void loadSavedWiFi() {
+  activeSsid = ssid;
+  activePassword = password;
 
-ReadingInputStage readingStage = WAITING_FOR_HEIGHT;
-float pendingHeight = 0;
+  wifiPrefs.begin("wifi", false);
+  String savedSsid = wifiPrefs.getString("ssid", "");
 
-// ---- SESSION STATE (SET BY THE ADMIN ON THE WEBSITE) ----
+  if (savedSsid.length() > 0) {
+    activeSsid = savedSsid;
+    activePassword = wifiPrefs.getString("pass", "");
+  }
 
-bool sessionActive = false;
+  wifiPrefs.end();
+}
 
-const unsigned long SESSION_POLL_INTERVAL_MS = 1000;
-unsigned long lastSessionCheck = 0;
+void saveWiFi() {
+  wifiPrefs.begin("wifi", false);
+  wifiPrefs.putString("ssid", activeSsid);
+  wifiPrefs.putString("pass", activePassword);
+  wifiPrefs.end();
 
-// Gives up after 15s so a bad network can't freeze the scale.
-bool connectToWiFi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  Serial.println("Saved this network in the board's memory.");
+}
 
-  Serial.print("Connecting to WiFi");
+void forgetSavedWiFi() {
+  wifiPrefs.begin("wifi", false);
+  wifiPrefs.clear();
+  wifiPrefs.end();
+}
 
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    if (millis() - start > 15000) {
-      Serial.println();
-      Serial.println("WiFi connect timed out.");
-      return false;
+// An open network has no password: begin() wants nullptr for that.
+void beginWiFi() {
+  WiFi.begin(activeSsid.c_str(), activePassword.length() > 0 ? activePassword.c_str() : nullptr);
+}
+
+const char* wifiStatusText(wl_status_t status) {
+  switch (status) {
+    case WL_NO_SSID_AVAIL: return "network not found (out of range, or 5 GHz only: the ESP32 needs 2.4 GHz)";
+    case WL_CONNECT_FAILED: return "connection failed (check the password)";
+    case WL_CONNECTION_LOST: return "connection lost";
+    case WL_DISCONNECTED: return "the router did not accept the board (wrong password, or transmit power: see WIFI_TX_POWER)";
+    default: return "unknown";
+  }
+}
+
+// Reads one typed line. gotLine is false when nothing was entered in time.
+// Not trimmed: a WiFi password may legitimately start or end with a space.
+String readSerialLine(unsigned long timeoutMs, bool& gotLine) {
+  String line = "";
+  gotLine = false;
+
+  unsigned long startedAt = millis();
+
+  while (millis() - startedAt < timeoutMs) {
+    while (Serial.available()) {
+      char c = Serial.read();
+
+      if (c == '\n' || c == '\r') {
+        // "Both NL & CR" sends two: swallow the second so it does not answer
+        // the next question with an empty line.
+        delay(30);
+
+        while (Serial.available() && (Serial.peek() == '\n' || Serial.peek() == '\r')) {
+          Serial.read();
+        }
+
+        gotLine = true;
+        return line;
+      }
+
+      line += c;
     }
-    delay(500);
-    Serial.print(".");
+
+    delay(10);
+  }
+
+  return line;
+}
+
+// Lists every 2.4 GHz network the board can see, strongest first, and marks
+// the one in use. If yours is missing here, the board cannot hear it (too far,
+// or the router is 5 GHz only), so no password or code change will help. The
+// results stay in memory for the caller; free them with WiFi.scanDelete().
+int scanVisibleNetworks() {
+  Serial.println();
+  Serial.println("Scanning for WiFi networks...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+
+  int found = WiFi.scanNetworks();
+
+  if (found <= 0) {
+    Serial.println("No networks found. Check the antenna / move closer to the router.");
+    WiFi.scanDelete();
+    return 0;
+  }
+
+  bool ourNetworkSeen = false;
+
+  Serial.print(found);
+  Serial.println(" network(s) found:");
+
+  for (int i = 0; i < found; i++) {
+    String name = WiFi.SSID(i);
+    bool isOurs = name == activeSsid;
+
+    ourNetworkSeen = ourNetworkSeen || isOurs;
+
+    Serial.print(i + 1);
+    Serial.print(". ");
+    Serial.print(name.length() > 0 ? name : String("(hidden)"));
+    Serial.print("  ");
+    Serial.print(WiFi.RSSI(i));
+    Serial.print(" dBm  ch ");
+    Serial.print(WiFi.channel(i));
+    Serial.print(WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "  open" : "  secured");
+    Serial.println(isOurs ? "   <-- in use" : "");
+  }
+
+  if (!ourNetworkSeen) {
+    Serial.print("\"");
+    Serial.print(activeSsid);
+    Serial.println("\" is NOT in the list: check the name (it is case-sensitive) and that the router broadcasts 2.4 GHz.");
   }
 
   Serial.println();
-  Serial.println("WiFi connected!");
+  return found;
+}
 
-  Serial.print("ESP32 IP: ");
-  Serial.println(WiFi.localIP());
+// Asks which network to use. Returns true when one was chosen and its
+// password entered (activeSsid / activePassword are then set).
+bool pickNetwork(int found) {
+  while (Serial.available()) {
+    Serial.read(); // ignore anything typed before the question
+  }
+
+  Serial.print("Type the NUMBER of the network to use and press Enter, or wait ");
+  Serial.print(WIFI_PICK_WAIT_MS / 1000);
+  Serial.print(" s to keep \"");
+  Serial.print(activeSsid);
+  Serial.println("\".");
+
+  bool gotLine;
+  String answer = readSerialLine(WIFI_PICK_WAIT_MS, gotLine);
+  answer.trim();
+
+  if (!gotLine || answer.length() == 0) {
+    Serial.println("Keeping the current network.");
+    return false;
+  }
+
+  int number = answer.toInt();
+
+  if (number < 1 || number > found) {
+    Serial.println("That is not a number in the list. Keeping the current network.");
+    return false;
+  }
+
+  String chosen = WiFi.SSID(number - 1);
+
+  if (chosen.length() == 0) {
+    Serial.println("Hidden networks cannot be chosen from the list. Keeping the current network.");
+    return false;
+  }
+
+  String typedPassword = "";
+
+  if (WiFi.encryptionType(number - 1) != WIFI_AUTH_OPEN) {
+    Serial.print("Password for \"");
+    Serial.print(chosen);
+    Serial.println("\" (type it and press Enter; it is not shown back):");
+
+    typedPassword = readSerialLine(WIFI_PASSWORD_WAIT_MS, gotLine);
+
+    if (!gotLine) {
+      Serial.println("No password entered. Keeping the current network.");
+      return false;
+    }
+  }
+
+  activeSsid = chosen;
+  activePassword = typedPassword;
+  pickedThisBoot = true;
+
+  Serial.print("Using \"");
+  Serial.print(activeSsid);
+  Serial.println("\".");
+
   return true;
+}
+
+bool tryConnectWiFi() {
+  // Drop whatever state is left over, then come up as a plain station with
+  // WiFi power-saving off (power-saving makes joining and replies slow).
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
+  WiFi.setTxPower(WIFI_TX_POWER);
+  beginWiFi();
+  WiFi.setTxPower(WIFI_TX_POWER); // some core versions only apply it once started
+
+  unsigned long startedAt = millis();
+
+  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < WIFI_ATTEMPT_MS) {
+    delay(250);
+    Serial.print(".");
+  }
+
+  return WiFi.status() == WL_CONNECTED;
+}
+
+// Scans, offers a pick, then tries to connect with retries. As a last resort
+// (all WIFI_MAX_ATTEMPTS failed) restarts the board for a clean WiFi driver —
+// unattended kiosk hardware self-heals instead of sitting dead.
+void connectToWiFi() {
+  WiFi.persistent(false); // do not rewrite the flash on every connect
+
+  loadSavedWiFi();
+
+  int found = scanVisibleNetworks();
+
+  if (found > 0) {
+    pickNetwork(found);
+  }
+
+  WiFi.scanDelete(); // free the scan results
+
+  for (int attempt = 1; attempt <= WIFI_MAX_ATTEMPTS; attempt++) {
+    Serial.print("Connecting to \"");
+    Serial.print(activeSsid);
+    Serial.print("\" (");
+    Serial.print(attempt);
+    Serial.print("/");
+    Serial.print(WIFI_MAX_ATTEMPTS);
+    Serial.print(") ");
+
+    if (tryConnectWiFi()) {
+      Serial.println();
+      Serial.println("WiFi connected!");
+
+      Serial.print("ESP32 IP: ");
+      Serial.println(WiFi.localIP());
+
+      Serial.print("Signal: ");
+      Serial.print(WiFi.RSSI());
+      Serial.println(" dBm");
+
+      // Only a network that actually worked is remembered.
+      if (pickedThisBoot) {
+        saveWiFi();
+      }
+
+      return;
+    }
+
+    Serial.println();
+    Serial.print("Could not connect: ");
+    Serial.println(wifiStatusText(WiFi.status()));
+  }
+
+  // Show what the board can see right now, so the log says why it failed.
+  scanVisibleNetworks();
+  WiFi.scanDelete();
+
+  Serial.println("Restarting to try again with a clean WiFi driver...");
+  delay(500);
+  ESP.restart();
+}
+
+unsigned long wifiLostSince = 0;
+unsigned long lastWifiReconnectAt = 0;
+
+// Called from loop() while useWifi is on: recovers a connection that
+// dropped while running, and restarts the board if it stays down too long.
+void handleWiFiWatchdog() {
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiLostSince = 0;
+    return;
+  }
+
+  if (wifiLostSince == 0) {
+    wifiLostSince = millis();
+    lastWifiReconnectAt = millis();
+
+    Serial.println("WiFi lost. Trying to reconnect...");
+    return;
+  }
+
+  if (millis() - wifiLostSince >= WIFI_RESTART_AFTER_MS) {
+    Serial.println("WiFi still down after 60 s. Restarting...");
+    delay(200);
+    ESP.restart();
+  }
+
+  if (millis() - lastWifiReconnectAt >= WIFI_RECONNECT_AFTER_MS) {
+    lastWifiReconnectAt = millis();
+
+    Serial.println("Retrying WiFi...");
+    WiFi.disconnect();
+    WiFi.setTxPower(WIFI_TX_POWER);
+    beginWiFi();
+  }
 }
 
 void setWifi(bool on) {
   if (on) {
-    if (!connectToWiFi()) {
-      WiFi.disconnect(true);
-      WiFi.mode(WIFI_OFF);
-      useWifi = false;
-      Serial.println("WiFi stays OFF (test mode).");
-      return;
-    }
+    connectToWiFi(); // scans, offers a pick, connects with retries (restarts the board if it can't)
     useWifi = true;
-    sessionActive = false; // wait for the admin to start a session
-    readingStage = WAITING_FOR_HEIGHT;
     weightLocked = false;
-    Serial.println("WiFi ON: hold BOOT to fake an RFID tap (" +
-                   String(FAKE_RFID_UID) + ").");
-    Serial.println("Waiting for admin to start a measurement session...");
+    promptForWeight();
   } else {
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
     useWifi = false;
-    sessionActive = true;
-    readingStage = WAITING_FOR_WEIGHT;
     weightLocked = false;
     Serial.println("WiFi OFF: offline weight test.");
+    promptForWeight();
   }
-}
-
-void sendFakeRfidScan() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected!");
-    return;
-  }
-
-  HTTPClient http;
-
-  http.begin(rfidScanUrl);
-  http.addHeader("Content-Type", "application/json");
-
-  String json = "{";
-  json += "\"rfid_uid\":\"" + String(FAKE_RFID_UID) + "\"";
-  json += "}";
-
-  Serial.println();
-  Serial.println("================================");
-  Serial.println("FAKE RFID TAP");
-  Serial.println(json);
-  Serial.println("================================");
-
-  int responseCode = http.POST(json);
-
-  Serial.print("HTTP Response: ");
-  Serial.println(responseCode);
-  Serial.println(http.getString());
-
-  http.end();
-}
-
-void handleFakeRfidButton() {
-  bool pressedNow = (digitalRead(RFID_BUTTON_PIN) == LOW);
-
-  if (pressedNow != rfidCandidateState) {
-    rfidCandidateState = pressedNow;
-    rfidCandidateSince = millis();
-  }
-
-  bool debounced =
-    (millis() - rfidCandidateSince) >= RFID_DEBOUNCE_MS;
-
-  // Send once per press (rising edge), not repeatedly while held.
-  if (debounced &&
-      rfidCandidateState &&
-      !rfidLastSentPressed) {
-
-    sendFakeRfidScan();
-    rfidLastSentPressed = true;
-
-  } else if (debounced && !rfidCandidateState) {
-
-    rfidLastSentPressed = false;
-  }
-}
-
-bool fetchSessionActive() {
-  if (WiFi.status() != WL_CONNECTED) {
-    return false;
-  }
-
-  HTTPClient http;
-
-  http.begin(sessionStatusUrl);
-
-  int responseCode = http.GET();
-  bool active = false;
-
-  if (responseCode == 200) {
-    String body = http.getString();
-    active = body.indexOf("\"active\":true") >= 0;
-  }
-
-  http.end();
-
-  return active;
-}
-
-void handleSessionPolling() {
-  if (millis() - lastSessionCheck < SESSION_POLL_INTERVAL_MS) {
-    return;
-  }
-
-  lastSessionCheck = millis();
-
-  bool active = fetchSessionActive();
-
-  if (active && !sessionActive) {
-
-    sessionActive = true;
-    readingStage = WAITING_FOR_HEIGHT;
-
-    Serial.println();
-    Serial.println("================================");
-    Serial.println("Measurement session started by admin.");
-    Serial.println("================================");
-
-    promptForHeight();
-
-  } else if (!active && sessionActive) {
-
-    sessionActive = false;
-    readingStage = WAITING_FOR_HEIGHT;
-
-    Serial.println();
-    Serial.println("================================");
-    Serial.println("Measurement session ended.");
-    Serial.println("Waiting for admin to start a new session...");
-    Serial.println("================================");
-  }
-}
-
-void promptForHeight() {
-  Serial.println();
-  Serial.println("Enter HEIGHT in cm, then press Enter:");
 }
 
 void promptForWeight() {
@@ -423,9 +573,8 @@ void handleWeightReading() {
   }
 }
 
-// Posts a single field (height or weight) as soon as it's
-// captured, so the Measurement page's 1s poll can display it
-// live instead of waiting for the full height+weight cycle.
+// Posts the weight as soon as it's captured, so the Measurement
+// page's 1s poll can display it live.
 void sendReading(const char* fieldName, float value) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected!");
@@ -477,6 +626,20 @@ void handleSerialInput() {
     return;
   }
 
+  if (line == "wifi forget") {
+    forgetSavedWiFi();
+    Serial.println("Saved WiFi network erased.");
+    if (useWifi) {
+      setWifi(true); // reconnect now, will prompt for a fresh pick
+    }
+    return;
+  }
+
+  if (line == "wifi") {
+    setWifi(true); // rescans and lets you pick again
+    return;
+  }
+
   if (line == "d") {
     debugLive = !debugLive;
     Serial.print("Live readout ");
@@ -491,18 +654,6 @@ void handleSerialInput() {
       tareScale();
     }
     return;
-  }
-
-  if (readingStage == WAITING_FOR_HEIGHT) {
-    pendingHeight = line.toFloat();
-
-    Serial.print("Height set to: ");
-    Serial.println(pendingHeight, 1);
-
-    sendReading("height", pendingHeight);
-
-    readingStage = WAITING_FOR_WEIGHT;
-    promptForWeight();
   }
 }
 
@@ -520,7 +671,7 @@ void setupScale() {
 
   if (scale.getTareTimeoutFlag() || scale.getSignalTimeoutFlag()) {
     scaleAvailable = false;
-    Serial.println("HX711 NOT detected (check DT=GPIO4, SCK=GPIO5, VCC, GND). Weight disabled.");
+    Serial.println("HX711 NOT detected (check DT=GPIO15, SCK=GPIO5, VCC, GND). Weight disabled.");
     return;
   }
 
@@ -558,12 +709,10 @@ void setup() {
   Serial.println();
   Serial.println("Booting BMI_MAIN...");
 
-  pinMode(RFID_BUTTON_PIN, INPUT_PULLUP);
-
   setupScale();
 
   Serial.println();
-  Serial.println("Commands (+Enter): w = WiFi on/off, d = live readout on/off, t = re-zero (platform EMPTY)");
+  Serial.println("Commands (+Enter): w = WiFi on/off, d = live readout on/off, t = re-zero (platform EMPTY), wifi = pick network, wifi forget = erase saved network");
 
   // Apply the boot defaults through the same path as the 'w' command.
   bool wantWifi = useWifi;
@@ -572,19 +721,14 @@ void setup() {
 }
 
 void loop() {
-  if (useWifi) {
-    handleFakeRfidButton();
-    handleSessionPolling();
-  }
-
   serviceScale();      // keep the HX711 filter fed on every pass
   handleSerialInput(); // 't' re-zero works any time
 
-  // Weight and height are independent: the scale posts to the
-  // form whenever a session is active and someone stands still.
-  if (sessionActive) {
-    handleWeightReading();
+  if (useWifi) {
+    handleWiFiWatchdog();
   }
+
+  handleWeightReading();
 
   delay(1);
 }

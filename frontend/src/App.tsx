@@ -12,6 +12,14 @@ import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import SuperAdminRoute from "./components/SuperAdminRoute";
 import PersonnelProtectedRoute from "./components/PersonnelProtectedRoute";
 import PersonnelLayout from "./components/PersonnelLayout";
+import ItAssetsProtectedRoute from "./components/ItAssetsProtectedRoute";
+import ItAssetsOverview from "./pages/ItAssetsOverview";
+import {
+  INVENTORY_ROLES,
+  IT_ASSETS_LOGIN_PATH,
+  IT_ASSETS_SYSTEM,
+  PCINFO_ROLES,
+} from "./utils/itAssetsSession";
 
 import Home from "./pages/Home";
 import InventoryDashboard from "./pages/InventoryDashboard";
@@ -83,36 +91,34 @@ function App() {
             Each stores its session under its own keys — see
             RoleProtectedRoute — so signing into one never signs you
             into another. */}
+        {/* IT Asset Management = Hardware Inventory + PC Information
+            System behind one sign-in. The token is stored under both
+            halves' keys with the account's own role in each (see
+            utils/itAssetsSession.ts), so tokenKey/roleKey here are unused. */}
         <Route
-          path="/inventory/login"
+          path={IT_ASSETS_LOGIN_PATH}
           element={
             <DomainLogin
-              badgeText="HARDWARE INVENTORY SYSTEM"
-              heading="Inventory sign-in"
-              subtitle="Sign in to access the Computer Hardware Inventory system"
+              badgeText="IT ASSET MANAGEMENT"
+              heading="IT Assets sign-in"
+              subtitle="Hardware inventory and PC health & security, in one place"
               tokenKey="inventoryAuthToken"
               roleKey="inventoryUserRole"
-              redirectPath="/inventory"
-              expectedRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
-              system="inventory"
+              redirectPath="/it-assets"
+              expectedRole={[...INVENTORY_ROLES, ...PCINFO_ROLES]}
+              system={IT_ASSETS_SYSTEM}
             />
           }
         />
 
+        {/* The two old sign-ins now lead to the combined one. */}
+        <Route
+          path="/inventory/login"
+          element={<Navigate to={IT_ASSETS_LOGIN_PATH} replace />}
+        />
         <Route
           path="/pc-info/login"
-          element={
-            <DomainLogin
-              badgeText="PC INFORMATION SYSTEM"
-              heading="PC Info sign-in"
-              subtitle="Sign in to access per-machine hardware and security reports"
-              tokenKey="pcInfoAuthToken"
-              roleKey="pcInfoUserRole"
-              redirectPath="/pc-info"
-              expectedRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
-              system="pcinfo"
-            />
-          }
+          element={<Navigate to={IT_ASSETS_LOGIN_PATH} replace />}
         />
 
         <Route
@@ -252,18 +258,30 @@ function App() {
         </Route>
 
         {/* =====================================================
-            HARDWARE INVENTORY DOMAIN
-            Own role (inventory_admin), own login, own session — no
-            longer shares the BMI admin's session even though it
-            reuses MainLayout's chrome.
+            IT ASSET MANAGEMENT — combined overview, open to an
+            account with either half's role.
+        ====================================================== */}
+        <Route element={<ItAssetsProtectedRoute />}>
+          <Route element={<MainLayout />}>
+            <Route
+              path="/it-assets"
+              element={<ItAssetsOverview />}
+            />
+          </Route>
+        </Route>
+
+        {/* =====================================================
+            HARDWARE INVENTORY (half of IT Asset Management)
+            Own role (inventory_*), signed in through the combined
+            IT Assets login, shares its sidebar.
         ====================================================== */}
         <Route
           element={
             <RoleProtectedRoute
-              requiredRole={["inventory_admin", "inventory_editor", "inventory_viewer"]}
+              requiredRole={INVENTORY_ROLES}
               tokenKey="inventoryAuthToken"
               roleKey="inventoryUserRole"
-              loginPath="/inventory/login"
+              loginPath={IT_ASSETS_LOGIN_PATH}
             />
           }
         >
@@ -298,16 +316,17 @@ function App() {
         </Route>
 
         {/* =====================================================
-            PC INFORMATION SYSTEM DOMAIN
-            Own role (pcinfo_admin), own login, own session.
+            PC INFORMATION SYSTEM (half of IT Asset Management)
+            Own role (pcinfo_*), signed in through the combined
+            IT Assets login, shares its sidebar.
         ====================================================== */}
         <Route
           element={
             <RoleProtectedRoute
-              requiredRole={["pcinfo_admin", "pcinfo_editor", "pcinfo_viewer"]}
+              requiredRole={PCINFO_ROLES}
               tokenKey="pcInfoAuthToken"
               roleKey="pcInfoUserRole"
-              loginPath="/pc-info/login"
+              loginPath={IT_ASSETS_LOGIN_PATH}
             />
           }
         >
@@ -371,7 +390,7 @@ function App() {
               requiredRole="pcinfo_admin"
               tokenKey="pcInfoAuthToken"
               roleKey="pcInfoUserRole"
-              loginPath="/pc-info/login"
+              loginPath={IT_ASSETS_LOGIN_PATH}
             />
           }
         >

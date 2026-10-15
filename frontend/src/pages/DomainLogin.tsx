@@ -8,6 +8,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { getHardwareIdentity } from "../utils/machineId";
+import { IT_ASSETS_SYSTEM, storeItAssetsSession } from "../utils/itAssetsSession";
 import "./Login.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3000`;
@@ -117,6 +118,15 @@ export default function DomainLogin({
 
       const data = await response.json();
       const role = data.user?.role;
+
+      // Combined IT Asset Management sign-in: one token, stored for both
+      // of its parts with this account's own role in each.
+      if (system === IT_ASSETS_SYSTEM) {
+        storeItAssetsSession(data);
+        navigate(redirectPath);
+        return;
+      }
+
       const acceptedRoles = Array.isArray(expectedRole) ? expectedRole : [expectedRole];
 
       if (role !== "admin" && !acceptedRoles.includes(role)) {
@@ -224,7 +234,11 @@ export default function DomainLogin({
             <button
               type="button"
               className="forgot-password-link"
-              onClick={() => navigate(`/register?system=${system}`)}
+              onClick={() =>
+                // Accounts are still granted per part, so the combined
+                // login sends new users to pick Inventory or PC Info.
+                navigate(`/register?system=${system === IT_ASSETS_SYSTEM ? "inventory" : system}`)
+              }
             >
               Create an account
             </button>

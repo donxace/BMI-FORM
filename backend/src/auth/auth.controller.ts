@@ -28,6 +28,7 @@ import { ActivateRegistrationKeyDto } from './dto/activate-registration-key.dto'
 import { ApproveRegistrationKeyRequestDto } from './dto/approve-registration-key-request.dto';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { Roles } from './decorators/roles.decorator';
+import { IT_ASSETS_PARTS, IT_ASSETS_SYSTEM } from './it-assets';
 
 // Maps each domain's own admin role to the `system` value stored on its
 // auth_logs rows, so a domain admin can only ever be scoped to their own
@@ -165,12 +166,17 @@ export class AuthController {
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const system: string | string[] | undefined =
-      role && role !== 'admin'
-        ? DOMAIN_ADMIN_SYSTEMS[role]
-        : requested.length > 1
-        ? requested
-        : requested[0];
+    const ownSystem = role && role !== 'admin' ? DOMAIN_ADMIN_SYSTEMS[role] : undefined;
+
+    // Sign-ins through the combined IT Asset Management login are logged
+    // as 'itam'; they belong to both of its parts' admins as well.
+    const system: string | string[] | undefined = ownSystem
+      ? IT_ASSETS_PARTS.includes(ownSystem)
+        ? [ownSystem, IT_ASSETS_SYSTEM]
+        : ownSystem
+      : requested.length > 1
+      ? requested
+      : requested[0];
 
     return this.authService.getLogs(
       parsedLimit && parsedLimit > 0 ? parsedLimit : undefined,

@@ -5,10 +5,10 @@ import {
   ShieldAlert,
   Thermometer,
   HardDrive,
-  Cpu,
   ArrowRight,
 } from "lucide-react";
 import "./Home.css";
+import { IT_ASSETS_LOGIN_PATH } from "../utils/itAssetsSession";
 
 type SystemOption = {
   key: string;
@@ -45,20 +45,13 @@ const OPTIONS: SystemOption[] = [
     path: "/security/environment-login",
   },
   {
-    key: "inventory",
-    title: "Hardware Inventory",
-    description: "Computer hardware inventory system.",
+    key: "it-assets",
+    title: "IT Asset Management",
+    description:
+      "Hardware inventory and PC health & security in one place: every device, who holds it, and whether each computer is scanned and safe.",
     icon: HardDrive,
     accent: "blue",
-    path: "/inventory/login",
-  },
-  {
-    key: "pc-info",
-    title: "PC Information System",
-    description: "Per-machine hardware and security assessment reports.",
-    icon: Cpu,
-    accent: "blue",
-    path: "/pc-info/login",
+    path: IT_ASSETS_LOGIN_PATH,
   },
 ];
 

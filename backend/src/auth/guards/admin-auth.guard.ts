@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { systemOfRole } from '../it-assets';
 
 @Injectable()
 export class AdminAuthGuard implements CanActivate {
@@ -47,13 +48,33 @@ export class AdminAuthGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (requiredRoles?.length && !requiredRoles.includes(payload.role)) {
+    // A combined IT Asset Management token carries one role per part
+    // (e.g. ['inventory_viewer', 'pcinfo_admin']); a normal token has one.
+    const heldRoles: string[] = Array.isArray(payload.roles)
+      ? payload.roles
+      : [payload.role];
+
+    const matching = requiredRoles?.length
+      ? heldRoles.filter((r) => requiredRoles.includes(r))
+      : heldRoles;
+
+    if (!matching.length) {
       throw new UnauthorizedException(
         'This account does not have access to this resource.',
       );
     }
 
-    request.user = payload;
+    // Downstream code reads request.user.role as THE role, so hand it the
+    // one this request needs: the role for the system the request names
+    // (?system= / body.system, e.g. Auth Logs, registration keys), else
+    // the first held role this route accepts.
+    const wanted = String(request.query?.system ?? request.body?.system ?? '')
+      .split(',')
+      .map((s: string) => s.trim());
+    const effectiveRole =
+      matching.find((r) => wanted.includes(systemOfRole(r))) ?? matching[0];
+
+    request.user = { ...payload, role: effectiveRole };
     return true;
   }
 }

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { IT_ASSETS_PARTS, IT_ASSETS_SYSTEM } from './it-assets';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -788,7 +789,30 @@ export class AuthService {
     // domain, so the request has to say which domain it's signing into.
     let resolvedRole = user.role;
 
-    if (resolvedRole !== 'admin') {
+    // IT Asset Management = Hardware Inventory + PC Information System
+    // behind one login. The account keeps its two separate roles (one per
+    // UserRole row): they are carried side by side in the token and
+    // AdminAuthGuard picks whichever one a given request needs, so being
+    // e.g. pcinfo_admin never upgrades an inventory_viewer to admin there.
+    let combinedRoles: Record<string, string | null> | null = null;
+
+    if (system === IT_ASSETS_SYSTEM) {
+      if (resolvedRole === 'admin') {
+        combinedRoles = Object.fromEntries(IT_ASSETS_PARTS.map((s) => [s, 'admin']));
+      } else {
+        const rows = await this.userRoleRepository.find({
+          where: { user_id: user.id, system: In(IT_ASSETS_PARTS) },
+        });
+        if (!rows.length) {
+          await logFailure(user.id, EVENT.ADMIN_LOGIN_FAILED, 'This account does not have access to this system.');
+          throw new UnauthorizedException('This account does not have access to this system.');
+        }
+        combinedRoles = Object.fromEntries(
+          IT_ASSETS_PARTS.map((s) => [s, rows.find((r) => r.system === s)?.role ?? null]),
+        );
+        resolvedRole = IT_ASSETS_SYSTEM;
+      }
+    } else if (resolvedRole !== 'admin') {
       if (!system) {
         await logFailure(user.id, EVENT.ADMIN_LOGIN_FAILED, 'A system must be specified to sign in.');
         throw new UnauthorizedException('A system must be specified to sign in.');
@@ -817,6 +841,9 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       role: resolvedRole,
+      ...(combinedRoles && resolvedRole !== 'admin'
+        ? { roles: Object.values(combinedRoles).filter((r): r is string => !!r) }
+        : {}),
     });
 
     await this.logAttempt({
@@ -837,6 +864,9 @@ export class AuthService {
         id: user.id,
         username: user.username,
         role: resolvedRole,
+        // Per-part roles for the combined IT Asset Management login, so
+        // the frontend can show only the sections this account can use.
+        ...(combinedRoles ? { roles: combinedRoles } : {}),
       },
     };
   }

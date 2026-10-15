@@ -20,8 +20,8 @@ const SYSTEMS: Array<{
   redirectPath: string;
 }> = [
   { value: "bmi", label: "BMI System", tokenKey: "authToken", roleKey: "userRole", redirectPath: "/dashboard" },
-  { value: "inventory", label: "Hardware Inventory", tokenKey: "inventoryAuthToken", roleKey: "inventoryUserRole", redirectPath: "/inventory" },
-  { value: "pcinfo", label: "PC Information System", tokenKey: "pcInfoAuthToken", roleKey: "pcInfoUserRole", redirectPath: "/pc-info" },
+  { value: "inventory", label: "IT Asset Management — Hardware Inventory", tokenKey: "inventoryAuthToken", roleKey: "inventoryUserRole", redirectPath: "/it-assets" },
+  { value: "pcinfo", label: "IT Asset Management — PC Health & Security", tokenKey: "pcInfoAuthToken", roleKey: "pcInfoUserRole", redirectPath: "/it-assets" },
   { value: "intrusion", label: "Intrusion Detection", tokenKey: "intrusionAuthToken", roleKey: "intrusionUserRole", redirectPath: "/security/intrusion-detection" },
   { value: "environment", label: "Environment Monitoring", tokenKey: "environmentAuthToken", roleKey: "environmentUserRole", redirectPath: "/security/environment-monitoring" },
 ];

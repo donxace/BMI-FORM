@@ -18,6 +18,13 @@ import {
   ScrollText,
   Menu,
   KeyRound,
+  Boxes,
+  ShieldCheck,
+  Radar,
+  Cpu,
+  Activity,
+  FileSpreadsheet,
+  type LucideIcon,
 } from "lucide-react";
 
 // A single shared stroke width keeps every sidebar icon reading as
@@ -26,21 +33,24 @@ import {
 const NAV_ICON_PROPS = { size: 18, strokeWidth: 1.75 };
 import "./MainLayout.css";
 import { findAuthLogsSession } from "../utils/adminSession";
+import {
+  clearItAssetsSession,
+  getItAssetsAccess,
+  isItAssetsAdmin,
+  IT_ASSETS_LOGIN_PATH,
+} from "../utils/itAssetsSession";
 
-// Topbar subtitle swaps to name whichever system the current page
-// belongs to, rather than always reading "BMI SYSTEM" once other
-// domains (like Hardware Inventory) share this same layout.
-const SYSTEM_LABELS: { path: string; label: string }[] = [
-  { path: "/inventory", label: "COMPUTER HARDWARE INVENTORY SYSTEM" },
-  { path: "/pc-info", label: "PC INFORMATION SYSTEM" },
-];
+// Hardware Inventory and the PC Information System are one product now,
+// IT Asset Management: its pages keep their /inventory and /pc-info
+// URLs, plus the combined /it-assets overview, and share one sidebar.
+const IT_ASSETS_PREFIXES = ["/it-assets", "/inventory", "/pc-info"];
 
-const DEFAULT_SYSTEM_LABEL = "PNP AUTOMATED BMI SYSTEM";
-
-function getSystemLabel(pathname: string): string {
-  const match = SYSTEM_LABELS.find(({ path }) => pathname.startsWith(path));
-  return match?.label ?? DEFAULT_SYSTEM_LABEL;
+function isItAssetsPath(pathname: string): boolean {
+  return IT_ASSETS_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
+
+const IT_ASSETS_LABEL = "IT ASSET MANAGEMENT SYSTEM";
+const DEFAULT_SYSTEM_LABEL = "PNP AUTOMATED BMI SYSTEM";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -51,27 +61,29 @@ export default function MainLayout() {
   // without it, a 240px sidebar would eat most of a 375px phone screen.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
-  const systemLabel = getSystemLabel(location.pathname);
-  const isInventoryDomain = location.pathname.startsWith("/inventory");
-  const isPcInfoDomain = location.pathname.startsWith("/pc-info");
+  const isItAssets = isItAssetsPath(location.pathname);
+  const systemLabel = isItAssets ? IT_ASSETS_LABEL : DEFAULT_SYSTEM_LABEL;
+  // Which halves of IT Asset Management this account can use — each
+  // sidebar section only shows for the half it belongs to.
+  const itAccess = getItAssetsAccess();
+  const hasInventory = itAccess.inventory !== null;
+  const hasPcInfo = itAccess.pcinfo !== null;
   // Auth Logs is reachable by the literal 'admin' super-role (sees every
   // domain) or by this domain's own "_admin" role (sees just its own
   // domain) — findAuthLogsSession checks all 5 session-key pairs, since
   // 'admin' specifically can be signed in through any one of them.
   const canViewAuthLogs = findAuthLogsSession() !== null;
+  // IT Asset Management's Auth Logs page: whichever half this account
+  // administers (the backend scopes the data to that half either way).
+  const itAuthLogsPath = isItAssetsAdmin("inventory") ? "/inventory/auth-logs" : "/pc-info/auth-logs";
 
   const handleLogout = () => {
     // Each domain sharing this layout keeps its own session keys and
     // login page, so logout has to clear the pair for whichever domain
     // is actually active rather than always the BMI ones.
-    if (isInventoryDomain) {
-      localStorage.removeItem("inventoryAuthToken");
-      localStorage.removeItem("inventoryUserRole");
-      navigate("/inventory/login");
-    } else if (isPcInfoDomain) {
-      localStorage.removeItem("pcInfoAuthToken");
-      localStorage.removeItem("pcInfoUserRole");
-      navigate("/pc-info/login");
+    if (isItAssets) {
+      clearItAssetsSession();
+      navigate(IT_ASSETS_LOGIN_PATH);
     } else {
       localStorage.removeItem("authToken");
       localStorage.removeItem("userRole");
@@ -140,7 +152,7 @@ export default function MainLayout() {
         ref={sidebarRef}
       >
         <nav className="navigation">
-          {!isInventoryDomain && !isPcInfoDomain && (
+          {!isItAssets && (
             <>
               <p className="nav-title">MAIN MENU</p>
 
@@ -206,89 +218,49 @@ export default function MainLayout() {
             </>
           )}
 
-          {isInventoryDomain && (
-            <>
-              <p className="nav-title">INVENTORY</p>
-
-              <NavLink
-                to="/inventory/dashboard"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Dashboard</span>
-              </NavLink>
-
-              <NavLink
-                to="/inventory/personnel"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><Users {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Personnel</span>
-              </NavLink>
-
-              <NavLink
-                to="/inventory/report"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><FileText {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Reports</span>
-              </NavLink>
-
-              <NavLink
-                to="/inventory/analytics"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><BarChart3 {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Analytics</span>
-              </NavLink>
-            </>
-          )}
-
-          {isPcInfoDomain && (
+          {/* IT ASSET MANAGEMENT: Hardware Inventory + PC Information
+              System as one menu, grouped by what the user is doing
+              (assets, PC security, insights) rather than by which of
+              the two old systems a page came from. */}
+          {isItAssets && (
             <>
               <p className="nav-title">OVERVIEW</p>
+              <ItNavLink to="/it-assets" icon={LayoutDashboard} label="Overview" end />
 
-              <NavLink
-                to="/pc-info/dashboard"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><LayoutDashboard {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Dashboard</span>
-              </NavLink>
+              {hasInventory && (
+                <>
+                  <p className="nav-title second">HARDWARE INVENTORY</p>
+                  <ItNavLink to="/inventory/dashboard" icon={Boxes} label="Devices" />
+                  <ItNavLink to="/inventory/personnel" icon={Users} label="Custodians" />
+                </>
+              )}
 
-              <NavLink
-                to="/pc-info/analytics"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><BarChart3 {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Analytics</span>
-              </NavLink>
+              {hasPcInfo && (
+                <>
+                  <p className="nav-title second">PC HEALTH &amp; SECURITY</p>
+                  <ItNavLink to="/pc-info/dashboard" icon={ShieldCheck} label="PC Scans" />
+                  <ItNavLink to="/pc-info/connections" icon={Radar} label="Network Connections" />
+                  <ItNavLink to="/pc-info/component-status" icon={Cpu} label="Component Status" />
+                </>
+              )}
 
-              <NavLink
-                to="/pc-info/report"
-                className={({ isActive }) =>
-                  `nav-item ${isActive ? "active" : ""}`
-                }
-              >
-                <span><FileText {...NAV_ICON_PROPS} /></span>
-                <span className="nav-label">Reports</span>
-              </NavLink>
+              <p className="nav-title second">INSIGHTS</p>
+              {hasInventory && (
+                <ItNavLink to="/inventory/analytics" icon={BarChart3} label="Inventory Analytics" />
+              )}
+              {hasPcInfo && (
+                <ItNavLink to="/pc-info/analytics" icon={Activity} label="Security Analytics" />
+              )}
+              {hasInventory && (
+                <ItNavLink to="/inventory/report" icon={FileText} label="Inventory Reports" />
+              )}
+              {hasPcInfo && (
+                <ItNavLink to="/pc-info/report" icon={FileSpreadsheet} label="PC Reports" />
+              )}
             </>
           )}
 
-          {!isInventoryDomain && !isPcInfoDomain && (
+          {!isItAssets && (
             <>
               <p className="nav-title second">SYSTEM</p>
 
@@ -311,9 +283,7 @@ export default function MainLayout() {
             <>
               <p className="nav-title second">ADMIN</p>
 
-              {isPcInfoDomain &&
-                (localStorage.getItem("pcInfoUserRole") === "pcinfo_admin" ||
-                  localStorage.getItem("pcInfoUserRole") === "admin") && (
+              {isItAssets && isItAssetsAdmin("pcinfo") && (
                   <NavLink
                     to="/pc-info/registration-keys"
                     className={({ isActive }) =>
@@ -326,13 +296,7 @@ export default function MainLayout() {
                 )}
 
               <NavLink
-                to={
-                  isInventoryDomain
-                    ? "/inventory/auth-logs"
-                    : isPcInfoDomain
-                    ? "/pc-info/auth-logs"
-                    : "/auth-logs"
-                }
+                to={isItAssets ? itAuthLogsPath : "/auth-logs"}
                 className={({ isActive }) =>
                   `nav-item ${isActive ? "active" : ""}`
                 }
@@ -434,5 +398,29 @@ export default function MainLayout() {
         </main>
       </div>
     </div>
+  );
+}
+
+// One IT Asset Management sidebar entry — same markup as the BMI items.
+function ItNavLink({
+  to,
+  icon: Icon,
+  label,
+  end = false,
+}: {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  end?: boolean;
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+    >
+      <span><Icon {...NAV_ICON_PROPS} /></span>
+      <span className="nav-label">{label}</span>
+    </NavLink>
   );
 }

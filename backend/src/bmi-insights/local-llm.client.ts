@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+export type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
 /*
  * Talks to a model running on this machine (or on the same LAN) through
  * the OpenAI-compatible chat endpoint that Ollama, LM Studio and the
@@ -42,9 +47,27 @@ export class LocalLlmClient {
    * treat null as "use the rule-based text".
    */
   complete(system: string, user: string): Promise<string | null> {
+    return this.enqueue([
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ], { json: true, maxTokens: 700 });
+  }
+
+  /**
+   * A conversation answered in plain text (the BMI Assistant chat), not
+   * JSON. Same null-on-failure contract as complete().
+   */
+  chat(messages: ChatMessage[], maxTokens = 450): Promise<string | null> {
+    return this.enqueue(messages, { json: false, maxTokens });
+  }
+
+  private enqueue(
+    messages: ChatMessage[],
+    options: { json: boolean; maxTokens: number },
+  ): Promise<string | null> {
     if (!this.enabled) return Promise.resolve(null);
 
-    const run = () => this.run(system, user);
+    const run = () => this.run(messages, options);
     const result = this.queue.then(run, run);
 
     this.queue = result.catch(() => undefined);
@@ -52,7 +75,10 @@ export class LocalLlmClient {
     return result;
   }
 
-  private async run(system: string, user: string): Promise<string | null> {
+  private async run(
+    messages: ChatMessage[],
+    options: { json: boolean; maxTokens: number },
+  ): Promise<string | null> {
 
     const send = async (jsonMode: boolean) => {
       const controller = new AbortController();
@@ -65,12 +91,9 @@ export class LocalLlmClient {
           signal: controller.signal,
           body: JSON.stringify({
             model: this.model,
-            messages: [
-              { role: 'system', content: system },
-              { role: 'user', content: user },
-            ],
-            temperature: 0.2,
-            max_tokens: 700,
+            messages,
+            temperature: options.json ? 0.2 : 0.4,
+            max_tokens: options.maxTokens,
             stream: false,
             ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
           }),
@@ -81,10 +104,10 @@ export class LocalLlmClient {
     };
 
     try {
-      let response = await send(true);
+      let response = await send(options.json);
 
       // Some servers reject response_format; ask again without it.
-      if (response.status === 400) {
+      if (options.json && response.status === 400) {
         response = await send(false);
       }
 

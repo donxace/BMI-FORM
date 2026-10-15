@@ -58,6 +58,15 @@ export default function PersonnelLayout() {
         >
           My Measurement
         </NavLink>
+
+        <NavLink
+          to="/my/assistant"
+          className={({ isActive }) =>
+            `personnel-tab ${isActive ? "active" : ""}`
+          }
+        >
+          BMI Assistant
+        </NavLink>
       </nav>
 
       <main className="personnel-content">

@@ -53,6 +53,8 @@ import ResetPassword from "./pages/ResetPassword";
 import Register from "./pages/Register";
 import MyRecords from "./pages/MyRecords";
 import MyMeasurement from "./pages/MyMeasurement";
+import MyAssistant from "./pages/MyAssistant";
+import BmiAssistant from "./pages/BmiAssistant";
 import Kiosk from "./pages/Kiosk";
 
 function App() {
@@ -193,6 +195,11 @@ function App() {
             <Route
               path="/analytics"
               element={<Analytics />}
+            />
+
+            <Route
+              path="/assistant"
+              element={<BmiAssistant />}
             />
 
             <Route
@@ -471,6 +478,11 @@ function App() {
             <Route
               path="/my/measurement"
               element={<MyMeasurement />}
+            />
+
+            <Route
+              path="/my/assistant"
+              element={<MyAssistant />}
             />
 
           </Route>

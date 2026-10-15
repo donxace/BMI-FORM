@@ -24,6 +24,7 @@ import {
   Cpu,
   Activity,
   FileSpreadsheet,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -215,6 +216,8 @@ export default function MainLayout() {
                 <span><BarChart3 {...NAV_ICON_PROPS} /></span>
                 <span className="nav-label">Analytics</span>
               </NavLink>
+
+              <ItNavLink to="/assistant" icon={Bot} label="BMI Assistant" />
             </>
           )}
 

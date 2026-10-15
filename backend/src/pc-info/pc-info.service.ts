@@ -17,6 +17,13 @@ import { lookupIpGeolocation } from './ip-geolocation.util';
 // 1000+ rows, so this one is not just a future-proofing measure.
 const MAX_FINDING_ROWS = 5000;
 
+// A date that may arrive as a 'YYYY-MM-DD' string or a Date; 0 when absent.
+function toTime(value: unknown): number {
+  if (!value) return 0;
+  const time = new Date(value as string | Date).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
 @Injectable()
 export class PcInfoService {
   constructor(
@@ -228,7 +235,9 @@ export class PcInfoService {
         ownerName: d.personnelId !== null ? personnelNameById.get(d.personnelId) ?? null : null,
         divisionName: d.divisionId !== null ? divisionNameById.get(d.divisionId) ?? null : null,
       }))
-      .sort((a, b) => (b.createdDate ?? '').localeCompare(a.createdDate ?? ''));
+      // created_date is a DATE column on some device tables (a string here)
+      // and a TIMESTAMP on others (a Date object), so compare as times.
+      .sort((a, b) => toTime(b.createdDate) - toTime(a.createdDate));
   }
 
   // Powers the "PC Name" detail page — the single computer a person clicks

@@ -97,6 +97,19 @@ describe('systemPrompt', () => {
     expect(systemPrompt(person())).toContain('BMI 27.7');
     expect(systemPrompt(null)).toContain('no individual personnel data');
   });
+
+  it('grounds an admin question in the real offices/ranks instead of letting the model guess', () => {
+    const prompt = systemPrompt(null, {
+      totalPersonnel: 39,
+      offices: ['ITMS', 'Quezon City Police District'],
+      ranks: ['PAT', 'PCPT'],
+      latestAssessmentDate: '2026-10-14',
+    });
+    expect(prompt).toContain('ITMS, Quezon City Police District');
+    expect(prompt).toContain('PAT, PCPT');
+    expect(prompt).toContain('2026-10-14');
+    expect(prompt).toContain('never invent one');
+  });
 });
 
 describe('factualAnswer', () => {

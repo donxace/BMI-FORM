@@ -27,6 +27,19 @@ export type PersonContext = {
   previous: { date: string | null; weight: number; bmi: number } | null;
 };
 
+/**
+ * What the assistant knows about the system as a whole (admin questions
+ * not answered by answerRecordsQuestion's exact computations). Grounds the
+ * model in real facts instead of letting it guess office/rank names or
+ * dates for anything not yet covered by a specific rule.
+ */
+export type AdminContext = {
+  totalPersonnel: number;
+  offices: string[];
+  ranks: string[];
+  latestAssessmentDate: string | null;
+};
+
 // ---- PNP Acceptable BMI Classification (Jan 2020, DHRDD) ----
 // Kept identical to BmiAssessmentsService.getPnpClassification.
 export function pnpAcceptableUpper(age: number | null): number {
@@ -74,7 +87,17 @@ export function describePerson(ctx: PersonContext): string {
   return lines.join('\n');
 }
 
-export function systemPrompt(ctx: PersonContext | null): string {
+export function describeSystem(ctx: AdminContext): string {
+  return [
+    `System data: ${ctx.totalPersonnel} personnel on record.`,
+    `Real offices/departments on record: ${ctx.offices.length ? ctx.offices.join(', ') : 'none yet'}.`,
+    `Real ranks on record: ${ctx.ranks.length ? ctx.ranks.join(', ') : 'none yet'}.`,
+    `Most recent assessment on record: ${ctx.latestAssessmentDate ?? 'none yet'}.`,
+    'Only ever use office, rank, or date names from this list for anything about the system\'s own data -- never invent one. If asked for a figure you do not have here (e.g. a specific count or cross-tab), say you do not have that exact figure rather than estimating or guessing.',
+  ].join('\n');
+}
+
+export function systemPrompt(ctx: PersonContext | null, admin: AdminContext | null = null): string {
   return [
     'You are the BMI Assistant of the PNP ITMS BMI System (Philippine National Police).',
     'You answer questions about BMI, the PNP BMI standards, healthy weight, nutrition and exercise.',
@@ -89,7 +112,11 @@ export function systemPrompt(ctx: PersonContext | null): string {
     '',
     PNP_TABLE,
     '',
-    ctx ? describePerson(ctx) : 'You are talking with a BMI System administrator. You have no individual personnel data; answer in general terms.',
+    ctx
+      ? describePerson(ctx)
+      : admin
+      ? `You are talking with a BMI System administrator, not an individual.\n${describeSystem(admin)}`
+      : 'You are talking with a BMI System administrator. You have no individual personnel data; answer in general terms.',
   ].join('\n');
 }
 

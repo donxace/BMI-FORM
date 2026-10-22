@@ -91,6 +91,37 @@ describe('answerRecordsQuestion', () => {
     expect(a).toContain('Summary for October 2026: 4 assessment(s) of 3 personnel');
   });
 
+  it('lists the real offices on record instead of leaving it to the model', () => {
+    const a = ask('Which departments are in the system?');
+    expect(a).toContain('2 office(s)/department(s) are in the system');
+    expect(a).toContain('PNP Health Service (2 personnel)');
+    expect(a).toContain('Quezon City Police District (2 personnel)');
+  });
+
+  it('counts departments and ranks instead of defaulting to a personnel headcount', () => {
+    expect(ask('How many departments are there?')).toBe('2 office(s)/department(s) are in the system.');
+    expect(ask('how many ranks are there')).toBe('3 rank(s) exist in the system.');
+  });
+
+  it('lists the real ranks on record', () => {
+    const a = ask('What ranks are in the system?');
+    expect(a).toContain('3 rank(s) are in the system');
+    expect(a).toContain('PAT (2 personnel)');
+    expect(a).toContain('PLT (1 personnel)');
+  });
+
+  it('hedges instead of silently ignoring a classification filter it cannot cross-tab', () => {
+    const a = ask('What offices have obese personnel?');
+    expect(a).toContain('does not yet filter by Obese (all classes)');
+    expect(a).toContain('PNP Health Service');
+  });
+
+  it('reports the real most recent assessment date instead of guessing one', () => {
+    expect(ask('When was the last assessment done?')).toBe(
+      'The most recent assessment on record (all records) was on 2026-10-06, for PCPT Ben Aquino (BMI 34.3, Obese Class 1).',
+    );
+  });
+
   it('leaves non-records questions alone', () => {
     expect(answerRecordsQuestion('Is rice bad for me?', people, records, TODAY)).toBeNull();
     expect(answerRecordsQuestion('What is the PNP BMI classification?', people, records, TODAY)).toBeNull();

@@ -7,6 +7,7 @@ import { Personnel } from '../personnel/personnel.entity';
 import { LocalLlmClient } from './local-llm.client';
 import { PersonRow, RecordRow, answerRecordsQuestion } from './bmi-records.logic';
 import {
+  AdminContext,
   MAX_QUESTION_CHARS,
   PersonContext,
   describePerson,
@@ -80,8 +81,14 @@ export class BmiAssistantService {
       ? `${q}\n\n(Verified data from the BMI System; use these figures, do not ask for them:\n${describePerson(ctx)})`
       : q;
 
+    // Admin, nothing specific matched above: ground the model in the real
+    // offices/ranks/latest date on file, so a question this service has no
+    // bespoke answer for (e.g. a cross-tab) gets real names instead of
+    // invented ones.
+    const admin = ctx === null ? await this.systemContext() : null;
+
     const text = await this.llm.chat([
-      { role: 'system', content: systemPrompt(ctx) },
+      { role: 'system', content: systemPrompt(ctx, admin) },
       ...sanitizeHistory(history),
       { role: 'user', content: grounded },
     ]);
@@ -127,6 +134,24 @@ export class BmiAssistantService {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     return answerRecordsQuestion(question, people, records, today);
+  }
+
+  private async systemContext(): Promise<AdminContext> {
+    const [personnelRows, [latest]] = await Promise.all([
+      this.personnel.find({ select: { office: true, rank: true } }),
+      this.assessments.find({
+        select: { assessment_date: true },
+        order: { assessment_date: 'DESC' },
+        take: 1,
+      }),
+    ]);
+
+    return {
+      totalPersonnel: personnelRows.length,
+      offices: [...new Set(personnelRows.map((p) => p.office).filter((o): o is string => !!o))].sort(),
+      ranks: [...new Set(personnelRows.map((p) => p.rank).filter((r): r is string => !!r))].sort(),
+      latestAssessmentDate: latest?.assessment_date ? String(latest.assessment_date).slice(0, 10) : null,
+    };
   }
 
   // Only this personnel's own two most recent assessments.

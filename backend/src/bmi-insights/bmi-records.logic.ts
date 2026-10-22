@@ -284,6 +284,42 @@ export function answerRecordsQuestion(
     return `Average ${metric === 'bmi' ? 'BMI' : metric} is ${avg}${unit} across ${pool.length} personnel (each person's latest assessment; ${scope}${cls ? `, ${cls.label}` : ''}).`;
   }
 
+  // 5b. Which offices/departments or ranks exist, or how many -- checked
+  // before the generic count/list branches below so "how many departments
+  // are there" does not fall through to a personnel headcount, and before
+  // the model ever sees the question (it otherwise invents plausible-
+  // sounding office/rank names instead of using the real ones on file).
+  {
+    const isOfficeWord = /\b(department|departments|office|offices|opisina|departamento)\b/.test(q);
+    const isRankWord = /\brank(s)?\b|\branggo\b/.test(q);
+    const wantsList = /\b(list|show|what|which|name|names|all|ano|anong|ilista)\b/.test(q);
+
+    if ((isOfficeWord || isRankWord) && (isCount || wantsList)) {
+      const category = isOfficeWord
+        ? people.map((p) => p.office)
+        : people.map((p) => p.rank);
+      const counts = new Map<string, number>();
+      for (const v of category) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+      const noun = isOfficeWord ? 'office(s)/department(s)' : 'rank(s)';
+      const names = [...counts.keys()].sort();
+
+      if (!names.length) return `No ${noun} are on record.`;
+
+      // A classification word alongside ("...with obese personnel") asks
+      // for a filtered cross-tab this cannot compute yet -- say so rather
+      // than silently ignoring the filter and listing everyone.
+      const hedge = cls
+        ? ` (this does not yet filter by ${cls.label}; showing every ${isOfficeWord ? 'office' : 'rank'})`
+        : '';
+
+      if (isCount && !wantsList) {
+        return `${names.length} ${noun} ${isOfficeWord ? 'are' : 'exist'} in the system${hedge}.`;
+      }
+      return `${names.length} ${noun} are in the system${hedge}:\n` +
+        listLines(names.map((n) => `${n} (${counts.get(n)} personnel)`));
+    }
+  }
+
   // 6. Counts.
   if (isCount) {
     if (hasAny(q, ['assessment', 'assessments', 'measurement', 'measurements', 'records', 'record', 'measured', 'sukat'])) {
@@ -315,6 +351,15 @@ export function answerRecordsQuestion(
     const avg = round1(latest.reduce((s, r) => s + r.bmi, 0) / latest.length);
     return `Summary for ${scope}: ${scoped.length} assessment(s) of ${latest.length} personnel, average BMI ${avg}.\nBy each person's latest classification:\n` +
       listLines(rows.map(([c, n]) => `${c}: ${n} (${Math.round((n / latest.length) * 100)}%)`));
+  }
+
+  // 9. When was the last assessment (in scope). Without this the model
+  // invents a date instead of admitting it does not track real-time status.
+  if (/\b(last|latest|most recent|huling)\b.*\b(assessment|measured|measurement|sukat)\b|\b(assessment|measured|measurement|sukat)\b.*\b(last|latest|most recent|huli)\b/.test(q)) {
+    if (!scoped.length) return `No assessments found for ${scope}.`;
+    const mostRecent = scoped[scoped.length - 1]; // recs/scoped are oldest-first
+    const who = fullName(byId.get(mostRecent.personnelId));
+    return `The most recent assessment on record (${scope}) was on ${mostRecent.date}, for ${who} (BMI ${round1(mostRecent.bmi)}, ${mostRecent.pnp ?? 'no classification'}).`;
   }
 
   return null;

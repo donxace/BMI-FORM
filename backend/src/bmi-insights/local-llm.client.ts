@@ -103,6 +103,18 @@ export class LocalLlmClient {
       }
     };
 
+    // LLM_DEBUG=1 prints every prompt sent to the model and its reply
+    // (with timing) to the backend console, to watch how it answers.
+    const debug = process.env.LLM_DEBUG === '1';
+    const startedAt = Date.now();
+
+    if (debug) {
+      this.logger.log(
+        `\n===== LLM REQUEST (${this.model}, ${options.json ? 'json' : 'text'}) =====\n` +
+          messages.map((m) => `[${m.role}]\n${m.content}`).join('\n\n'),
+      );
+    }
+
     try {
       let response = await send(options.json);
 
@@ -118,6 +130,15 @@ export class LocalLlmClient {
 
       const body: any = await response.json();
       const content = body?.choices?.[0]?.message?.content;
+
+      if (debug) {
+        this.logger.log(
+          `\n===== LLM REPLY (${((Date.now() - startedAt) / 1000).toFixed(1)}s, ` +
+            `${body?.usage?.prompt_tokens ?? '?'} prompt / ${body?.usage?.completion_tokens ?? '?'} reply tokens) =====\n` +
+            `${typeof content === 'string' ? content : '(no content)'}\n` +
+            '===== END =====',
+        );
+      }
 
       return typeof content === 'string' ? content : null;
     } catch (error) {
